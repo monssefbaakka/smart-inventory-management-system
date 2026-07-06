@@ -1,0 +1,49 @@
+# EditorConfig — Smart Inventory Management System
+# https://editorconfig.org
+
+root = true
+
+# ── Default for all files ──────────────────────────────────────────────────────
+[*]
+charset = utf-8
+end_of_line = lf
+indent_style = space
+indent_size = 4
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# ── Java source files ──────────────────────────────────────────────────────────
+[*.java]
+indent_style = space
+indent_size = 4
+max_line_length = 120
+
+# ── XML / Maven POM ───────────────────────────────────────────────────────────
+[*.xml]
+indent_style = space
+indent_size = 4
+
+# ── Properties files ──────────────────────────────────────────────────────────
+[*.properties]
+indent_style = space
+indent_size = 4
+
+# ── YAML / application config ─────────────────────────────────────────────────
+[*.{yml,yaml}]
+indent_style = space
+indent_size = 2
+
+# ── SQL / Flyway migrations ───────────────────────────────────────────────────
+[*.sql]
+indent_style = space
+indent_size = 4
+
+# ── Markdown ──────────────────────────────────────────────────────────────────
+[*.md]
+trim_trailing_whitespace = false
+
+# ── Shell scripts ─────────────────────────────────────────────────────────────
+[*.sh]
+end_of_line = lf
+indent_style = space
+indent_size = 2
