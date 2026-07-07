@@ -6,15 +6,15 @@ This document outlines the planned development phases, milestones, and features 
 
 Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for tracking and managing inventory, built on PostgreSQL, JPA, Flyway migrations, and Spring Security.
 
-## Phase 1 — Foundation (current)
+## Phase 1 — Foundation (complete)
 
 - [x] Maven project scaffolding with Spring Boot
 - [x] Logging configuration (Logback, level overrides)
 - [x] Code style: Checkstyle, EditorConfig, coding standards
-- [ ] LICENSE and repository documentation
-- [ ] Development roadmap (this document)
+- [x] LICENSE and repository documentation
+- [x] Development roadmap (this document)
 
-## Phase 2 — Core Domain & Data Layer
+## Phase 2 — Core Domain & Data Layer (current)
 
 - [ ] Domain model: products, categories, warehouses/locations, stock levels
 - [ ] JPA entities and repositories
