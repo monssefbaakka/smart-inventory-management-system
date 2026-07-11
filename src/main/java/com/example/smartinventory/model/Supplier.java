@@ -1,12 +1,15 @@
 package com.example.smartinventory.model;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -44,6 +47,10 @@ public class Supplier {
 
     @Column(length = 1000)
     private String address;
+
+    @OneToMany(mappedBy = "supplier")
+    @Builder.Default
+    private List<Product> products = new ArrayList<>();
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
