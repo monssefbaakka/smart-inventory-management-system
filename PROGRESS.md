@@ -19,8 +19,8 @@ Legend: `done` (merged), `working` (branch/PR open), `ready` (next up), `todo` (
 | 11 | Create Product Entity | done |
 | 12 | Create Category Entity | done |
 | 13 | Create Supplier Entity | done |
-| 14 | Implement Entity Relationships | ready |
-| 15 | Validation Annotations | todo |
+| 14 | Implement Entity Relationships | working |
+| 15 | Validation Annotations | ready |
 | 16 | Create ProductRepository | todo |
 | 17 | Create CategoryRepository | todo |
 | 18 | Create SupplierRepository | todo |
@@ -45,4 +45,5 @@ Legend: `done` (merged), `working` (branch/PR open), `ready` (next up), `todo` (
 
 ## Current
 
-**Next up: #14 — Implement Entity Relationships**
+**Working: #14 — Implement Entity Relationships** (PR #52 open)
+**Next up: #15 — Validation Annotations**
