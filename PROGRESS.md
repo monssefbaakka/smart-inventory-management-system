@@ -30,8 +30,8 @@ implemented in repo but GitHub issue not yet closed
 | 12 | Create Category Entity | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 13 | Create Supplier Entity | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 14 | Implement Entity Relationships | ![working](https://img.shields.io/badge/status-working-blue) |
-| 15 | Validation Annotations | ![ready](https://img.shields.io/badge/status-ready-orange) |
-| 16 | Create ProductRepository | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 15 | Validation Annotations | ![working](https://img.shields.io/badge/status-working-blue) |
+| 16 | Create ProductRepository | ![ready](https://img.shields.io/badge/status-ready-orange) |
 | 17 | Create CategoryRepository | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 18 | Create SupplierRepository | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 19 | Database Configuration | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -56,4 +56,5 @@ implemented in repo but GitHub issue not yet closed
 ## Current
 
 **Working:** #14 — Implement Entity Relationships (PR #52 open)
-**Next up:** #15 — Validation Annotations
+**Working:** #15 — Validation Annotations (PR #53 open)
+**Next up:** #16 — Create ProductRepository
