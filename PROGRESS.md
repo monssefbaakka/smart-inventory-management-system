@@ -29,10 +29,10 @@ implemented in repo but GitHub issue not yet closed
 | 11 | Create Product Entity | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 12 | Create Category Entity | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 13 | Create Supplier Entity | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 14 | Implement Entity Relationships | ![working](https://img.shields.io/badge/status-working-blue) |
-| 15 | Validation Annotations | ![working](https://img.shields.io/badge/status-working-blue) |
-| 16 | Create ProductRepository | ![ready](https://img.shields.io/badge/status-ready-orange) |
-| 17 | Create CategoryRepository | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 14 | Implement Entity Relationships | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 15 | Validation Annotations | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 16 | Create ProductRepository | ![working](https://img.shields.io/badge/status-working-blue) |
+| 17 | Create CategoryRepository | ![ready](https://img.shields.io/badge/status-ready-orange) |
 | 18 | Create SupplierRepository | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 19 | Database Configuration | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 20 | Flyway Migration | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,6 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #14 — Implement Entity Relationships (PR #52 open)
-**Working:** #15 — Validation Annotations (PR #53 open)
-**Next up:** #16 — Create ProductRepository
+**Working:** #16 — Create ProductRepository (PR #54 open)
+**Next up:** #17 — Create CategoryRepository
