@@ -14,6 +14,11 @@ import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -34,18 +39,27 @@ public class Product {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @NotBlank
+    @Size(max = 255)
     @Column(nullable = false)
     private String name;
 
+    @NotBlank
+    @Size(max = 100)
     @Column(unique = true, nullable = false)
     private String sku;
 
+    @Size(max = 1000)
     @Column(length = 1000)
     private String description;
 
+    @NotNull
+    @DecimalMin(value = "0.0", inclusive = true)
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal price;
 
+    @NotNull
+    @PositiveOrZero
     @Column(nullable = false)
     private Integer quantity;
 
