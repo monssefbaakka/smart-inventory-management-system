@@ -33,9 +33,9 @@ implemented in repo but GitHub issue not yet closed
 | 15 | Validation Annotations | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 16 | Create ProductRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 17 | Create CategoryRepository | ![working](https://img.shields.io/badge/status-working-blue) |
-| 18 | Create SupplierRepository | ![ready](https://img.shields.io/badge/status-ready-orange) |
-| 19 | Database Configuration | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
-| 20 | Flyway Migration | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 18 | Create SupplierRepository | ![working](https://img.shields.io/badge/status-working-blue) |
+| 19 | Database Configuration | ![working](https://img.shields.io/badge/status-working-blue) |
+| 20 | Flyway Migration | ![ready](https://img.shields.io/badge/status-ready-orange) |
 | 21 | Implement ProductService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 22 | Implement CategoryService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 23 | Implement SupplierService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #17 — Create CategoryRepository (PR #55 open)
-**Next up:** #18 — Create SupplierRepository
+**Working:** #17 (PR #55), #18 (PR #56), #19 (PR #57) — all open
+**Next up:** #20 — Flyway Migration
