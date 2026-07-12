@@ -35,8 +35,8 @@ implemented in repo but GitHub issue not yet closed
 | 17 | Create CategoryRepository | ![working](https://img.shields.io/badge/status-working-blue) |
 | 18 | Create SupplierRepository | ![working](https://img.shields.io/badge/status-working-blue) |
 | 19 | Database Configuration | ![working](https://img.shields.io/badge/status-working-blue) |
-| 20 | Flyway Migration | ![ready](https://img.shields.io/badge/status-ready-orange) |
-| 21 | Implement ProductService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 20 | Flyway Migration | ![working](https://img.shields.io/badge/status-working-blue) |
+| 21 | Implement ProductService | ![ready](https://img.shields.io/badge/status-ready-orange) |
 | 22 | Implement CategoryService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 23 | Implement SupplierService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 24 | Global Exception Handling | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #17 (PR #55), #18 (PR #56), #19 (PR #57) — all open
-**Next up:** #20 — Flyway Migration
+**Working:** #17 (PR #55), #18 (PR #56), #19 (PR #57), #20 (PR #58) — all open
+**Next up:** #21 — Implement ProductService
