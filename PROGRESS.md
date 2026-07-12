@@ -34,11 +34,11 @@ implemented in repo but GitHub issue not yet closed
 | 16 | Create ProductRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 17 | Create CategoryRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 18 | Create SupplierRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 19 | Database Configuration | ![working](https://img.shields.io/badge/status-working-blue) |
+| 19 | Database Configuration | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 20 | Flyway Migration | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 21 | Implement ProductService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 22 | Implement CategoryService | ![working](https://img.shields.io/badge/status-working-blue) |
-| 23 | Implement SupplierService | ![ready](https://img.shields.io/badge/status-ready-orange) |
+| 22 | Implement CategoryService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 23 | Implement SupplierService | ![working](https://img.shields.io/badge/status-working-blue) |
 | 24 | Global Exception Handling | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 25 | Create ProductController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 26 | Create CategoryController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #19 (PR #57), #22 (PR #60) — open
-**Next up:** #23 — Implement SupplierService
+**Working:** #23 — Implement SupplierService
+**Next up:** #24 — Global Exception Handling
