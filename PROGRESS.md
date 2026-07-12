@@ -32,13 +32,13 @@ implemented in repo but GitHub issue not yet closed
 | 14 | Implement Entity Relationships | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 15 | Validation Annotations | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 16 | Create ProductRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 17 | Create CategoryRepository | ![working](https://img.shields.io/badge/status-working-blue) |
-| 18 | Create SupplierRepository | ![working](https://img.shields.io/badge/status-working-blue) |
+| 17 | Create CategoryRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 18 | Create SupplierRepository | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 19 | Database Configuration | ![working](https://img.shields.io/badge/status-working-blue) |
-| 20 | Flyway Migration | ![working](https://img.shields.io/badge/status-working-blue) |
-| 21 | Implement ProductService | ![working](https://img.shields.io/badge/status-working-blue) |
-| 22 | Implement CategoryService | ![ready](https://img.shields.io/badge/status-ready-orange) |
-| 23 | Implement SupplierService | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 20 | Flyway Migration | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 21 | Implement ProductService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 22 | Implement CategoryService | ![working](https://img.shields.io/badge/status-working-blue) |
+| 23 | Implement SupplierService | ![ready](https://img.shields.io/badge/status-ready-orange) |
 | 24 | Global Exception Handling | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 25 | Create ProductController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 26 | Create CategoryController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #17 (PR #55), #18 (PR #56), #19 (PR #57), #20 (PR #58), #21 (PR #59) — all open
-**Next up:** #22 — Implement CategoryService
+**Working:** #19 (PR #57), #22 (PR #60) — open
+**Next up:** #23 — Implement SupplierService
