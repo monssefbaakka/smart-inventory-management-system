@@ -39,7 +39,7 @@ implemented in repo but GitHub issue not yet closed
 | 21 | Implement ProductService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 22 | Implement CategoryService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 23 | Implement SupplierService | ![working](https://img.shields.io/badge/status-working-blue) |
-| 24 | Global Exception Handling | ![ready](https://img.shields.io/badge/status-ready-orange) |
+| 24 | Global Exception Handling | ![working](https://img.shields.io/badge/status-working-blue) |
 | 25 | Create ProductController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 26 | Create CategoryController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 27 | Create SupplierController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #23 — Implement SupplierService (PR #61 open)
-**Next up:** #24 — Global Exception Handling
+**Working:** #23 — Implement SupplierService (PR #61 open); #24 — Global Exception Handling (PR #62 open)
+**Next up:** #25 — Create ProductController
