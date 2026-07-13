@@ -38,9 +38,9 @@ implemented in repo but GitHub issue not yet closed
 | 20 | Flyway Migration | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 21 | Implement ProductService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 22 | Implement CategoryService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 23 | Implement SupplierService | ![working](https://img.shields.io/badge/status-working-blue) |
-| 24 | Global Exception Handling | ![working](https://img.shields.io/badge/status-working-blue) |
-| 25 | Create ProductController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 23 | Implement SupplierService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 24 | Global Exception Handling | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 25 | Create ProductController | ![working](https://img.shields.io/badge/status-working-blue) |
 | 26 | Create CategoryController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 27 | Create SupplierController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 28 | Swagger/OpenAPI | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #23 — Implement SupplierService (PR #61 open); #24 — Global Exception Handling (PR #62 open)
-**Next up:** #25 — Create ProductController
+**Working:** #25 — Create ProductController (PR #63 open)
+**Next up:** #26 — Create CategoryController
