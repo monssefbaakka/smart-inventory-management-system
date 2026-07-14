@@ -11,6 +11,11 @@ import io.swagger.v3.oas.models.info.License;
 @Configuration
 public class OpenApiConfig {
 
+    /**
+     * Builds the OpenAPI descriptor used to render the Swagger UI.
+     *
+     * @return the configured {@link OpenAPI} instance
+     */
     @Bean
     public OpenAPI smartInventoryOpenApi() {
         return new OpenAPI()
