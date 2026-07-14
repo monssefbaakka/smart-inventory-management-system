@@ -6,6 +6,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 
 /** Baseline HTTP security configuration for the REST API. */
@@ -36,6 +38,16 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .httpBasic(withDefaults());
         return http.build();
+    }
+
+    /**
+     * Provides the password hashing strategy used to store and verify credentials.
+     *
+     * @return a BCrypt-based {@link PasswordEncoder}
+     */
+    @Bean
+    public PasswordEncoder passwordEncoder() {
+        return new BCryptPasswordEncoder();
     }
 
 }
