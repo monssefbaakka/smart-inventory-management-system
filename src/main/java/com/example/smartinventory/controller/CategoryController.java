@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.service.CategoryService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/categories")
 @RequiredArgsConstructor
+@Tag(name = "Categories", description = "CRUD operations for product categories")
 public class CategoryController {
 
     private final CategoryService categoryService;
