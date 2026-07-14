@@ -41,8 +41,8 @@ implemented in repo but GitHub issue not yet closed
 | 23 | Implement SupplierService | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 24 | Global Exception Handling | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 25 | Create ProductController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 26 | Create CategoryController | ![working](https://img.shields.io/badge/status-working-blue) |
-| 27 | Create SupplierController | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 26 | Create CategoryController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 27 | Create SupplierController | ![working](https://img.shields.io/badge/status-working-blue) |
 | 28 | Swagger/OpenAPI | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 29 | Configure Spring Security | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 30 | JWT Authentication | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #26 — Create CategoryController (PR #64 open)
-**Next up:** #27 — Create SupplierController
+**Working:** #27 — Create SupplierController (PR #65 open)
+**Next up:** #28 — Swagger/OpenAPI
