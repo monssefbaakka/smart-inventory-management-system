@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.service.SupplierService;
 
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 
@@ -23,6 +24,7 @@ import lombok.RequiredArgsConstructor;
 @RestController
 @RequestMapping("/api/suppliers")
 @RequiredArgsConstructor
+@Tag(name = "Suppliers", description = "CRUD operations for suppliers")
 public class SupplierController {
 
     private final SupplierService supplierService;
