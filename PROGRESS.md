@@ -44,8 +44,8 @@ implemented in repo but GitHub issue not yet closed
 | 26 | Create CategoryController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 27 | Create SupplierController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 28 | Swagger/OpenAPI | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 29 | Configure Spring Security | ![working](https://img.shields.io/badge/status-working-blue) |
-| 30 | JWT Authentication | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 29 | Configure Spring Security | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 30 | JWT Authentication | ![working](https://img.shields.io/badge/status-working-blue) |
 | 31 | Role-based Authorization | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 32 | Test Coverage | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 | 33 | Dockerize Application | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
@@ -55,5 +55,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #29 — Configure Spring Security (PR #67 open)
-**Next up:** #30 — JWT Authentication
+**Working:** #30 — JWT Authentication
+**Next up:** #31 — Role-based Authorization

@@ -37,6 +37,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * Handles attempts to register a user with an email already in use.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 409 response body describing the failure
+     */
+    @ExceptionHandler(DuplicateEmailException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateEmail(DuplicateEmailException ex, WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
      * Handles any exception not covered by a more specific handler.
      *
      * @param ex      the thrown exception
