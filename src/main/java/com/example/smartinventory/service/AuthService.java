@@ -11,6 +11,7 @@ import com.example.smartinventory.dto.AuthResponse;
 import com.example.smartinventory.dto.LoginRequest;
 import com.example.smartinventory.dto.RegisterRequest;
 import com.example.smartinventory.exception.DuplicateEmailException;
+import com.example.smartinventory.model.Role;
 import com.example.smartinventory.model.User;
 import com.example.smartinventory.repository.UserRepository;
 import com.example.smartinventory.security.JwtService;
@@ -24,7 +25,7 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class AuthService {
 
-    private static final String DEFAULT_ROLE = "USER";
+    private static final Role DEFAULT_ROLE = Role.USER;
 
     private final UserRepository userRepository;
 
