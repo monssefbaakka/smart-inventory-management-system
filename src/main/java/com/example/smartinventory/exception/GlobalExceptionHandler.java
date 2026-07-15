@@ -7,6 +7,7 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -53,6 +54,25 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
                 .path(path(request))
                 .build();
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Handles requests that are authenticated but lack the required authority.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 403 response body describing the failure
+     */
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ErrorResponse> handleAccessDenied(AccessDeniedException ex, WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.FORBIDDEN.value())
+                .error(HttpStatus.FORBIDDEN.getReasonPhrase())
+                .message("Access is denied")
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body);
     }
 
     /**
