@@ -110,4 +110,16 @@ class ProductControllerTest {
         verify(productService).delete(1L);
     }
 
+    @Test
+    void findLowStockReturnsOkWithProducts() throws Exception {
+        Product low = Product.builder().id(2L).name("Low Widget").sku("SKU-L").price(BigDecimal.ONE)
+                .quantity(2).reorderThreshold(10).build();
+        when(productService.findLowStockProducts()).thenReturn(List.of(low));
+
+        mockMvc.perform(get("/api/products/low-stock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(2))
+                .andExpect(jsonPath("$[0].name").value("Low Widget"));
+    }
+
 }
