@@ -1,0 +1,30 @@
+# Maven / build output
+target/
+*.jar
+*.war
+*.zip
+*.tar
+*.tar.gz
+
+# Maven wrapper
+.mvn/
+mvnw
+mvnw.cmd
+
+# Git
+.git/
+.gitignore
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+
+# Docs and metadata
+*.md
+LICENSE
+pr_template.md
+checkstyle.xml
+.editorconfig
