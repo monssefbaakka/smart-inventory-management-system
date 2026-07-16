@@ -37,6 +37,11 @@ public class ProductController {
         return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
+    @GetMapping("/low-stock")
+    public ResponseEntity<List<Product>> findLowStock() {
+        return ResponseEntity.ok(productService.findLowStockProducts());
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<Product> findById(@PathVariable Long id) {
         return ResponseEntity.ok(productService.findById(id));
