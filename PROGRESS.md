@@ -49,11 +49,11 @@ implemented in repo but GitHub issue not yet closed
 | 31 | Role-based Authorization | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 32 | Test Coverage | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 33 | Dockerize Application | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 34 | Docker Compose | ![working](https://img.shields.io/badge/status-working-blue) |
-| 35 | GitHub Actions CI | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 34 | Docker Compose | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 35 | GitHub Actions CI | ![working](https://img.shields.io/badge/status-working-blue) |
 | 36 | Release v1.0 | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
 
 ## Current
 
-**Working:** #34 — Docker Compose (PR open for #34)
-**Next up:** #35 — GitHub Actions CI
+**Working:** #35 — GitHub Actions CI (PR open for #35)
+**Next up:** #36 — Release v1.0
