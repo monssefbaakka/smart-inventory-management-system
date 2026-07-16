@@ -48,12 +48,12 @@ implemented in repo but GitHub issue not yet closed
 | 30 | JWT Authentication | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 31 | Role-based Authorization | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 32 | Test Coverage | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 33 | Dockerize Application | ![working](https://img.shields.io/badge/status-working-blue) |
-| 34 | Docker Compose | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
-| 35 | GitHub Actions CI | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
-| 36 | Release v1.0 | ![todo](https://img.shields.io/badge/status-todo-lightgrey) |
+| 33 | Dockerize Application | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 34 | Docker Compose | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 35 | GitHub Actions CI | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 36 | Release v1.0 | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #33 — Dockerize Application (PR open for #33)
-**Next up:** #34 — Docker Compose
+**Working:** #36 — Release v1.0 (PR open for #36)
+**Next up:** None (Phase 5 completed)

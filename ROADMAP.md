@@ -14,33 +14,33 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 - [x] LICENSE and repository documentation
 - [x] Development roadmap (this document)
 
-## Phase 2 — Core Domain & Data Layer (current)
+## Phase 2 — Core Domain & Data Layer (complete)
 
-- [ ] Domain model: products, categories, warehouses/locations, stock levels
-- [ ] JPA entities and repositories
-- [ ] Flyway migration baseline (schema versioning)
-- [ ] PostgreSQL local/dev environment setup (Docker Compose)
+- [x] Domain model: products, categories, suppliers, users, roles
+- [x] JPA entities and repositories
+- [x] Flyway migration baseline (schema versioning)
+- [x] PostgreSQL local/dev environment setup (Docker Compose)
 
-## Phase 3 — API & Business Logic
+## Phase 3 — API & Business Logic (complete)
 
-- [ ] REST API for inventory CRUD (products, stock, categories)
-- [ ] Stock movement tracking (inbound/outbound/adjustments)
-- [ ] Validation rules (Bean Validation)
-- [ ] Global exception handling and consistent error responses
+- [x] REST API for inventory CRUD (products, categories, suppliers)
+- [ ] Stock movement tracking (inbound/outbound/adjustments) (deferred)
+- [x] Validation rules (Bean Validation)
+- [x] Global exception handling and consistent error responses
 
-## Phase 4 — Security & Access Control
+## Phase 4 — Security & Access Control (complete)
 
-- [ ] Authentication (Spring Security)
-- [ ] Role-based authorization (admin, manager, staff)
-- [ ] Secure endpoints per role
+- [x] Authentication (Spring Security)
+- [x] Role-based authorization (admin, manager, staff)
+- [x] Secure endpoints per role
 
-## Phase 5 — Quality & Testing
+## Phase 5 — Quality & Testing (complete)
 
-- [ ] Unit tests (service/repository layers)
-- [ ] Integration tests (JPA, Flyway, Security test starters already in place)
-- [ ] CI pipeline (build, test, lint on PR)
+- [x] Unit tests (service/repository layers)
+- [x] Integration tests (JPA, Flyway, Security test starters already in place)
+- [x] CI pipeline (build, test, lint on PR)
 
-## Phase 6 — Reporting & Insights
+## Phase 6 — Reporting & Insights (current)
 
 - [ ] Low-stock alerts / reorder thresholds
 - [ ] Inventory reports (stock value, movement history)
@@ -51,10 +51,10 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 | Milestone | Scope | Target |
 |---|---|---|
 | M1 — Project Bootstrap | Phase 1 complete | Done |
-| M2 — Data Layer Ready | Phase 2 complete | TBD |
-| M3 — MVP API | Phase 3 complete | TBD |
-| M4 — Secured Release | Phase 4 complete | TBD |
-| M5 — Tested Release | Phase 5 complete | TBD |
+| M2 — Data Layer Ready | Phase 2 complete | Done |
+| M3 — MVP API | Phase 3 complete | Done |
+| M4 — Secured Release | Phase 4 complete | Done |
+| M5 — Tested Release | Phase 5 complete | Done |
 | M6 — Reporting Release | Phase 6 complete | TBD |
 
 ## Main Features (Planned)
