@@ -1,0 +1,2 @@
+ALTER TABLE products
+    ADD COLUMN reorder_threshold INTEGER NOT NULL DEFAULT 10;
