@@ -106,4 +106,29 @@ class ProductServiceTest {
         verify(productRepository).delete(existing);
     }
 
+    @Test
+    void findLowStockProductsReturnsBelowThreshold() {
+        Product low = Product.builder().id(1L).name("Low").quantity(3).reorderThreshold(10).build();
+        when(productRepository.findLowStockProducts()).thenReturn(List.of(low));
+
+        List<Product> result = productService.findLowStockProducts();
+
+        assertThat(result).hasSize(1).containsExactly(low);
+        verify(productRepository).findLowStockProducts();
+    }
+
+    @Test
+    void updateSetsReorderThreshold() {
+        Product existing = Product.builder().id(1L).name("A").sku("S").price(BigDecimal.ONE).quantity(5)
+                .reorderThreshold(5).build();
+        Product updated = Product.builder().name("A").sku("S").price(BigDecimal.ONE).quantity(5)
+                .reorderThreshold(20).build();
+        when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product result = productService.update(1L, updated);
+
+        assertThat(result.getReorderThreshold()).isEqualTo(20);
+    }
+
 }
