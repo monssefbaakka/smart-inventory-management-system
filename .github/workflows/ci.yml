@@ -1,0 +1,52 @@
+name: Java CI with Maven
+
+on:
+  push:
+    branches: [ main, issue-30-jwt-authentication, issue-31-role-based-authorization, issue-32-test-coverage, issue-33-dockerize-application, issue-34-docker-compose, issue-35-github-actions-ci ]
+  pull_request:
+    branches: [ main, issue-30-jwt-authentication, issue-31-role-based-authorization, issue-32-test-coverage, issue-33-dockerize-application, issue-34-docker-compose, issue-35-github-actions-ci ]
+
+jobs:
+  build:
+    name: Build, Lint and Test
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: smart_inventory
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Make Maven Wrapper Executable
+        run: chmod +x mvnw
+
+      - name: Build and Verify with Maven
+        run: ./mvnw clean verify
+        env:
+          DB_HOST: localhost
+          DB_PORT: 5432
+          DB_NAME: smart_inventory
+          DB_USERNAME: postgres
+          DB_PASSWORD: postgres
+          JWT_SECRET: dev-jwt-token-secret-must-be-very-long-for-hs256-signature-algorithm-validation
+          JWT_EXPIRATION_MS: 86400000
