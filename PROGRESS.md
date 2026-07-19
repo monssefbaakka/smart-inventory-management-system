@@ -51,9 +51,11 @@ implemented in repo but GitHub issue not yet closed
 | 33 | Dockerize Application | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 34 | Docker Compose | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 35 | GitHub Actions CI | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 36 | Release v1.0 | ![working](https://img.shields.io/badge/status-working-blue) |
+| 36 | Release v1.0 | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 77 | Low-stock Alerts / Reorder Thresholds | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 80 | Inventory Reports (stock value, movement history) | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #36 — Release v1.0 (PR open for #36)
-**Next up:** None (Phase 5 completed)
+**Working:** #80 — Inventory reports (PR open for #80)
+**Next up:** Phase 6 — Basic dashboard endpoints
