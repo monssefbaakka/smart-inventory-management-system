@@ -35,6 +35,16 @@ public class ProductService {
     }
 
     /**
+     * Returns all products whose stock quantity is at or below their reorder threshold.
+     *
+     * @return list of low-stock products requiring attention
+     */
+    @Transactional(readOnly = true)
+    public List<Product> findLowStockProducts() {
+        return productRepository.findLowStockProducts();
+    }
+
+    /**
      * Updates the mutable fields of an existing product identified by {@code id}.
      *
      * @param id             identifier of the product to update
@@ -48,6 +58,9 @@ public class ProductService {
         existing.setDescription(updatedProduct.getDescription());
         existing.setPrice(updatedProduct.getPrice());
         existing.setQuantity(updatedProduct.getQuantity());
+        if (updatedProduct.getReorderThreshold() != null) {
+            existing.setReorderThreshold(updatedProduct.getReorderThreshold());
+        }
         existing.setCategory(updatedProduct.getCategory());
         existing.setSupplier(updatedProduct.getSupplier());
         return productRepository.save(existing);

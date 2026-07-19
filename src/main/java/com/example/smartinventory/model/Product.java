@@ -63,6 +63,11 @@ public class Product {
     @Column(nullable = false)
     private Integer quantity;
 
+    @PositiveOrZero
+    @Column(name = "reorder_threshold", nullable = false)
+    @Builder.Default
+    private Integer reorderThreshold = 10;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")
     private Category category;
@@ -82,6 +87,9 @@ public class Product {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
+        if (reorderThreshold == null) {
+            reorderThreshold = 10;
+        }
     }
 
     @PreUpdate
