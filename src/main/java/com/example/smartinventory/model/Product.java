@@ -63,7 +63,6 @@ public class Product {
     @Column(nullable = false)
     private Integer quantity;
 
-    @NotNull
     @PositiveOrZero
     @Column(name = "reorder_threshold", nullable = false)
     @Builder.Default
@@ -88,6 +87,9 @@ public class Product {
         Instant now = Instant.now();
         createdAt = now;
         updatedAt = now;
+        if (reorderThreshold == null) {
+            reorderThreshold = 10;
+        }
     }
 
     @PreUpdate
