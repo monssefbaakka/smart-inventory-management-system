@@ -49,6 +49,7 @@ public class StockMovementService {
                 product.setQuantity(product.getQuantity() - quantity);
             }
             case ADJUSTMENT -> product.setQuantity(quantity);
+            default -> throw new IllegalArgumentException("Unsupported movement type: " + type);
         }
         productRepository.save(product);
 

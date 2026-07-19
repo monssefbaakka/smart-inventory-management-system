@@ -29,6 +29,13 @@ public class StockMovementController {
 
     private final StockMovementService stockMovementService;
 
+    /**
+     * Records a stock movement for a product and applies it to the product's quantity.
+     *
+     * @param productId identifier of the affected product
+     * @param request   movement details
+     * @return the created movement record
+     */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<StockMovement> record(@PathVariable Long productId,
