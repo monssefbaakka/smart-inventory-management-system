@@ -55,4 +55,16 @@ class ReportControllerTest {
                 .andExpect(content().string("id,sku,name,category,quantity,price,stockValue\n"));
     }
 
+    @Test
+    void exportStockMovementsCsvReturnsAttachment() throws Exception {
+        when(reportService.exportStockMovementsToCsv())
+                .thenReturn("id,productId,productSku,type,quantity,note,createdAt\n");
+
+        mockMvc.perform(get("/api/reports/export/movements"))
+                .andExpect(status().isOk())
+                .andExpect(header().string("Content-Type", "text/csv"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"movements.csv\""))
+                .andExpect(content().string("id,productId,productSku,type,quantity,note,createdAt\n"));
+    }
+
 }
