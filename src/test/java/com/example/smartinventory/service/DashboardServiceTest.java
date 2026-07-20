@@ -97,6 +97,15 @@ class DashboardServiceTest {
     }
 
     @Test
+    void recentMovementsClampsNegativeLimitToOne() {
+        when(stockMovementRepository.findAllByOrderByCreatedAtDesc(any())).thenReturn(List.of());
+
+        dashboardService.recentMovements(-5);
+
+        verify(stockMovementRepository).findAllByOrderByCreatedAtDesc(PageRequest.of(0, 1));
+    }
+
+    @Test
     void recentMovementsClampsExcessiveLimitToMaximum() {
         when(stockMovementRepository.findAllByOrderByCreatedAtDesc(any())).thenReturn(List.of());
 
@@ -113,6 +122,22 @@ class DashboardServiceTest {
         List<Product> result = dashboardService.lowStockProducts();
 
         assertThat(result).containsExactly(product);
+    }
+
+    @Test
+    void summaryCountsAllLowStockProducts() {
+        Product first = Product.builder().id(1L).quantity(1).reorderThreshold(5).build();
+        Product second = Product.builder().id(2L).quantity(2).reorderThreshold(10).build();
+        Product third = Product.builder().id(3L).quantity(0).reorderThreshold(3).build();
+        when(productRepository.count()).thenReturn(3L);
+        when(categoryRepository.count()).thenReturn(1L);
+        when(supplierRepository.count()).thenReturn(1L);
+        when(productRepository.findLowStockProducts()).thenReturn(List.of(first, second, third));
+        when(reportService.totalStockValue()).thenReturn(BigDecimal.ZERO);
+
+        DashboardSummaryResponse result = dashboardService.summary();
+
+        assertThat(result.getLowStockCount()).isEqualTo(3L);
     }
 
 }
