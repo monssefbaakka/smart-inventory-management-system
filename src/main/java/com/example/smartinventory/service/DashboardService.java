@@ -31,6 +31,8 @@ public class DashboardService {
 
     private final ReportService reportService;
 
+    private static final int MAX_RECENT_MOVEMENTS = 100;
+
     /**
      * Builds the dashboard summary: entity counts, low-stock count, and total stock value.
      *
@@ -47,13 +49,15 @@ public class DashboardService {
     }
 
     /**
-     * Returns the most recent stock movements across all products.
+     * Returns the most recent stock movements across all products. The requested limit is
+     * clamped to the range {@code [1, 100]} to guard against invalid or excessive page sizes.
      *
      * @param limit maximum number of movements to return
      * @return recent movements, most recent first
      */
     public List<StockMovement> recentMovements(int limit) {
-        return stockMovementRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, limit));
+        int clampedLimit = Math.max(1, Math.min(limit, MAX_RECENT_MOVEMENTS));
+        return stockMovementRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, clampedLimit));
     }
 
 }
