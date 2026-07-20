@@ -1,7 +1,11 @@
 package com.example.smartinventory.controller;
 
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -24,6 +28,21 @@ public class ReportController {
     @GetMapping("/stock-value")
     public ResponseEntity<BigDecimal> totalStockValue() {
         return ResponseEntity.ok(reportService.totalStockValue());
+    }
+
+    /**
+     * Downloads all products as a CSV attachment.
+     *
+     * @return the CSV file as an octet response with a {@code Content-Disposition} header
+     */
+    @GetMapping("/export/products")
+    public ResponseEntity<byte[]> exportProductsCsv() {
+        byte[] csv = reportService.exportProductsToCsv().getBytes(StandardCharsets.UTF_8);
+        ContentDisposition disposition = ContentDisposition.attachment().filename("products.csv").build();
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("text/csv"))
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(csv);
     }
 
 }
