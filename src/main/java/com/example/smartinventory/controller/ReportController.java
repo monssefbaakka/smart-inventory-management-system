@@ -37,12 +37,25 @@ public class ReportController {
      */
     @GetMapping("/export/products")
     public ResponseEntity<byte[]> exportProductsCsv() {
-        byte[] csv = reportService.exportProductsToCsv().getBytes(StandardCharsets.UTF_8);
-        ContentDisposition disposition = ContentDisposition.attachment().filename("products.csv").build();
+        return csvAttachment(reportService.exportProductsToCsv(), "products.csv");
+    }
+
+    /**
+     * Downloads all stock movements as a CSV attachment, most recent first.
+     *
+     * @return the CSV file as an octet response with a {@code Content-Disposition} header
+     */
+    @GetMapping("/export/movements")
+    public ResponseEntity<byte[]> exportStockMovementsCsv() {
+        return csvAttachment(reportService.exportStockMovementsToCsv(), "movements.csv");
+    }
+
+    private ResponseEntity<byte[]> csvAttachment(String csv, String filename) {
+        ContentDisposition disposition = ContentDisposition.attachment().filename(filename).build();
         return ResponseEntity.ok()
                 .contentType(MediaType.parseMediaType("text/csv"))
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
-                .body(csv);
+                .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 
 }
