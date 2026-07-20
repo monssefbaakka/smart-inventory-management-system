@@ -24,7 +24,8 @@ import com.example.smartinventory.security.JwtService;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.DashboardService;
 
-@WebMvcTest(controllers = DashboardController.class, excludeAutoConfiguration = UserDetailsServiceAutoConfiguration.class)
+@WebMvcTest(controllers = DashboardController.class,
+        excludeAutoConfiguration = UserDetailsServiceAutoConfiguration.class)
 @AutoConfigureMockMvc(addFilters = false)
 class DashboardControllerTest {
 
