@@ -23,6 +23,8 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "Dashboard", description = "Aggregate inventory dashboard endpoints")
 public class DashboardController {
 
+    private static final String DEFAULT_RECENT_MOVEMENTS_LIMIT = "10";
+
     private final DashboardService dashboardService;
 
     @GetMapping("/summary")
@@ -32,7 +34,7 @@ public class DashboardController {
 
     @GetMapping("/recent-movements")
     public ResponseEntity<List<StockMovement>> recentMovements(
-            @RequestParam(defaultValue = "10") int limit) {
+            @RequestParam(defaultValue = DEFAULT_RECENT_MOVEMENTS_LIMIT) int limit) {
         return ResponseEntity.ok(dashboardService.recentMovements(limit));
     }
 
