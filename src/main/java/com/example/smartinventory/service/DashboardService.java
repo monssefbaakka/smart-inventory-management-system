@@ -7,6 +7,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.dto.DashboardSummaryResponse;
+import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.repository.CategoryRepository;
 import com.example.smartinventory.repository.ProductRepository;
@@ -58,6 +59,15 @@ public class DashboardService {
     public List<StockMovement> recentMovements(int limit) {
         int clampedLimit = Math.max(1, Math.min(limit, MAX_RECENT_MOVEMENTS));
         return stockMovementRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(0, clampedLimit));
+    }
+
+    /**
+     * Returns the products currently at or below their reorder threshold.
+     *
+     * @return low-stock products
+     */
+    public List<Product> lowStockProducts() {
+        return productRepository.findLowStockProducts();
     }
 
 }
