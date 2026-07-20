@@ -81,4 +81,14 @@ class DashboardControllerTest {
                 .andExpect(status().isOk());
     }
 
+    @Test
+    void lowStockReturnsOk() throws Exception {
+        Product product = Product.builder().id(1L).quantity(1).reorderThreshold(5).build();
+        when(dashboardService.lowStockProducts()).thenReturn(List.of(product));
+
+        mockMvc.perform(get("/api/dashboard/low-stock"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(1));
+    }
+
 }
