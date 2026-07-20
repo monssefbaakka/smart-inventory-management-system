@@ -105,4 +105,14 @@ class DashboardServiceTest {
         verify(stockMovementRepository).findAllByOrderByCreatedAtDesc(PageRequest.of(0, 100));
     }
 
+    @Test
+    void lowStockProductsDelegatesToRepository() {
+        Product product = Product.builder().id(1L).quantity(1).reorderThreshold(5).build();
+        when(productRepository.findLowStockProducts()).thenReturn(List.of(product));
+
+        List<Product> result = dashboardService.lowStockProducts();
+
+        assertThat(result).containsExactly(product);
+    }
+
 }
