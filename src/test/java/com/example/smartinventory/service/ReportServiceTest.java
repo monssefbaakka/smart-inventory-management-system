@@ -133,4 +133,16 @@ class ReportServiceTest {
                 + "1,1,SKU-1,IN,5,restock,2026-07-20T10:00:00Z\n");
     }
 
+    @Test
+    void exportStockMovementsToCsvEscapesCommaInNote() {
+        Product product = Product.builder().id(1L).sku("SKU-1").build();
+        StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.OUT)
+                .quantity(2).note("damaged, written off").createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
+        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of(movement));
+
+        String csv = reportService.exportStockMovementsToCsv();
+
+        assertThat(csv).contains("\"damaged, written off\"");
+    }
+
 }
