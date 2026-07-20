@@ -37,8 +37,8 @@ Closes #82
   - `GET /api/dashboard/summary`
   - `GET /api/dashboard/recent-movements?limit=` (default 10)
   - `GET /api/dashboard/low-stock`
-- Added unit tests for `DashboardService` (summary aggregation, zero-low-stock case, limit clamping at both bounds, low-stock delegation) and controller slice tests for all three endpoints.
-- Updated `ROADMAP.md` (Phase 6 fully checked off, M6 marked Done) and `PROGRESS.md` (issue #82 tracked, #80 marked done).
+- Added unit tests for `DashboardService` (summary aggregation, zero- and multi-item low-stock counts, limit clamping at the low/negative/high bounds, low-stock delegation) and controller slice tests for all three endpoints.
+- Updated `ROADMAP.md` (Phase 6 fully checked off, M6 marked Done), `PROGRESS.md` (issue #82 tracked, #80 marked done), and `README.md` (new Reporting & Dashboard feature bullet).
 
 ---
 
@@ -64,7 +64,7 @@ N/A
 ```
 - Ran 'mvnw checkstyle:check' — 0 violations.
 - Ran 'mvnw -Dtest=DashboardServiceTest,DashboardControllerTest,ReportServiceTest,ReportControllerTest,StockMovementServiceTest,StockMovementControllerTest test' — all green.
-- New unit tests cover DashboardService (summary aggregation, zero-low-stock case, recentMovements limit clamping at both the low and high bound, lowStockProducts delegation) and DashboardController (summary, recent-movements default/explicit limit, low-stock).
+- New unit tests cover DashboardService (summary aggregation, zero- and multi-item low-stock counts, recentMovements limit clamping at zero/negative/excessive bounds, lowStockProducts delegation) and DashboardController (summary, recent-movements default/explicit limit, low-stock).
 ```
 
 ---
