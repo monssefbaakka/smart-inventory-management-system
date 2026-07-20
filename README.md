@@ -11,6 +11,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Automated Alerts:** Low stock alerts and notification triggers to prevent supply chain disruptions.
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
+- **CSV Export:** Download products and stock movement history as CSV for spreadsheets or offline analysis.
 
 ---
 
