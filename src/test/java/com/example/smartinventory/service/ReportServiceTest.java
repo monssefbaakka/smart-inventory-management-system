@@ -97,6 +97,21 @@ class ReportServiceTest {
     }
 
     @Test
+    void exportProductsToCsvWritesMultipleRowsInRepositoryOrder() {
+        Product first = Product.builder().id(1L).sku("SKU-1").name("Widget")
+                .price(new BigDecimal("10.00")).quantity(1).build();
+        Product second = Product.builder().id(2L).sku("SKU-2").name("Gadget")
+                .price(new BigDecimal("5.00")).quantity(2).build();
+        when(productRepository.findAll()).thenReturn(List.of(first, second));
+
+        String csv = reportService.exportProductsToCsv();
+
+        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stockValue\n"
+                + "1,SKU-1,Widget,,1,10.00,10.00\n"
+                + "2,SKU-2,Gadget,,2,5.00,10.00\n");
+    }
+
+    @Test
     void exportStockMovementsToCsvIncludesHeaderOnlyWhenNoMovements() {
         when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of());
 
