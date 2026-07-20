@@ -2,12 +2,15 @@ package com.example.smartinventory.service;
 
 import java.math.BigDecimal;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.repository.ProductRepository;
+import com.example.smartinventory.repository.StockMovementRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -17,9 +20,13 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ReportService {
 
-    private static final String CSV_HEADER = "id,sku,name,category,quantity,price,stockValue";
+    private static final String PRODUCTS_CSV_HEADER = "id,sku,name,category,quantity,price,stockValue";
+
+    private static final String MOVEMENTS_CSV_HEADER = "id,productId,productSku,type,quantity,note,createdAt";
 
     private final ProductRepository productRepository;
+
+    private final StockMovementRepository stockMovementRepository;
 
     /**
      * Computes the total value of all inventory on hand, summing {@code price * quantity}
@@ -39,11 +46,36 @@ public class ReportService {
      * @return the CSV document as a single string, including the header row
      */
     public String exportProductsToCsv() {
-        StringBuilder csv = new StringBuilder(CSV_HEADER).append('\n');
+        StringBuilder csv = new StringBuilder(PRODUCTS_CSV_HEADER).append('\n');
         for (Product product : productRepository.findAll()) {
             csv.append(toCsvRow(product)).append('\n');
         }
         return csv.toString();
+    }
+
+    /**
+     * Exports all stock movements as CSV, most recent first: id, productId, productSku, type,
+     * quantity, note, and createdAt.
+     *
+     * @return the CSV document as a single string, including the header row
+     */
+    public String exportStockMovementsToCsv() {
+        StringBuilder csv = new StringBuilder(MOVEMENTS_CSV_HEADER).append('\n');
+        for (StockMovement movement : stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
+            csv.append(toCsvRow(movement)).append('\n');
+        }
+        return csv.toString();
+    }
+
+    private String toCsvRow(StockMovement movement) {
+        return String.join(",",
+                String.valueOf(movement.getId()),
+                String.valueOf(movement.getProduct().getId()),
+                escapeCsv(movement.getProduct().getSku()),
+                movement.getType().name(),
+                String.valueOf(movement.getQuantity()),
+                escapeCsv(movement.getNote()),
+                movement.getCreatedAt().toString());
     }
 
     private String toCsvRow(Product product) {
