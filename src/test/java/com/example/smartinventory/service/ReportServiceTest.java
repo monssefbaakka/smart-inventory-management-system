@@ -145,4 +145,28 @@ class ReportServiceTest {
         assertThat(csv).contains("\"damaged, written off\"");
     }
 
+    @Test
+    void exportStockMovementsToCsvHandlesNullNote() {
+        Product product = Product.builder().id(1L).sku("SKU-1").build();
+        StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.ADJUSTMENT)
+                .quantity(10).note(null).createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
+        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of(movement));
+
+        String csv = reportService.exportStockMovementsToCsv();
+
+        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n"
+                + "1,1,SKU-1,ADJUSTMENT,10,,2026-07-20T10:00:00Z\n");
+    }
+
+    @Test
+    void exportProductsToCsvHandlesZeroQuantity() {
+        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget")
+                .price(new BigDecimal("10.00")).quantity(0).build();
+        when(productRepository.findAll()).thenReturn(List.of(product));
+
+        String csv = reportService.exportProductsToCsv();
+
+        assertThat(csv).contains("1,SKU-1,Widget,,0,10.00,0.00");
+    }
+
 }
