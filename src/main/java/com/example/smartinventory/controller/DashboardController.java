@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.dto.DashboardSummaryResponse;
+import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.service.DashboardService;
 
@@ -33,6 +34,11 @@ public class DashboardController {
     public ResponseEntity<List<StockMovement>> recentMovements(
             @RequestParam(defaultValue = "10") int limit) {
         return ResponseEntity.ok(dashboardService.recentMovements(limit));
+    }
+
+    @GetMapping("/low-stock")
+    public ResponseEntity<List<Product>> lowStockProducts() {
+        return ResponseEntity.ok(dashboardService.lowStockProducts());
     }
 
 }
