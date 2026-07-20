@@ -33,4 +33,40 @@ public class ReportService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * Exports all products as CSV: id, sku, name, category, quantity, price, and stock value.
+     *
+     * @return the CSV document as a single string, including the header row
+     */
+    public String exportProductsToCsv() {
+        StringBuilder csv = new StringBuilder(CSV_HEADER).append('\n');
+        for (Product product : productRepository.findAll()) {
+            csv.append(toCsvRow(product)).append('\n');
+        }
+        return csv.toString();
+    }
+
+    private String toCsvRow(Product product) {
+        Category category = product.getCategory();
+        BigDecimal stockValue = product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity()));
+        return String.join(",",
+                String.valueOf(product.getId()),
+                escapeCsv(product.getSku()),
+                escapeCsv(product.getName()),
+                escapeCsv(category == null ? "" : category.getName()),
+                String.valueOf(product.getQuantity()),
+                product.getPrice().toPlainString(),
+                stockValue.toPlainString());
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
 }
