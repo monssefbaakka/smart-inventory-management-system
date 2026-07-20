@@ -1,6 +1,7 @@
 package com.example.smartinventory.service;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -10,16 +11,23 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Sort;
 
 import com.example.smartinventory.model.Category;
+import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.repository.ProductRepository;
+import com.example.smartinventory.repository.StockMovementRepository;
 
 @ExtendWith(MockitoExtension.class)
 class ReportServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private StockMovementRepository stockMovementRepository;
 
     @InjectMocks
     private ReportService reportService;
@@ -86,6 +94,28 @@ class ReportServiceTest {
         String csv = reportService.exportProductsToCsv();
 
         assertThat(csv).contains("\"Widget, \"\"Deluxe\"\"\"");
+    }
+
+    @Test
+    void exportStockMovementsToCsvIncludesHeaderOnlyWhenNoMovements() {
+        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of());
+
+        String csv = reportService.exportStockMovementsToCsv();
+
+        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n");
+    }
+
+    @Test
+    void exportStockMovementsToCsvWritesOneRowPerMovement() {
+        Product product = Product.builder().id(1L).sku("SKU-1").build();
+        StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN)
+                .quantity(5).note("restock").createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
+        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of(movement));
+
+        String csv = reportService.exportStockMovementsToCsv();
+
+        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n"
+                + "1,1,SKU-1,IN,5,restock,2026-07-20T10:00:00Z\n");
     }
 
 }
