@@ -5,12 +5,14 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.PageRequest;
 
 import com.example.smartinventory.dto.DashboardSummaryResponse;
 import com.example.smartinventory.model.MovementType;
@@ -83,6 +85,24 @@ class DashboardServiceTest {
         List<StockMovement> result = dashboardService.recentMovements(10);
 
         assertThat(result).containsExactly(movement);
+    }
+
+    @Test
+    void recentMovementsClampsNonPositiveLimitToOne() {
+        when(stockMovementRepository.findAllByOrderByCreatedAtDesc(any())).thenReturn(List.of());
+
+        dashboardService.recentMovements(0);
+
+        verify(stockMovementRepository).findAllByOrderByCreatedAtDesc(PageRequest.of(0, 1));
+    }
+
+    @Test
+    void recentMovementsClampsExcessiveLimitToMaximum() {
+        when(stockMovementRepository.findAllByOrderByCreatedAtDesc(any())).thenReturn(List.of());
+
+        dashboardService.recentMovements(10_000);
+
+        verify(stockMovementRepository).findAllByOrderByCreatedAtDesc(PageRequest.of(0, 100));
     }
 
 }
