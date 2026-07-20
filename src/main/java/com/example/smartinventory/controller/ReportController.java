@@ -53,7 +53,7 @@ public class ReportController {
     private ResponseEntity<byte[]> csvAttachment(String csv, String filename) {
         ContentDisposition disposition = ContentDisposition.attachment().filename(filename).build();
         return ResponseEntity.ok()
-                .contentType(MediaType.parseMediaType("text/csv"))
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(csv.getBytes(StandardCharsets.UTF_8));
     }
