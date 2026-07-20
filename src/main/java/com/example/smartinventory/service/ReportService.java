@@ -5,6 +5,8 @@ import java.math.BigDecimal;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.smartinventory.model.Category;
+import com.example.smartinventory.model.Product;
 import com.example.smartinventory.repository.ProductRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -14,6 +16,8 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class ReportService {
+
+    private static final String CSV_HEADER = "id,sku,name,category,quantity,price,stockValue";
 
     private final ProductRepository productRepository;
 
