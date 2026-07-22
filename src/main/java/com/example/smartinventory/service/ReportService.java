@@ -2,12 +2,15 @@ package com.example.smartinventory.service;
 
 import java.math.BigDecimal;
 
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.repository.ProductRepository;
+import com.example.smartinventory.repository.StockMovementRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -20,7 +23,12 @@ public class ReportService {
     /** Header row for the product inventory CSV export. */
     static final String CSV_HEADER = "id,sku,name,category,quantity,price,stock_value";
 
+    /** Header row for the stock-movement CSV export. */
+    static final String MOVEMENTS_CSV_HEADER = "id,productId,productSku,type,quantity,note,createdAt";
+
     private final ProductRepository productRepository;
+
+    private final StockMovementRepository stockMovementRepository;
 
     /**
      * Computes the total value of all inventory on hand, summing {@code price * quantity}
@@ -53,6 +61,28 @@ public class ReportService {
                     .append(product.getQuantity()).append(',')
                     .append(product.getPrice().toPlainString()).append(',')
                     .append(stockValue.toPlainString()).append("\r\n");
+        }
+        return csv.toString();
+    }
+
+    /**
+     * Renders all stock movements as an RFC 4180 CSV document, most recent first. Each row
+     * carries the movement id, product id, product sku, type, quantity, note, and creation
+     * timestamp.
+     *
+     * @return the CSV document, header row first
+     */
+    public String exportStockMovementsCsv() {
+        StringBuilder csv = new StringBuilder(MOVEMENTS_CSV_HEADER).append("\r\n");
+        for (StockMovement movement : stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
+            Product product = movement.getProduct();
+            csv.append(movement.getId()).append(',')
+                    .append(product.getId()).append(',')
+                    .append(escape(product.getSku())).append(',')
+                    .append(movement.getType().name()).append(',')
+                    .append(movement.getQuantity()).append(',')
+                    .append(escape(movement.getNote())).append(',')
+                    .append(movement.getCreatedAt()).append("\r\n");
         }
         return csv.toString();
     }

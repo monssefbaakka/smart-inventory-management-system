@@ -60,5 +60,5 @@ implemented in repo but GitHub issue not yet closed
 
 ## Current
 
-**Working:** #87 — Supplier purchase-order management (PR open for #87)
+**Working:** #85 — add stock-movement CSV export (extends #84); #87 — Supplier purchase-order management (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

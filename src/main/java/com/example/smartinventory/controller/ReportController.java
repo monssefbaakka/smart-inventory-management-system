@@ -26,6 +26,9 @@ public class ReportController {
     /** File name offered to clients downloading the product inventory CSV. */
     static final String CSV_FILENAME = "products.csv";
 
+    /** File name offered to clients downloading the stock-movement CSV. */
+    static final String MOVEMENTS_CSV_FILENAME = "movements.csv";
+
     private final ReportService reportService;
 
     @GetMapping("/stock-value")
@@ -40,12 +43,25 @@ public class ReportController {
      */
     @GetMapping(value = "/products.csv", produces = "text/csv")
     public ResponseEntity<byte[]> exportProductsCsv() {
-        byte[] body = reportService.exportProductsCsv().getBytes(StandardCharsets.UTF_8);
-        ContentDisposition disposition = ContentDisposition.attachment().filename(CSV_FILENAME).build();
+        return csvAttachment(reportService.exportProductsCsv(), CSV_FILENAME);
+    }
+
+    /**
+     * Streams all stock movements as a downloadable CSV attachment, most recent first.
+     *
+     * @return the CSV document with a {@code text/csv} content type and attachment disposition
+     */
+    @GetMapping(value = "/export/movements", produces = "text/csv")
+    public ResponseEntity<byte[]> exportStockMovementsCsv() {
+        return csvAttachment(reportService.exportStockMovementsCsv(), MOVEMENTS_CSV_FILENAME);
+    }
+
+    private ResponseEntity<byte[]> csvAttachment(String csv, String filename) {
+        ContentDisposition disposition = ContentDisposition.attachment().filename(filename).build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
-                .body(body);
+                .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 
 }
