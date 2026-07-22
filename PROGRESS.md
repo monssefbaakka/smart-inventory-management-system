@@ -54,9 +54,11 @@ implemented in repo but GitHub issue not yet closed
 | 36 | Release v1.0 | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 77 | Low-stock Alerts / Reorder Thresholds | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 80 | Inventory Reports (stock value, movement history) | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 82 | Basic Dashboard Endpoints | ![working](https://img.shields.io/badge/status-working-blue) |
+| 82 | Basic Dashboard Endpoints | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 84 | Export inventory reports to CSV | ![working](https://img.shields.io/badge/status-working-blue) |
+| 87 | Supplier purchase-order management | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #82 — Basic dashboard endpoints (PR open for #82)
-**Next up:** Phase 6 complete; pick next milestone from Future Improvements in ROADMAP.md
+**Working:** #87 — Supplier purchase-order management (PR open for #87); #84 — CSV export (PR open for #84)
+**Next up:** pick next milestone from Future Improvements in ROADMAP.md
