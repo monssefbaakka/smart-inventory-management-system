@@ -20,9 +20,11 @@ import lombok.RequiredArgsConstructor;
 @Transactional(readOnly = true)
 public class ReportService {
 
-    private static final String PRODUCTS_CSV_HEADER = "id,sku,name,category,quantity,price,stockValue";
+    /** Header row for the product inventory CSV export. */
+    static final String CSV_HEADER = "id,sku,name,category,quantity,price,stock_value";
 
-    private static final String MOVEMENTS_CSV_HEADER = "id,productId,productSku,type,quantity,note,createdAt";
+    /** Header row for the stock-movement CSV export. */
+    static final String MOVEMENTS_CSV_HEADER = "id,productId,productSku,type,quantity,note,createdAt";
 
     private final ProductRepository productRepository;
 
@@ -41,62 +43,63 @@ public class ReportService {
     }
 
     /**
-     * Exports all products as CSV: id, sku, name, category, quantity, price, and stock value.
+     * Renders the full product inventory as an RFC 4180 CSV document. Each row carries the
+     * product id, sku, name, category name, quantity, unit price, and computed stock value
+     * ({@code price * quantity}).
      *
-     * @return the CSV document as a single string, including the header row
+     * @return the CSV document, header row first
      */
-    public String exportProductsToCsv() {
-        StringBuilder csv = new StringBuilder(PRODUCTS_CSV_HEADER).append('\n');
+    public String exportProductsCsv() {
+        StringBuilder csv = new StringBuilder(CSV_HEADER).append("\r\n");
         for (Product product : productRepository.findAll()) {
-            csv.append(toCsvRow(product)).append('\n');
+            Category category = product.getCategory();
+            BigDecimal stockValue = product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity()));
+            csv.append(product.getId()).append(',')
+                    .append(escape(product.getSku())).append(',')
+                    .append(escape(product.getName())).append(',')
+                    .append(escape(category == null ? "" : category.getName())).append(',')
+                    .append(product.getQuantity()).append(',')
+                    .append(product.getPrice().toPlainString()).append(',')
+                    .append(stockValue.toPlainString()).append("\r\n");
         }
         return csv.toString();
     }
 
     /**
-     * Exports all stock movements as CSV, most recent first: id, productId, productSku, type,
-     * quantity, note, and createdAt.
+     * Renders all stock movements as an RFC 4180 CSV document, most recent first. Each row
+     * carries the movement id, product id, product sku, type, quantity, note, and creation
+     * timestamp.
      *
-     * @return the CSV document as a single string, including the header row
+     * @return the CSV document, header row first
      */
-    public String exportStockMovementsToCsv() {
-        StringBuilder csv = new StringBuilder(MOVEMENTS_CSV_HEADER).append('\n');
+    public String exportStockMovementsCsv() {
+        StringBuilder csv = new StringBuilder(MOVEMENTS_CSV_HEADER).append("\r\n");
         for (StockMovement movement : stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))) {
-            csv.append(toCsvRow(movement)).append('\n');
+            Product product = movement.getProduct();
+            csv.append(movement.getId()).append(',')
+                    .append(product.getId()).append(',')
+                    .append(escape(product.getSku())).append(',')
+                    .append(movement.getType().name()).append(',')
+                    .append(movement.getQuantity()).append(',')
+                    .append(escape(movement.getNote())).append(',')
+                    .append(movement.getCreatedAt()).append("\r\n");
         }
         return csv.toString();
     }
 
-    private String toCsvRow(StockMovement movement) {
-        return String.join(",",
-                String.valueOf(movement.getId()),
-                String.valueOf(movement.getProduct().getId()),
-                escapeCsv(movement.getProduct().getSku()),
-                movement.getType().name(),
-                String.valueOf(movement.getQuantity()),
-                escapeCsv(movement.getNote()),
-                movement.getCreatedAt().toString());
-    }
-
-    private String toCsvRow(Product product) {
-        Category category = product.getCategory();
-        BigDecimal stockValue = product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity()));
-        return String.join(",",
-                String.valueOf(product.getId()),
-                escapeCsv(product.getSku()),
-                escapeCsv(product.getName()),
-                escapeCsv(category == null ? "" : category.getName()),
-                String.valueOf(product.getQuantity()),
-                product.getPrice().toPlainString(),
-                stockValue.toPlainString());
-    }
-
-    private String escapeCsv(String value) {
+    /**
+     * Escapes a value for CSV output per RFC 4180: fields containing a comma, double quote,
+     * or line break are wrapped in double quotes with embedded quotes doubled.
+     *
+     * @param value the raw field value (may be {@code null})
+     * @return the escaped field
+     */
+    private static String escape(String value) {
         if (value == null) {
             return "";
         }
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n") || value.contains("\r")) {
+            return '"' + value.replace("\"", "\"\"") + '"';
         }
         return value;
     }

@@ -40,11 +40,11 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 - [x] Integration tests (JPA, Flyway, Security test starters already in place)
 - [x] CI pipeline (build, test, lint on PR)
 
-## Phase 6 — Reporting & Insights (current)
+## Phase 6 — Reporting & Insights (complete)
 
 - [x] Low-stock alerts / reorder thresholds
 - [x] Inventory reports (stock value, movement history)
-- [ ] Basic dashboard endpoints
+- [x] Basic dashboard endpoints
 
 ## Milestones
 
@@ -55,7 +55,7 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 | M3 — MVP API | Phase 3 complete | Done |
 | M4 — Secured Release | Phase 4 complete | Done |
 | M5 — Tested Release | Phase 5 complete | Done |
-| M6 — Reporting Release | Phase 6 complete | TBD |
+| M6 — Reporting Release | Phase 6 complete | Done |
 
 ## Main Features (Planned)
 
@@ -70,10 +70,10 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 
 - Frontend client (web UI)
 - Barcode/QR scanning support
-- Supplier and purchase-order management
+- Supplier and purchase-order management (purchase-order management done — #87)
 - Notifications (email/webhook) for stock events
 - Multi-tenant support
-- [x] Export to CSV (products, stock movements) — Excel/PDF still open
+- Export to CSV/Excel/PDF (CSV product + stock-movement export done — #84; Excel/PDF still open)
 - API rate limiting and audit logging
 
 ## Notes

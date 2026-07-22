@@ -45,26 +45,28 @@ class ReportControllerTest {
     }
 
     @Test
-    void exportProductsCsvReturnsAttachment() throws Exception {
-        when(reportService.exportProductsToCsv()).thenReturn("id,sku,name,category,quantity,price,stockValue\n");
+    void exportProductsCsvReturnsDownloadableCsv() throws Exception {
+        String csv = "id,sku,name,category,quantity,price,stock_value\r\n1,SKU-1,Hammer,Tools,3,10.00,30.00\r\n";
+        when(reportService.exportProductsCsv()).thenReturn(csv);
 
-        mockMvc.perform(get("/api/reports/export/products"))
+        mockMvc.perform(get("/api/reports/products.csv"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"products.csv\""))
-                .andExpect(content().string("id,sku,name,category,quantity,price,stockValue\n"));
+                .andExpect(content().string(csv));
     }
 
     @Test
-    void exportStockMovementsCsvReturnsAttachment() throws Exception {
-        when(reportService.exportStockMovementsToCsv())
-                .thenReturn("id,productId,productSku,type,quantity,note,createdAt\n");
+    void exportStockMovementsCsvReturnsDownloadableCsv() throws Exception {
+        String csv = "id,productId,productSku,type,quantity,note,createdAt\r\n"
+                + "9,3,SKU-3,IN,5,restock,2026-01-02T03:04:05Z\r\n";
+        when(reportService.exportStockMovementsCsv()).thenReturn(csv);
 
         mockMvc.perform(get("/api/reports/export/movements"))
                 .andExpect(status().isOk())
-                .andExpect(header().string("Content-Type", "text/csv;charset=UTF-8"))
+                .andExpect(content().contentTypeCompatibleWith("text/csv"))
                 .andExpect(header().string("Content-Disposition", "attachment; filename=\"movements.csv\""))
-                .andExpect(content().string("id,productId,productSku,type,quantity,note,createdAt\n"));
+                .andExpect(content().string(csv));
     }
 
 }

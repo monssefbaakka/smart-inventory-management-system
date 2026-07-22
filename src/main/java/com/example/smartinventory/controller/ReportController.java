@@ -23,6 +23,12 @@ import lombok.RequiredArgsConstructor;
 @Tag(name = "Reports", description = "Aggregate inventory reporting endpoints")
 public class ReportController {
 
+    /** File name offered to clients downloading the product inventory CSV. */
+    static final String CSV_FILENAME = "products.csv";
+
+    /** File name offered to clients downloading the stock-movement CSV. */
+    static final String MOVEMENTS_CSV_FILENAME = "movements.csv";
+
     private final ReportService reportService;
 
     @GetMapping("/stock-value")
@@ -31,30 +37,30 @@ public class ReportController {
     }
 
     /**
-     * Downloads all products as a CSV attachment.
+     * Streams the full product inventory as a downloadable CSV attachment.
      *
-     * @return the CSV file as an octet response with a {@code Content-Disposition} header
+     * @return the CSV document with a {@code text/csv} content type and attachment disposition
      */
-    @GetMapping("/export/products")
+    @GetMapping(value = "/products.csv", produces = "text/csv")
     public ResponseEntity<byte[]> exportProductsCsv() {
-        return csvAttachment(reportService.exportProductsToCsv(), "products.csv");
+        return csvAttachment(reportService.exportProductsCsv(), CSV_FILENAME);
     }
 
     /**
-     * Downloads all stock movements as a CSV attachment, most recent first.
+     * Streams all stock movements as a downloadable CSV attachment, most recent first.
      *
-     * @return the CSV file as an octet response with a {@code Content-Disposition} header
+     * @return the CSV document with a {@code text/csv} content type and attachment disposition
      */
-    @GetMapping("/export/movements")
+    @GetMapping(value = "/export/movements", produces = "text/csv")
     public ResponseEntity<byte[]> exportStockMovementsCsv() {
-        return csvAttachment(reportService.exportStockMovementsToCsv(), "movements.csv");
+        return csvAttachment(reportService.exportStockMovementsCsv(), MOVEMENTS_CSV_FILENAME);
     }
 
     private ResponseEntity<byte[]> csvAttachment(String csv, String filename) {
         ContentDisposition disposition = ContentDisposition.attachment().filename(filename).build();
         return ResponseEntity.ok()
-                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(new MediaType("text", "csv", StandardCharsets.UTF_8))
                 .body(csv.getBytes(StandardCharsets.UTF_8));
     }
 

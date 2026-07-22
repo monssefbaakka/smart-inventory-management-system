@@ -5,6 +5,7 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -53,137 +54,81 @@ class ReportServiceTest {
     }
 
     @Test
-    void exportProductsToCsvIncludesHeaderOnlyWhenNoProducts() {
+    void exportProductsCsvWritesHeaderOnlyWhenNoProducts() {
         when(productRepository.findAll()).thenReturn(List.of());
 
-        String csv = reportService.exportProductsToCsv();
+        String csv = reportService.exportProductsCsv();
 
-        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stockValue\n");
+        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stock_value\r\n");
     }
 
     @Test
-    void exportProductsToCsvWritesOneRowPerProduct() {
-        Category category = Category.builder().id(1L).name("Widgets").build();
-        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").category(category)
-                .price(new BigDecimal("10.00")).quantity(3).build();
-        when(productRepository.findAll()).thenReturn(List.of(product));
+    void exportProductsCsvWritesRowPerProductWithComputedStockValue() {
+        Category tools = Category.builder().name("Tools").build();
+        Product a = Product.builder().id(1L).sku("SKU-1").name("Hammer")
+                .category(tools).price(new BigDecimal("10.00")).quantity(3).build();
+        Product b = Product.builder().id(2L).sku("SKU-2").name("Nail")
+                .price(new BigDecimal("2.50")).quantity(4).build();
+        when(productRepository.findAll()).thenReturn(List.of(a, b));
 
-        String csv = reportService.exportProductsToCsv();
+        String csv = reportService.exportProductsCsv();
 
-        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stockValue\n"
-                + "1,SKU-1,Widget,Widgets,3,10.00,30.00\n");
+        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stock_value\r\n"
+                + "1,SKU-1,Hammer,Tools,3,10.00,30.00\r\n"
+                + "2,SKU-2,Nail,,4,2.50,10.00\r\n");
     }
 
     @Test
-    void exportProductsToCsvHandlesMissingCategory() {
-        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").category(null)
-                .price(new BigDecimal("10.00")).quantity(3).build();
-        when(productRepository.findAll()).thenReturn(List.of(product));
+    void exportProductsCsvEscapesFieldsContainingCommasAndQuotes() {
+        Category odd = Category.builder().name("Power, Tools").build();
+        Product a = Product.builder().id(1L).sku("SKU-1").name("12\" \"Wrench\"")
+                .category(odd).price(new BigDecimal("5.00")).quantity(1).build();
+        when(productRepository.findAll()).thenReturn(List.of(a));
 
-        String csv = reportService.exportProductsToCsv();
+        String csv = reportService.exportProductsCsv();
 
-        assertThat(csv).contains("1,SKU-1,Widget,,3,10.00,30.00");
+        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stock_value\r\n"
+                + "1,SKU-1,\"12\"\" \"\"Wrench\"\"\",\"Power, Tools\",1,5.00,5.00\r\n");
     }
 
     @Test
-    void exportProductsToCsvEscapesCommasAndQuotesInName() {
-        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget, \"Deluxe\"")
-                .price(new BigDecimal("10.00")).quantity(1).build();
-        when(productRepository.findAll()).thenReturn(List.of(product));
+    void exportStockMovementsCsvWritesHeaderOnlyWhenNoMovements() {
+        when(stockMovementRepository.findAll(any(Sort.class))).thenReturn(List.of());
 
-        String csv = reportService.exportProductsToCsv();
+        String csv = reportService.exportStockMovementsCsv();
 
-        assertThat(csv).contains("\"Widget, \"\"Deluxe\"\"\"");
+        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\r\n");
     }
 
     @Test
-    void exportProductsToCsvWritesMultipleRowsInRepositoryOrder() {
-        Product first = Product.builder().id(1L).sku("SKU-1").name("Widget")
-                .price(new BigDecimal("10.00")).quantity(1).build();
-        Product second = Product.builder().id(2L).sku("SKU-2").name("Gadget")
-                .price(new BigDecimal("5.00")).quantity(2).build();
-        when(productRepository.findAll()).thenReturn(List.of(first, second));
+    void exportStockMovementsCsvWritesRowPerMovement() {
+        Product product = Product.builder().id(3L).sku("SKU-3").build();
+        Instant when = Instant.parse("2026-01-02T03:04:05Z");
+        StockMovement movement = StockMovement.builder().id(9L).product(product).type(MovementType.IN)
+                .quantity(5).note("restock").createdAt(when).build();
+        when(stockMovementRepository.findAll(any(Sort.class))).thenReturn(List.of(movement));
 
-        String csv = reportService.exportProductsToCsv();
+        String csv = reportService.exportStockMovementsCsv();
 
-        assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stockValue\n"
-                + "1,SKU-1,Widget,,1,10.00,10.00\n"
-                + "2,SKU-2,Gadget,,2,5.00,10.00\n");
+        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\r\n"
+                + "9,3,SKU-3,IN,5,restock,2026-01-02T03:04:05Z\r\n");
     }
 
     @Test
-    void exportStockMovementsToCsvIncludesHeaderOnlyWhenNoMovements() {
-        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of());
+    void exportStockMovementsCsvEscapesNoteAndHandlesNullNote() {
+        Product product = Product.builder().id(3L).sku("SKU-3").build();
+        Instant when = Instant.parse("2026-01-02T03:04:05Z");
+        StockMovement withComma = StockMovement.builder().id(1L).product(product).type(MovementType.OUT)
+                .quantity(2).note("sold, urgent").createdAt(when).build();
+        StockMovement noNote = StockMovement.builder().id(2L).product(product).type(MovementType.ADJUSTMENT)
+                .quantity(7).createdAt(when).build();
+        when(stockMovementRepository.findAll(any(Sort.class))).thenReturn(List.of(withComma, noNote));
 
-        String csv = reportService.exportStockMovementsToCsv();
+        String csv = reportService.exportStockMovementsCsv();
 
-        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n");
-    }
-
-    @Test
-    void exportStockMovementsToCsvWritesOneRowPerMovement() {
-        Product product = Product.builder().id(1L).sku("SKU-1").build();
-        StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN)
-                .quantity(5).note("restock").createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
-        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of(movement));
-
-        String csv = reportService.exportStockMovementsToCsv();
-
-        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n"
-                + "1,1,SKU-1,IN,5,restock,2026-07-20T10:00:00Z\n");
-    }
-
-    @Test
-    void exportStockMovementsToCsvWritesMultipleRowsInRepositoryOrder() {
-        Product product = Product.builder().id(1L).sku("SKU-1").build();
-        StockMovement first = StockMovement.builder().id(2L).product(product).type(MovementType.OUT)
-                .quantity(1).note(null).createdAt(Instant.parse("2026-07-20T11:00:00Z")).build();
-        StockMovement second = StockMovement.builder().id(1L).product(product).type(MovementType.IN)
-                .quantity(5).note("restock").createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
-        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt")))
-                .thenReturn(List.of(first, second));
-
-        String csv = reportService.exportStockMovementsToCsv();
-
-        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n"
-                + "2,1,SKU-1,OUT,1,,2026-07-20T11:00:00Z\n"
-                + "1,1,SKU-1,IN,5,restock,2026-07-20T10:00:00Z\n");
-    }
-
-    @Test
-    void exportStockMovementsToCsvEscapesCommaInNote() {
-        Product product = Product.builder().id(1L).sku("SKU-1").build();
-        StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.OUT)
-                .quantity(2).note("damaged, written off").createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
-        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of(movement));
-
-        String csv = reportService.exportStockMovementsToCsv();
-
-        assertThat(csv).contains("\"damaged, written off\"");
-    }
-
-    @Test
-    void exportStockMovementsToCsvHandlesNullNote() {
-        Product product = Product.builder().id(1L).sku("SKU-1").build();
-        StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.ADJUSTMENT)
-                .quantity(10).note(null).createdAt(Instant.parse("2026-07-20T10:00:00Z")).build();
-        when(stockMovementRepository.findAll(Sort.by(Sort.Direction.DESC, "createdAt"))).thenReturn(List.of(movement));
-
-        String csv = reportService.exportStockMovementsToCsv();
-
-        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\n"
-                + "1,1,SKU-1,ADJUSTMENT,10,,2026-07-20T10:00:00Z\n");
-    }
-
-    @Test
-    void exportProductsToCsvHandlesZeroQuantity() {
-        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget")
-                .price(new BigDecimal("10.00")).quantity(0).build();
-        when(productRepository.findAll()).thenReturn(List.of(product));
-
-        String csv = reportService.exportProductsToCsv();
-
-        assertThat(csv).contains("1,SKU-1,Widget,,0,10.00,0.00");
+        assertThat(csv).isEqualTo("id,productId,productSku,type,quantity,note,createdAt\r\n"
+                + "1,3,SKU-3,OUT,2,\"sold, urgent\",2026-01-02T03:04:05Z\r\n"
+                + "2,3,SKU-3,ADJUSTMENT,7,,2026-01-02T03:04:05Z\r\n");
     }
 
 }
