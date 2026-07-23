@@ -16,6 +16,11 @@ import com.example.smartinventory.dto.StockMovementRequest;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.service.StockMovementService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -38,7 +43,19 @@ public class StockMovementController {
      */
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<StockMovement> record(@PathVariable Long productId,
+    @Operation(summary = "Record a stock movement",
+            description = "Records an IN, OUT or ADJUSTMENT movement and applies it to the product's "
+                    + "quantity. Requires the ADMIN role.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "201", description = "Movement recorded"),
+        @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Product not found", content = @Content),
+        @ApiResponse(responseCode = "409", description = "OUT movement exceeds available stock",
+                content = @Content)
+    })
+    public ResponseEntity<StockMovement> record(
+            @Parameter(description = "Identifier of the affected product") @PathVariable Long productId,
             @Valid @RequestBody StockMovementRequest request) {
         StockMovement movement = stockMovementService.record(productId, request.type(), request.quantity(),
                 request.note());
@@ -46,7 +63,14 @@ public class StockMovementController {
     }
 
     @GetMapping
-    public ResponseEntity<List<StockMovement>> findByProduct(@PathVariable Long productId) {
+    @Operation(summary = "List stock movements for a product",
+            description = "Returns the product's stock movement history, most recent first.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Movement history returned"),
+        @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
+    })
+    public ResponseEntity<List<StockMovement>> findByProduct(
+            @Parameter(description = "Identifier of the product") @PathVariable Long productId) {
         return ResponseEntity.ok(stockMovementService.findByProduct(productId));
     }
 
