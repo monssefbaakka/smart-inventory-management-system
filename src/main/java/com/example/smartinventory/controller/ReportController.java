@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.service.ReportService;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -32,6 +34,9 @@ public class ReportController {
     private final ReportService reportService;
 
     @GetMapping("/stock-value")
+    @Operation(summary = "Total stock value",
+            description = "Returns the sum of price multiplied by quantity across all products.")
+    @ApiResponse(responseCode = "200", description = "Total stock value returned")
     public ResponseEntity<BigDecimal> totalStockValue() {
         return ResponseEntity.ok(reportService.totalStockValue());
     }
@@ -42,6 +47,9 @@ public class ReportController {
      * @return the CSV document with a {@code text/csv} content type and attachment disposition
      */
     @GetMapping(value = "/products.csv", produces = "text/csv")
+    @Operation(summary = "Export products as CSV",
+            description = "Downloads the full product inventory as a text/csv attachment.")
+    @ApiResponse(responseCode = "200", description = "CSV document returned")
     public ResponseEntity<byte[]> exportProductsCsv() {
         return csvAttachment(reportService.exportProductsCsv(), CSV_FILENAME);
     }
@@ -52,6 +60,9 @@ public class ReportController {
      * @return the CSV document with a {@code text/csv} content type and attachment disposition
      */
     @GetMapping(value = "/export/movements", produces = "text/csv")
+    @Operation(summary = "Export stock movements as CSV",
+            description = "Downloads all stock movements (most recent first) as a text/csv attachment.")
+    @ApiResponse(responseCode = "200", description = "CSV document returned")
     public ResponseEntity<byte[]> exportStockMovementsCsv() {
         return csvAttachment(reportService.exportStockMovementsCsv(), MOVEMENTS_CSV_FILENAME);
     }
