@@ -1,5 +1,5 @@
 # Build stage
-FROM maven:3.9.6-eclipse-temurin-17-alpine AS builder
+FROM maven:3.9.15-eclipse-temurin-26-alpine AS builder
 WORKDIR /app
 
 # Copy the pom.xml and resolve dependencies to leverage Docker cache
