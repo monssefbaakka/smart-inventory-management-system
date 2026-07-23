@@ -13,6 +13,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
 - **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), with received goods flowing through the stock-movement audit trail.
+- **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 
 ---
 
@@ -122,3 +123,18 @@ To start the application locally:
 ```bash
 ./mvnw spring-boot:run
 ```
+
+### API Documentation (Swagger / OpenAPI)
+
+Once the application is running, the REST API is documented interactively:
+
+| Resource | URL |
+| :--- | :--- |
+| **Swagger UI** | http://localhost:8080/swagger-ui.html |
+| **OpenAPI JSON** | http://localhost:8080/v3/api-docs |
+
+Both are publicly accessible (no token required). To call protected endpoints from Swagger UI:
+
+1. Register or log in via the **Auth** endpoints (`POST /api/auth/register` or `POST /api/auth/login`) and copy the returned `token`.
+2. Click the **Authorize** button, paste the token (without the `Bearer ` prefix) and confirm.
+3. Swagger UI now sends `Authorization: Bearer <token>` on every request. Write operations still require the `ADMIN` role.

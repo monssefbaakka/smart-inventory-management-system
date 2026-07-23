@@ -43,7 +43,7 @@ implemented in repo but GitHub issue not yet closed
 | 25 | Create ProductController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 26 | Create CategoryController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 27 | Create SupplierController | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 28 | Swagger/OpenAPI | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 28 | Swagger/OpenAPI | ![working](https://img.shields.io/badge/status-working-blue) |
 | 29 | Configure Spring Security | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 30 | JWT Authentication | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 31 | Role-based Authorization | ![done](https://img.shields.io/badge/status-done-brightgreen) |
