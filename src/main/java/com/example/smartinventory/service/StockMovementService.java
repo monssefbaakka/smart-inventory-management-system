@@ -23,6 +23,7 @@ public class StockMovementService {
     private final StockMovementRepository stockMovementRepository;
     private final ProductRepository productRepository;
     private final ProductService productService;
+    private final StockEventNotificationService stockEventNotificationService;
 
     /**
      * Records a stock movement for a product and applies it to the product's quantity.
@@ -59,7 +60,11 @@ public class StockMovementService {
                 .quantity(quantity)
                 .note(note)
                 .build();
-        return stockMovementRepository.save(movement);
+        StockMovement saved = stockMovementRepository.save(movement);
+
+        stockEventNotificationService.evaluate(product);
+
+        return saved;
     }
 
     /**
