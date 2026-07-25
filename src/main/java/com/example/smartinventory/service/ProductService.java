@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.exception.ResourceNotFoundException;
+import com.example.smartinventory.model.AuditAction;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.repository.ProductRepository;
 
@@ -17,10 +18,22 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class ProductService {
 
-    private final ProductRepository productRepository;
+    /** Entity type name recorded in the audit log for product mutations. */
+    static final String AUDIT_ENTITY_TYPE = "Product";
 
+    private final ProductRepository productRepository;
+    private final AuditService auditService;
+
+    /**
+     * Persists a new product and records a {@code CREATE} audit entry.
+     *
+     * @param product the product to create
+     * @return the persisted product
+     */
     public Product create(Product product) {
-        return productRepository.save(product);
+        Product saved = productRepository.save(product);
+        auditService.record(AUDIT_ENTITY_TYPE, saved.getId(), AuditAction.CREATE);
+        return saved;
     }
 
     @Transactional(readOnly = true)
@@ -63,11 +76,20 @@ public class ProductService {
         }
         existing.setCategory(updatedProduct.getCategory());
         existing.setSupplier(updatedProduct.getSupplier());
-        return productRepository.save(existing);
+        Product saved = productRepository.save(existing);
+        auditService.record(AUDIT_ENTITY_TYPE, saved.getId(), AuditAction.UPDATE);
+        return saved;
     }
 
+    /**
+     * Deletes the product identified by {@code id} and records a {@code DELETE} audit entry.
+     *
+     * @param id identifier of the product to delete
+     */
     public void delete(Long id) {
-        productRepository.delete(findById(id));
+        Product existing = findById(id);
+        productRepository.delete(existing);
+        auditService.record(AUDIT_ENTITY_TYPE, existing.getId(), AuditAction.DELETE);
     }
 
 }
