@@ -1,8 +1,17 @@
 package com.example.smartinventory.service;
 
 import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.math.BigDecimal;
 
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,7 +24,6 @@ import com.example.smartinventory.repository.StockMovementRepository;
 import com.lowagie.text.Document;
 import com.lowagie.text.DocumentException;
 import com.lowagie.text.Element;
-import com.lowagie.text.Font;
 import com.lowagie.text.FontFactory;
 import com.lowagie.text.PageSize;
 import com.lowagie.text.Paragraph;
@@ -37,6 +45,9 @@ public class ReportService {
 
     /** Header row for the stock-movement CSV export. */
     static final String MOVEMENTS_CSV_HEADER = "id,productId,productSku,type,quantity,note,createdAt";
+
+    /** Column headers for the product inventory Excel export. */
+    static final String[] XLSX_HEADERS = {"id", "sku", "name", "category", "quantity", "price", "stock_value"};
 
     /** Column headers for the product inventory PDF export. */
     static final String[] PDF_HEADERS = {"id", "sku", "name", "category", "quantity", "price", "stock_value"};
@@ -103,6 +114,54 @@ public class ReportService {
     }
 
     /**
+     * Renders the full product inventory as an {@code .xlsx} workbook. The single sheet carries a
+     * bold header row followed by one row per product, with quantity, price, and computed stock
+     * value ({@code price * quantity}) written as numeric cells.
+     *
+     * @return the workbook serialized to a byte array
+     */
+    public byte[] exportProductsXlsx() {
+        try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            Sheet sheet = workbook.createSheet("Products");
+
+            CellStyle headerStyle = workbook.createCellStyle();
+            Font headerFont = workbook.createFont();
+            headerFont.setBold(true);
+            headerStyle.setFont(headerFont);
+
+            Row header = sheet.createRow(0);
+            for (int i = 0; i < XLSX_HEADERS.length; i++) {
+                Cell cell = header.createCell(i);
+                cell.setCellValue(XLSX_HEADERS[i]);
+                cell.setCellStyle(headerStyle);
+            }
+
+            int rowIndex = 1;
+            for (Product product : productRepository.findAll()) {
+                Category category = product.getCategory();
+                BigDecimal stockValue = product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity()));
+                Row row = sheet.createRow(rowIndex++);
+                row.createCell(0).setCellValue(product.getId());
+                row.createCell(1).setCellValue(product.getSku());
+                row.createCell(2).setCellValue(product.getName());
+                row.createCell(3).setCellValue(category == null ? "" : category.getName());
+                row.createCell(4).setCellValue(product.getQuantity());
+                row.createCell(5).setCellValue(product.getPrice().doubleValue());
+                row.createCell(6).setCellValue(stockValue.doubleValue());
+            }
+
+            for (int i = 0; i < XLSX_HEADERS.length; i++) {
+                sheet.autoSizeColumn(i);
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        } catch (IOException ex) {
+            throw new UncheckedIOException("Failed to generate product inventory workbook", ex);
+        }
+    }
+
+    /**
      * Renders the full product inventory as a PDF document: a title followed by a table with a
      * shaded header row and one row per product (id, sku, name, category, quantity, price, and
      * computed stock value, {@code price * quantity}).
@@ -116,7 +175,7 @@ public class ReportService {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            com.lowagie.text.Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
             Paragraph title = new Paragraph("Product Inventory", titleFont);
             title.setSpacingAfter(12);
             document.add(title);
@@ -124,7 +183,7 @@ public class ReportService {
             PdfPTable table = new PdfPTable(PDF_HEADERS.length);
             table.setWidthPercentage(100);
 
-            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+            com.lowagie.text.Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
             for (String header : PDF_HEADERS) {
                 PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
                 cell.setHorizontalAlignment(Element.ALIGN_CENTER);

@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -8,6 +9,10 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -117,6 +122,52 @@ class ReportServiceTest {
 
         assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stock_value\r\n"
                 + "1,SKU-1,\"12\"\" \"\"Wrench\"\"\",\"Power, Tools\",1,5.00,5.00\r\n");
+    }
+
+    @Test
+    void exportProductsXlsxWritesHeaderOnlyWhenNoProducts() throws Exception {
+        when(productRepository.findAll()).thenReturn(List.of());
+
+        byte[] bytes = reportService.exportProductsXlsx();
+
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getSheetName()).isEqualTo("Products");
+            assertThat(sheet.getLastRowNum()).isZero();
+            Row header = sheet.getRow(0);
+            assertThat(header.getCell(0).getStringCellValue()).isEqualTo("id");
+            assertThat(header.getCell(6).getStringCellValue()).isEqualTo("stock_value");
+        }
+    }
+
+    @Test
+    void exportProductsXlsxWritesRowPerProductWithNumericCells() throws Exception {
+        Category tools = Category.builder().name("Tools").build();
+        Product a = Product.builder().id(1L).sku("SKU-1").name("Hammer")
+                .category(tools).price(new BigDecimal("10.00")).quantity(3).build();
+        Product b = Product.builder().id(2L).sku("SKU-2").name("Nail")
+                .price(new BigDecimal("2.50")).quantity(4).build();
+        when(productRepository.findAll()).thenReturn(List.of(a, b));
+
+        byte[] bytes = reportService.exportProductsXlsx();
+
+        try (Workbook workbook = new XSSFWorkbook(new ByteArrayInputStream(bytes))) {
+            Sheet sheet = workbook.getSheetAt(0);
+            assertThat(sheet.getLastRowNum()).isEqualTo(2);
+
+            Row first = sheet.getRow(1);
+            assertThat(first.getCell(0).getNumericCellValue()).isEqualTo(1.0);
+            assertThat(first.getCell(1).getStringCellValue()).isEqualTo("SKU-1");
+            assertThat(first.getCell(2).getStringCellValue()).isEqualTo("Hammer");
+            assertThat(first.getCell(3).getStringCellValue()).isEqualTo("Tools");
+            assertThat(first.getCell(4).getNumericCellValue()).isEqualTo(3.0);
+            assertThat(first.getCell(5).getNumericCellValue()).isEqualTo(10.0);
+            assertThat(first.getCell(6).getNumericCellValue()).isEqualTo(30.0);
+
+            Row second = sheet.getRow(2);
+            assertThat(second.getCell(3).getStringCellValue()).isEmpty();
+            assertThat(second.getCell(6).getNumericCellValue()).isEqualTo(10.0);
+        }
     }
 
     @Test
