@@ -31,6 +31,9 @@ public class ReportController {
     /** File name offered to clients downloading the stock-movement CSV. */
     static final String MOVEMENTS_CSV_FILENAME = "movements.csv";
 
+    /** File name offered to clients downloading the product inventory PDF. */
+    static final String PDF_FILENAME = "products.pdf";
+
     private final ReportService reportService;
 
     @GetMapping("/stock-value")
@@ -65,6 +68,23 @@ public class ReportController {
     @ApiResponse(responseCode = "200", description = "CSV document returned")
     public ResponseEntity<byte[]> exportStockMovementsCsv() {
         return csvAttachment(reportService.exportStockMovementsCsv(), MOVEMENTS_CSV_FILENAME);
+    }
+
+    /**
+     * Streams the full product inventory as a downloadable PDF attachment.
+     *
+     * @return the PDF document with an {@code application/pdf} content type and attachment disposition
+     */
+    @GetMapping(value = "/products.pdf", produces = MediaType.APPLICATION_PDF_VALUE)
+    @Operation(summary = "Export products as PDF",
+            description = "Downloads the full product inventory as an application/pdf attachment.")
+    @ApiResponse(responseCode = "200", description = "PDF document returned")
+    public ResponseEntity<byte[]> exportProductsPdf() {
+        ContentDisposition disposition = ContentDisposition.attachment().filename(PDF_FILENAME).build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(reportService.exportProductsPdf());
     }
 
     private ResponseEntity<byte[]> csvAttachment(String csv, String filename) {

@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 
 import org.springframework.data.domain.Sort;
@@ -11,6 +12,17 @@ import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.repository.ProductRepository;
 import com.example.smartinventory.repository.StockMovementRepository;
+import com.lowagie.text.Document;
+import com.lowagie.text.DocumentException;
+import com.lowagie.text.Element;
+import com.lowagie.text.Font;
+import com.lowagie.text.FontFactory;
+import com.lowagie.text.PageSize;
+import com.lowagie.text.Paragraph;
+import com.lowagie.text.Phrase;
+import com.lowagie.text.pdf.PdfPCell;
+import com.lowagie.text.pdf.PdfPTable;
+import com.lowagie.text.pdf.PdfWriter;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +37,9 @@ public class ReportService {
 
     /** Header row for the stock-movement CSV export. */
     static final String MOVEMENTS_CSV_HEADER = "id,productId,productSku,type,quantity,note,createdAt";
+
+    /** Column headers for the product inventory PDF export. */
+    static final String[] PDF_HEADERS = {"id", "sku", "name", "category", "quantity", "price", "stock_value"};
 
     private final ProductRepository productRepository;
 
@@ -85,6 +100,56 @@ public class ReportService {
                     .append(movement.getCreatedAt()).append("\r\n");
         }
         return csv.toString();
+    }
+
+    /**
+     * Renders the full product inventory as a PDF document: a title followed by a table with a
+     * shaded header row and one row per product (id, sku, name, category, quantity, price, and
+     * computed stock value, {@code price * quantity}).
+     *
+     * @return the PDF document serialized to a byte array
+     */
+    public byte[] exportProductsPdf() {
+        Document document = new Document(PageSize.A4.rotate());
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        try {
+            PdfWriter.getInstance(document, out);
+            document.open();
+
+            Font titleFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 16);
+            Paragraph title = new Paragraph("Product Inventory", titleFont);
+            title.setSpacingAfter(12);
+            document.add(title);
+
+            PdfPTable table = new PdfPTable(PDF_HEADERS.length);
+            table.setWidthPercentage(100);
+
+            Font headerFont = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10);
+            for (String header : PDF_HEADERS) {
+                PdfPCell cell = new PdfPCell(new Phrase(header, headerFont));
+                cell.setHorizontalAlignment(Element.ALIGN_CENTER);
+                table.addCell(cell);
+            }
+            table.setHeaderRows(1);
+
+            for (Product product : productRepository.findAll()) {
+                Category category = product.getCategory();
+                BigDecimal stockValue = product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity()));
+                table.addCell(String.valueOf(product.getId()));
+                table.addCell(product.getSku());
+                table.addCell(product.getName());
+                table.addCell(category == null ? "" : category.getName());
+                table.addCell(String.valueOf(product.getQuantity()));
+                table.addCell(product.getPrice().toPlainString());
+                table.addCell(stockValue.toPlainString());
+            }
+
+            document.add(table);
+            document.close();
+            return out.toByteArray();
+        } catch (DocumentException ex) {
+            throw new IllegalStateException("Failed to generate product inventory PDF", ex);
+        }
     }
 
     /**
