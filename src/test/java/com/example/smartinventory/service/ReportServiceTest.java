@@ -2,6 +2,7 @@ package com.example.smartinventory.service;
 
 import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.List;
 
@@ -81,6 +82,33 @@ class ReportServiceTest {
         assertThat(csv).isEqualTo("id,sku,name,category,quantity,price,stock_value\r\n"
                 + "1,SKU-1,Hammer,Tools,3,10.00,30.00\r\n"
                 + "2,SKU-2,Nail,,4,2.50,10.00\r\n");
+    }
+
+    @Test
+    void exportProductsPdfProducesWellFormedPdfWhenNoProducts() {
+        when(productRepository.findAll()).thenReturn(List.of());
+
+        byte[] pdf = reportService.exportProductsPdf();
+
+        assertThat(pdf).isNotEmpty();
+        assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("%%EOF");
+    }
+
+    @Test
+    void exportProductsPdfProducesWellFormedPdfWithProducts() {
+        Category tools = Category.builder().name("Tools").build();
+        Product a = Product.builder().id(1L).sku("SKU-1").name("Hammer")
+                .category(tools).price(new BigDecimal("10.00")).quantity(3).build();
+        Product b = Product.builder().id(2L).sku("SKU-2").name("Nail")
+                .price(new BigDecimal("2.50")).quantity(4).build();
+        when(productRepository.findAll()).thenReturn(List.of(a, b));
+
+        byte[] pdf = reportService.exportProductsPdf();
+
+        assertThat(pdf).isNotEmpty();
+        assertThat(new String(pdf, 0, 5, StandardCharsets.ISO_8859_1)).isEqualTo("%PDF-");
+        assertThat(new String(pdf, StandardCharsets.ISO_8859_1)).contains("%%EOF");
     }
 
     @Test

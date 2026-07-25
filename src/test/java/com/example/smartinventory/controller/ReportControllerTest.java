@@ -70,6 +70,18 @@ class ReportControllerTest {
     }
 
     @Test
+    void exportProductsPdfReturnsDownloadablePdf() throws Exception {
+        byte[] pdf = "%PDF-1.4 body %%EOF".getBytes();
+        when(reportService.exportProductsPdf()).thenReturn(pdf);
+
+        mockMvc.perform(get("/api/reports/products.pdf"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType("application/pdf"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"products.pdf\""))
+                .andExpect(content().bytes(pdf));
+    }
+
+    @Test
     void exportStockMovementsCsvReturnsDownloadableCsv() throws Exception {
         String csv = "id,productId,productSku,type,quantity,note,createdAt\r\n"
                 + "9,3,SKU-3,IN,5,restock,2026-01-02T03:04:05Z\r\n";
