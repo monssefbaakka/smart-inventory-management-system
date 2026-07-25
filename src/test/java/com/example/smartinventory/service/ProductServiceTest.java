@@ -16,6 +16,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.smartinventory.exception.ResourceNotFoundException;
+import com.example.smartinventory.model.AuditAction;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.repository.ProductRepository;
 
@@ -24,6 +25,9 @@ class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private AuditService auditService;
 
     @InjectMocks
     private ProductService productService;
@@ -37,6 +41,7 @@ class ProductServiceTest {
 
         assertThat(result).isSameAs(product);
         verify(productRepository).save(product);
+        verify(auditService).record("Product", product.getId(), AuditAction.CREATE);
     }
 
     @Test
@@ -94,6 +99,7 @@ class ProductServiceTest {
         assertThat(result.getDescription()).isEqualTo("desc");
         assertThat(result.getPrice()).isEqualTo(BigDecimal.TEN);
         assertThat(result.getQuantity()).isEqualTo(9);
+        verify(auditService).record("Product", 1L, AuditAction.UPDATE);
     }
 
     @Test
@@ -104,6 +110,7 @@ class ProductServiceTest {
         productService.delete(1L);
 
         verify(productRepository).delete(existing);
+        verify(auditService).record("Product", 1L, AuditAction.DELETE);
     }
 
     @Test
