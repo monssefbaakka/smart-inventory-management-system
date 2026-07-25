@@ -31,6 +31,13 @@ public class ReportController {
     /** File name offered to clients downloading the stock-movement CSV. */
     static final String MOVEMENTS_CSV_FILENAME = "movements.csv";
 
+    /** File name offered to clients downloading the product inventory Excel workbook. */
+    static final String XLSX_FILENAME = "products.xlsx";
+
+    /** Content type for OOXML spreadsheet ({@code .xlsx}) documents. */
+    static final String XLSX_CONTENT_TYPE =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
     private final ReportService reportService;
 
     @GetMapping("/stock-value")
@@ -65,6 +72,23 @@ public class ReportController {
     @ApiResponse(responseCode = "200", description = "CSV document returned")
     public ResponseEntity<byte[]> exportStockMovementsCsv() {
         return csvAttachment(reportService.exportStockMovementsCsv(), MOVEMENTS_CSV_FILENAME);
+    }
+
+    /**
+     * Streams the full product inventory as a downloadable Excel ({@code .xlsx}) attachment.
+     *
+     * @return the workbook with an OOXML spreadsheet content type and attachment disposition
+     */
+    @GetMapping(value = "/products.xlsx", produces = XLSX_CONTENT_TYPE)
+    @Operation(summary = "Export products as Excel",
+            description = "Downloads the full product inventory as an .xlsx attachment.")
+    @ApiResponse(responseCode = "200", description = "Excel workbook returned")
+    public ResponseEntity<byte[]> exportProductsXlsx() {
+        ContentDisposition disposition = ContentDisposition.attachment().filename(XLSX_FILENAME).build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .contentType(MediaType.parseMediaType(XLSX_CONTENT_TYPE))
+                .body(reportService.exportProductsXlsx());
     }
 
     private ResponseEntity<byte[]> csvAttachment(String csv, String filename) {
