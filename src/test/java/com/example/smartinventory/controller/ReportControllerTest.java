@@ -57,6 +57,19 @@ class ReportControllerTest {
     }
 
     @Test
+    void exportProductsXlsxReturnsDownloadableWorkbook() throws Exception {
+        byte[] workbook = {1, 2, 3, 4};
+        when(reportService.exportProductsXlsx()).thenReturn(workbook);
+
+        mockMvc.perform(get("/api/reports/products.xlsx"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"products.xlsx\""))
+                .andExpect(content().bytes(workbook));
+    }
+
+    @Test
     void exportStockMovementsCsvReturnsDownloadableCsv() throws Exception {
         String csv = "id,productId,productSku,type,quantity,note,createdAt\r\n"
                 + "9,3,SKU-3,IN,5,restock,2026-01-02T03:04:05Z\r\n";
