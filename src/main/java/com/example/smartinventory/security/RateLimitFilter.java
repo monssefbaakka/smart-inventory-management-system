@@ -14,13 +14,13 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.example.smartinventory.dto.RateLimitDecision;
 import com.example.smartinventory.exception.ErrorResponse;
 import com.example.smartinventory.service.RateLimitService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * Rejects API requests from a caller that exceeds its request budget.

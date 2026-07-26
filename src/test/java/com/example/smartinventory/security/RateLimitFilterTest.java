@@ -24,10 +24,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 
 import com.example.smartinventory.dto.RateLimitDecision;
 import com.example.smartinventory.service.RateLimitService;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 
 import jakarta.servlet.FilterChain;
+import tools.jackson.databind.json.JsonMapper;
 
 @ExtendWith(MockitoExtension.class)
 class RateLimitFilterTest {
@@ -46,7 +45,7 @@ class RateLimitFilterTest {
 
     @BeforeEach
     void setUp() {
-        filter = new RateLimitFilter(rateLimitService, new ObjectMapper().registerModule(new JavaTimeModule()));
+        filter = new RateLimitFilter(rateLimitService, JsonMapper.builder().build());
         request = new MockHttpServletRequest("GET", "/api/products");
         request.setRemoteAddr("203.0.113.7");
         response = new MockHttpServletResponse();

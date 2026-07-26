@@ -19,9 +19,9 @@ import com.example.smartinventory.security.JwtAuthenticationFilter;
 import com.example.smartinventory.security.RateLimitFilter;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.RateLimitService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Baseline HTTP security configuration for the REST API, backed by stateless JWT authentication. */
 @Configuration
@@ -66,12 +66,12 @@ public class SecurityConfig {
      * Builds the rate-limiting filter used by the security chain.
      *
      * @param rateLimitService the limiter deciding whether a request may proceed
-     * @param objectMapper     mapper used to render the throttled error body
+     * @param jsonMapper       mapper used to render the throttled error body
      * @return the rate-limiting filter
      */
     @Bean
-    public RateLimitFilter rateLimitFilter(RateLimitService rateLimitService, ObjectMapper objectMapper) {
-        return new RateLimitFilter(rateLimitService, objectMapper);
+    public RateLimitFilter rateLimitFilter(RateLimitService rateLimitService, JsonMapper jsonMapper) {
+        return new RateLimitFilter(rateLimitService, jsonMapper);
     }
 
     /**
