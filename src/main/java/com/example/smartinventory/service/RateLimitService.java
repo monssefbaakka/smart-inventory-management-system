@@ -4,6 +4,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.LongSupplier;
 
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
@@ -45,6 +46,7 @@ public class RateLimitService {
      * @param requests      maximum requests allowed per client per window (clamped to at least 1)
      * @param windowSeconds length of the refill window in seconds (clamped to at least 1)
      */
+    @Autowired
     public RateLimitService(@Value("${rate-limit.enabled:true}") boolean enabled,
             @Value("${rate-limit.requests:100}") long requests,
             @Value("${rate-limit.window-seconds:60}") long windowSeconds) {
