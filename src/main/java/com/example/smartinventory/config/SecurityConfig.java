@@ -1,5 +1,6 @@
 package com.example.smartinventory.config;
 
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,9 +16,12 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import com.example.smartinventory.security.JwtAuthenticationFilter;
+import com.example.smartinventory.security.RateLimitFilter;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
+import com.example.smartinventory.service.RateLimitService;
 
 import lombok.RequiredArgsConstructor;
+import tools.jackson.databind.json.JsonMapper;
 
 /** Baseline HTTP security configuration for the REST API, backed by stateless JWT authentication. */
 @Configuration
@@ -39,20 +43,49 @@ public class SecurityConfig {
     /**
      * Defines the HTTP security rules applied to incoming requests.
      *
-     * @param http the {@link HttpSecurity} builder to configure
+     * @param http            the {@link HttpSecurity} builder to configure
+     * @param rateLimitFilter the request throttling filter, placed after authentication
      * @return the built {@link SecurityFilterChain}
      * @throws Exception if the security configuration cannot be built
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, RateLimitFilter rateLimitFilter)
+            throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
-                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+                .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
         return http.build();
+    }
+
+    /**
+     * Builds the rate-limiting filter used by the security chain.
+     *
+     * @param rateLimitService the limiter deciding whether a request may proceed
+     * @param jsonMapper       mapper used to render the throttled error body
+     * @return the rate-limiting filter
+     */
+    @Bean
+    public RateLimitFilter rateLimitFilter(RateLimitService rateLimitService, JsonMapper jsonMapper) {
+        return new RateLimitFilter(rateLimitService, jsonMapper);
+    }
+
+    /**
+     * Prevents Boot from also registering {@link RateLimitFilter} in the plain servlet chain, where
+     * it would run before authentication and therefore never see the authenticated principal.
+     *
+     * @param rateLimitFilter the filter to keep out of the servlet chain
+     * @return a disabled registration for the filter
+     */
+    @Bean
+    public FilterRegistrationBean<RateLimitFilter> rateLimitFilterRegistration(RateLimitFilter rateLimitFilter) {
+        FilterRegistrationBean<RateLimitFilter> registration = new FilterRegistrationBean<>(rateLimitFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     /**

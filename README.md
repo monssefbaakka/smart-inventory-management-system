@@ -20,6 +20,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
 - **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), with received goods flowing through the stock-movement audit trail.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
+- **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 
 ---
 
@@ -129,6 +130,21 @@ To start the application locally:
 ```bash
 ./mvnw spring-boot:run
 ```
+
+### Rate Limiting
+
+Requests to `/api/**` are throttled per caller — by authenticated username when a valid token is
+present, otherwise by remote address. Each response carries `X-RateLimit-Limit` and
+`X-RateLimit-Remaining`; once the budget is exhausted the API answers `429 Too Many Requests` with a
+`Retry-After` header.
+
+| Property | Environment variable | Default | Purpose |
+| :--- | :--- | :--- | :--- |
+| `rate-limit.enabled` | `RATE_LIMIT_ENABLED` | `true` | Switches rate limiting on or off |
+| `rate-limit.requests` | `RATE_LIMIT_REQUESTS` | `100` | Requests allowed per caller per window |
+| `rate-limit.window-seconds` | `RATE_LIMIT_WINDOW_SECONDS` | `60` | Length of the refill window in seconds |
+
+Counters are held in memory, so each application instance enforces its own budget.
 
 ### API Documentation (Swagger / OpenAPI)
 
