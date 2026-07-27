@@ -19,6 +19,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
+import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.security.JwtService;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.StockMovementService;
@@ -45,7 +46,7 @@ class StockMovementControllerTest {
         Product product = Product.builder().id(1L).build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN).quantity(5)
                 .build();
-        when(stockMovementService.record(1L, MovementType.IN, 5, "restock")).thenReturn(movement);
+        when(stockMovementService.record(1L, null, MovementType.IN, 5, "restock")).thenReturn(movement);
 
         mockMvc.perform(post("/api/products/1/movements")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -55,6 +56,23 @@ class StockMovementControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
                 .andExpect(jsonPath("$.type").value("IN"));
+    }
+
+    @Test
+    void recordPassesWarehouseThrough() throws Exception {
+        Product product = Product.builder().id(1L).build();
+        Warehouse warehouse = Warehouse.builder().id(7L).code("WH-1").name("Main Depot").build();
+        StockMovement movement = StockMovement.builder().id(2L).product(product).warehouse(warehouse)
+                .type(MovementType.IN).quantity(5).build();
+        when(stockMovementService.record(1L, 7L, MovementType.IN, 5, null)).thenReturn(movement);
+
+        mockMvc.perform(post("/api/products/1/movements")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"IN","quantity":5,"warehouseId":7}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.warehouse.code").value("WH-1"));
     }
 
     @Test

@@ -63,9 +63,10 @@ implemented in repo but GitHub issue not yet closed
 | 115 | Export product inventory to PDF | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 117 | Audit logging for product changes | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 119 | API rate limiting | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 121 | Barcode/QR scanning support | ![working](https://img.shields.io/badge/status-working-blue) |
+| 121 | Barcode/QR scanning support | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 123 | Multi-warehouse/location stock tracking | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #121 — Barcode/QR scanning support (PR open)
+**Working:** #123 — Multi-warehouse/location stock tracking (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

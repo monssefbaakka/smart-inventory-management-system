@@ -21,6 +21,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), with received goods flowing through the stock-movement audit trail.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
+- **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 
 ---
@@ -146,6 +147,23 @@ present, otherwise by remote address. Each response carries `X-RateLimit-Limit` 
 | `rate-limit.window-seconds` | `RATE_LIMIT_WINDOW_SECONDS` | `60` | Length of the refill window in seconds |
 
 Counters are held in memory, so each application instance enforces its own budget.
+
+### Warehouses & Stock Levels
+
+Warehouses are stocking locations, each with a unique `code`. A stock movement may name a warehouse
+(`warehouseId` in the movement payload): the movement is then applied to that warehouse's level *and*
+to the product's overall quantity, so a product's total stays the sum of what the locations hold.
+Movements recorded without a warehouse change the overall quantity only.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST/PUT/DELETE /api/warehouses` | Manage warehouses (ADMIN) |
+| `GET /api/warehouses` · `GET /api/warehouses/{id}` | Read warehouses |
+| `GET /api/warehouses/{id}/stock` | Everything stocked in one warehouse |
+| `GET /api/products/{id}/stock` | One product's stock, broken down by warehouse |
+
+An `OUT` movement against a warehouse is rejected with `409 Conflict` when that location holds too
+little stock, even if the product has enough elsewhere.
 
 ### Barcode & QR Codes
 

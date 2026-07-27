@@ -102,8 +102,8 @@ class PurchaseOrderServiceTest {
         PurchaseOrder result = purchaseOrderService.receive(9L);
 
         assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
-        verify(stockMovementService).record(3L, MovementType.IN, 5, "Purchase order #9 received");
-        verify(stockMovementService).record(4L, MovementType.IN, 2, "Purchase order #9 received");
+        verify(stockMovementService).record(3L, null, MovementType.IN, 5, "Purchase order #9 received");
+        verify(stockMovementService).record(4L, null, MovementType.IN, 2, "Purchase order #9 received");
     }
 
     @Test

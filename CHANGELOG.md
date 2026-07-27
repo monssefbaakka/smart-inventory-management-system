@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-warehouse/location stock tracking** — warehouse CRUD, per-warehouse stock levels, and stock
+  movements that apply to a named location as well as the product total (#123).
 - **Barcode/QR scanning support** — optional unique `barcode` on products, scan lookup endpoint, and
   on-demand Code 128 / QR label rendering as PNG (#121).
 
