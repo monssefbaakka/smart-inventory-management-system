@@ -56,9 +56,16 @@ implemented in repo but GitHub issue not yet closed
 | 80 | Inventory Reports (stock value, movement history) | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 82 | Basic Dashboard Endpoints | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 84 | Export inventory reports to CSV | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 87 | Supplier purchase-order management | ![working](https://img.shields.io/badge/status-working-blue) |
+| 87 | Supplier purchase-order management | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 109 | Stock event notifications (webhook) | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 111 | Email channel for stock event notifications | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 113 | Export product inventory to Excel (.xlsx) | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 115 | Export product inventory to PDF | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 117 | Audit logging for product changes | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 119 | API rate limiting | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 121 | Barcode/QR scanning support | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #85 — add stock-movement CSV export (extends #84); #87 — Supplier purchase-order management (PR open)
+**Working:** #121 — Barcode/QR scanning support (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

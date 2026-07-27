@@ -125,6 +125,58 @@ class ProductServiceTest {
     }
 
     @Test
+    void findByBarcodeReturnsProductWhenPresent() {
+        Product product = Product.builder().id(1L).name("Widget").barcode("5901234123457").build();
+        when(productRepository.findByBarcode("5901234123457")).thenReturn(Optional.of(product));
+
+        Product result = productService.findByBarcode("5901234123457");
+
+        assertThat(result).isSameAs(product);
+    }
+
+    @Test
+    void findByBarcodeThrowsWhenMissing() {
+        when(productRepository.findByBarcode("nope")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> productService.findByBarcode("nope"))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("nope");
+    }
+
+    @Test
+    void symbolContentPrefersBarcode() {
+        Product product = Product.builder().id(1L).sku("SKU-1").barcode("5901234123457").build();
+        when(productRepository.findById(1L)).thenReturn(Optional.of(product));
+
+        assertThat(productService.symbolContent(1L)).isEqualTo("5901234123457");
+    }
+
+    @Test
+    void symbolContentFallsBackToSkuWhenBarcodeMissing() {
+        Product noBarcode = Product.builder().id(1L).sku("SKU-1").build();
+        Product blankBarcode = Product.builder().id(2L).sku("SKU-2").barcode("  ").build();
+        when(productRepository.findById(1L)).thenReturn(Optional.of(noBarcode));
+        when(productRepository.findById(2L)).thenReturn(Optional.of(blankBarcode));
+
+        assertThat(productService.symbolContent(1L)).isEqualTo("SKU-1");
+        assertThat(productService.symbolContent(2L)).isEqualTo("SKU-2");
+    }
+
+    @Test
+    void updateAppliesBarcode() {
+        Product existing = Product.builder().id(1L).name("A").sku("S").price(BigDecimal.ONE).quantity(1)
+                .barcode("old-code").build();
+        Product updated = Product.builder().name("A").sku("S").price(BigDecimal.ONE).quantity(1)
+                .barcode("5901234123457").build();
+        when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product result = productService.update(1L, updated);
+
+        assertThat(result.getBarcode()).isEqualTo("5901234123457");
+    }
+
+    @Test
     void updateSetsReorderThreshold() {
         Product existing = Product.builder().id(1L).name("A").sku("S").price(BigDecimal.ONE).quantity(5)
                 .reorderThreshold(5).build();

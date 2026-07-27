@@ -3,6 +3,7 @@ package com.example.smartinventory.controller;
 import java.util.List;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.service.BarcodeService;
 import com.example.smartinventory.service.ProductService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,6 +36,8 @@ import lombok.RequiredArgsConstructor;
 public class ProductController {
 
     private final ProductService productService;
+
+    private final BarcodeService barcodeService;
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -55,6 +59,60 @@ public class ProductController {
     @ApiResponse(responseCode = "200", description = "Low-stock products returned")
     public ResponseEntity<List<Product>> findLowStock() {
         return ResponseEntity.ok(productService.findLowStockProducts());
+    }
+
+    /**
+     * Resolves a scanned barcode to the product carrying it, for scanner-driven lookups.
+     *
+     * @param barcode the symbol content read from a scanner
+     * @return the matching product
+     */
+    @GetMapping("/barcode/{barcode}")
+    @Operation(summary = "Look up a product by barcode",
+            description = "Resolves a scanned barcode symbol to the product carrying it.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Product found"),
+        @ApiResponse(responseCode = "404", description = "No product carries that barcode", content = @Content)
+    })
+    public ResponseEntity<Product> findByBarcode(
+            @Parameter(description = "Scanned barcode symbol content") @PathVariable String barcode) {
+        return ResponseEntity.ok(productService.findByBarcode(barcode));
+    }
+
+    /**
+     * Renders a printable Code 128 label for a product, encoding its barcode or, when unset, its SKU.
+     *
+     * @param id identifier of the product
+     * @return the PNG image of the barcode
+     */
+    @GetMapping(value = "/{id}/barcode.png", produces = MediaType.IMAGE_PNG_VALUE)
+    @Operation(summary = "Render a product barcode",
+            description = "Returns a Code 128 PNG encoding the product barcode, falling back to its SKU.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Barcode image returned"),
+        @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
+    })
+    public ResponseEntity<byte[]> barcodeImage(
+            @Parameter(description = "Identifier of the product") @PathVariable Long id) {
+        return png(barcodeService.generateBarcode(productService.symbolContent(id)));
+    }
+
+    /**
+     * Renders a QR code for a product, encoding its barcode or, when unset, its SKU.
+     *
+     * @param id identifier of the product
+     * @return the PNG image of the QR code
+     */
+    @GetMapping(value = "/{id}/qrcode.png", produces = MediaType.IMAGE_PNG_VALUE)
+    @Operation(summary = "Render a product QR code",
+            description = "Returns a QR PNG encoding the product barcode, falling back to its SKU.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "QR image returned"),
+        @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
+    })
+    public ResponseEntity<byte[]> qrCodeImage(
+            @Parameter(description = "Identifier of the product") @PathVariable Long id) {
+        return png(barcodeService.generateQrCode(productService.symbolContent(id)));
     }
 
     @GetMapping("/{id}")
@@ -102,6 +160,12 @@ public class ProductController {
             @Parameter(description = "Identifier of the product") @PathVariable Long id) {
         productService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private ResponseEntity<byte[]> png(byte[] image) {
+        return ResponseEntity.ok()
+                .contentType(MediaType.IMAGE_PNG)
+                .body(image);
     }
 
 }
