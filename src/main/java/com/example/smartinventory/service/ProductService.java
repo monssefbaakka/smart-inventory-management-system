@@ -42,6 +42,33 @@ public class ProductService {
                 .orElseThrow(() -> new ResourceNotFoundException("Product not found with id: " + id));
     }
 
+    /**
+     * Resolves a scanned barcode to the product carrying it.
+     *
+     * @param barcode the symbol content read from a scanner
+     * @return the matching product
+     * @throws ResourceNotFoundException if no product carries that barcode
+     */
+    @Transactional(readOnly = true)
+    public Product findByBarcode(String barcode) {
+        return productRepository.findByBarcode(barcode)
+                .orElseThrow(() -> new ResourceNotFoundException("Product not found with barcode: " + barcode));
+    }
+
+    /**
+     * Returns the content encoded into a product's printed symbols: its barcode when one is
+     * assigned, otherwise its SKU, so every product can carry a scannable label.
+     *
+     * @param id identifier of the product
+     * @return the text to encode
+     */
+    @Transactional(readOnly = true)
+    public String symbolContent(Long id) {
+        Product product = findById(id);
+        String barcode = product.getBarcode();
+        return barcode == null || barcode.isBlank() ? product.getSku() : barcode;
+    }
+
     @Transactional(readOnly = true)
     public List<Product> findAll() {
         return productRepository.findAll();
@@ -68,6 +95,7 @@ public class ProductService {
         Product existing = findById(id);
         existing.setName(updatedProduct.getName());
         existing.setSku(updatedProduct.getSku());
+        existing.setBarcode(updatedProduct.getBarcode());
         existing.setDescription(updatedProduct.getDescription());
         existing.setPrice(updatedProduct.getPrice());
         existing.setQuantity(updatedProduct.getQuantity());

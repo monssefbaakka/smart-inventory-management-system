@@ -11,6 +11,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.junit.jupiter.api.Test;
@@ -26,6 +27,7 @@ import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.security.JwtService;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
+import com.example.smartinventory.service.BarcodeService;
 import com.example.smartinventory.service.ProductService;
 
 @WebMvcTest(controllers = ProductController.class, excludeAutoConfiguration = UserDetailsServiceAutoConfiguration.class)
@@ -37,6 +39,9 @@ class ProductControllerTest {
 
     @MockitoBean
     private ProductService productService;
+
+    @MockitoBean
+    private BarcodeService barcodeService;
 
     @MockitoBean
     private JwtService jwtService;
@@ -108,6 +113,58 @@ class ProductControllerTest {
                 .andExpect(status().isNoContent());
 
         verify(productService).delete(1L);
+    }
+
+    @Test
+    void findByBarcodeReturnsProduct() throws Exception {
+        Product product = Product.builder().id(1L).name("Widget").barcode("5901234123457").build();
+        when(productService.findByBarcode("5901234123457")).thenReturn(product);
+
+        mockMvc.perform(get("/api/products/barcode/5901234123457"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.barcode").value("5901234123457"));
+    }
+
+    @Test
+    void findByBarcodeReturnsNotFoundWhenUnknown() throws Exception {
+        when(productService.findByBarcode("unknown"))
+                .thenThrow(new ResourceNotFoundException("Product not found with barcode: unknown"));
+
+        mockMvc.perform(get("/api/products/barcode/unknown"))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void barcodeImageReturnsPng() throws Exception {
+        byte[] png = {1, 2, 3};
+        when(productService.symbolContent(1L)).thenReturn("SKU-1");
+        when(barcodeService.generateBarcode("SKU-1")).thenReturn(png);
+
+        mockMvc.perform(get("/api/products/1/barcode.png"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(png));
+    }
+
+    @Test
+    void qrCodeImageReturnsPng() throws Exception {
+        byte[] png = {4, 5, 6};
+        when(productService.symbolContent(1L)).thenReturn("SKU-1");
+        when(barcodeService.generateQrCode("SKU-1")).thenReturn(png);
+
+        mockMvc.perform(get("/api/products/1/qrcode.png"))
+                .andExpect(status().isOk())
+                .andExpect(content().contentType(MediaType.IMAGE_PNG))
+                .andExpect(content().bytes(png));
+    }
+
+    @Test
+    void barcodeImageReturnsNotFoundWhenProductMissing() throws Exception {
+        when(productService.symbolContent(99L))
+                .thenThrow(new ResourceNotFoundException("Product not found with id: 99"));
+
+        mockMvc.perform(get("/api/products/99/barcode.png"))
+                .andExpect(status().isNotFound());
     }
 
     @Test

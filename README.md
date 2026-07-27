@@ -21,6 +21,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), with received goods flowing through the stock-movement audit trail.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
+- **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 
 ---
 
@@ -145,6 +146,21 @@ present, otherwise by remote address. Each response carries `X-RateLimit-Limit` 
 | `rate-limit.window-seconds` | `RATE_LIMIT_WINDOW_SECONDS` | `60` | Length of the refill window in seconds |
 
 Counters are held in memory, so each application instance enforces its own budget.
+
+### Barcode & QR Codes
+
+Each product carries an optional `barcode` field (EAN/UPC/Code 128 symbol content, unique across
+products). A scanner client posts the scanned value to the lookup endpoint to resolve it to a
+product, and label images can be rendered on demand.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `GET /api/products/barcode/{barcode}` | Resolves a scanned symbol to a product; `404` when unknown |
+| `GET /api/products/{id}/barcode.png` | Code 128 label as `image/png` |
+| `GET /api/products/{id}/qrcode.png` | QR code as `image/png` |
+
+Label endpoints encode the product's `barcode`, falling back to its `sku` when no barcode is
+assigned, so every product can be labelled and scanned.
 
 ### API Documentation (Swagger / OpenAPI)
 

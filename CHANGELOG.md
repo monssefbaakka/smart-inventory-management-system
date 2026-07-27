@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Barcode/QR scanning support** — optional unique `barcode` on products, scan lookup endpoint, and
+  on-demand Code 128 / QR label rendering as PNG (#121).
+
 ## [1.0.0] - 2026-07-23
 
 First stable release. Full inventory management platform on Spring Boot 3.x / Java 17.

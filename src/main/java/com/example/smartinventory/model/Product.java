@@ -49,6 +49,11 @@ public class Product {
     @Column(unique = true, nullable = false)
     private String sku;
 
+    /** Scannable symbol content (EAN/UPC/Code 128). Optional; unique when present. */
+    @Size(max = 64)
+    @Column(unique = true, length = 64)
+    private String barcode;
+
     @Size(max = 1000)
     @Column(length = 1000)
     private String description;
