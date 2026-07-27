@@ -60,7 +60,7 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 ## Main Features (Planned)
 
 - Product & category management
-- Multi-warehouse/location stock tracking
+- Multi-warehouse/location stock tracking (done — #123)
 - Stock movement history (in/out/adjustments)
 - Role-based access control
 - Low-stock alerts and reorder thresholds

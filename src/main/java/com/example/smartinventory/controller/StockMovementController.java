@@ -45,20 +45,21 @@ public class StockMovementController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Record a stock movement",
             description = "Records an IN, OUT or ADJUSTMENT movement and applies it to the product's "
-                    + "quantity. Requires the ADMIN role.")
+                    + "quantity, and to the named warehouse's stock level when one is given. "
+                    + "Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Movement recorded"),
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Product not found", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Product or warehouse not found", content = @Content),
         @ApiResponse(responseCode = "409", description = "OUT movement exceeds available stock",
                 content = @Content)
     })
     public ResponseEntity<StockMovement> record(
             @Parameter(description = "Identifier of the affected product") @PathVariable Long productId,
             @Valid @RequestBody StockMovementRequest request) {
-        StockMovement movement = stockMovementService.record(productId, request.type(), request.quantity(),
-                request.note());
+        StockMovement movement = stockMovementService.record(productId, request.warehouseId(), request.type(),
+                request.quantity(), request.note());
         return ResponseEntity.status(HttpStatus.CREATED).body(movement);
     }
 

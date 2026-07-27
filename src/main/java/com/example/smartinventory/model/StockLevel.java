@@ -4,8 +4,6 @@ import java.time.Instant;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
 import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -13,25 +11,28 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import jakarta.validation.constraints.NotNull;
-import jakarta.validation.constraints.Positive;
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
-/** JPA entity recording a single stock quantity change for a {@link Product}. */
+/** JPA entity holding how much of a {@link Product} sits in one {@link Warehouse}. */
 @Entity
-@Table(name = "stock_movements")
+@Table(name = "stock_levels",
+        uniqueConstraints = @UniqueConstraint(name = "uk_stock_levels_product_warehouse",
+                columnNames = {"product_id", "warehouse_id"}))
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class StockMovement {
+public class StockLevel {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,31 +43,24 @@ public class StockMovement {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    /** Location the movement applied to; absent for movements recorded without a warehouse. */
+    @NotNull
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "warehouse_id")
+    @JoinColumn(name = "warehouse_id", nullable = false)
     private Warehouse warehouse;
 
     @NotNull
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false, length = 20)
-    private MovementType type;
-
-    @NotNull
-    @Positive
+    @PositiveOrZero
     @Column(nullable = false)
-    private Integer quantity;
+    @Builder.Default
+    private Integer quantity = 0;
 
-    @Size(max = 500)
-    @Column(length = 500)
-    private String note;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt;
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
 
     @PrePersist
-    protected void onCreate() {
-        createdAt = Instant.now();
+    @PreUpdate
+    protected void onSave() {
+        updatedAt = Instant.now();
     }
 
 }

@@ -15,6 +15,10 @@ public record StockMovementRequest(
         @Schema(description = "Movement direction", example = "IN")
         MovementType type,
 
+        @Schema(description = "Optional warehouse the movement applies to; omit to move overall stock only",
+                example = "1")
+        Long warehouseId,
+
         @NotNull @Positive
         @Schema(description = "Positive quantity moved (or absolute target for ADJUSTMENT)", example = "10")
         Integer quantity,
