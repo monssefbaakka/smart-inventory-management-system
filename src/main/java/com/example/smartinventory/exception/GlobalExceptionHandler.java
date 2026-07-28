@@ -96,6 +96,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * Handles stock-count operations that are not allowed from the count's current status.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 409 response body describing the failure
+     */
+    @ExceptionHandler(InvalidStockCountStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidStockCountState(InvalidStockCountStateException ex,
+            WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
      * Handles stock transfers whose source and destination cannot take part in one.
      *
      * @param ex      the thrown exception
