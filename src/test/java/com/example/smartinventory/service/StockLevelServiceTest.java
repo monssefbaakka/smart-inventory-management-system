@@ -129,6 +129,20 @@ class StockLevelServiceTest {
     }
 
     @Test
+    void quantityOnHandReportsWhatTheWarehouseHolds() {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.of(level(12)));
+
+        assertThat(stockLevelService.quantityOnHand(1L, 7L)).isEqualTo(12);
+    }
+
+    @Test
+    void quantityOnHandIsZeroForANeverStockedProduct() {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.empty());
+
+        assertThat(stockLevelService.quantityOnHand(1L, 7L)).isZero();
+    }
+
+    @Test
     void findByWarehouseReturnsFlattenedLevels() {
         when(stockLevelRepository.findByWarehouseId(7L)).thenReturn(List.of(level(12)));
 

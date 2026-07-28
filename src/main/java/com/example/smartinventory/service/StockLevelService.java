@@ -62,6 +62,20 @@ public class StockLevelService {
     }
 
     /**
+     * Reports how much of a product a warehouse is believed to hold right now.
+     *
+     * @param productId   identifier of the product
+     * @param warehouseId identifier of the warehouse
+     * @return the quantity held, or zero when the product has never been stocked there
+     */
+    @Transactional(readOnly = true)
+    public int quantityOnHand(Long productId, Long warehouseId) {
+        return stockLevelRepository.findByProductIdAndWarehouseId(productId, warehouseId)
+                .map(level -> level.getQuantity() == null ? 0 : level.getQuantity())
+                .orElse(0);
+    }
+
+    /**
      * Returns every stocked product in a warehouse.
      *
      * @param warehouseId identifier of the warehouse

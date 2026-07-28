@@ -65,9 +65,10 @@ implemented in repo but GitHub issue not yet closed
 | 119 | API rate limiting | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 121 | Barcode/QR scanning support | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 123 | Multi-warehouse/location stock tracking | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 125 | Stock transfers between warehouses | ![working](https://img.shields.io/badge/status-working-blue) |
+| 125 | Stock transfers between warehouses | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 127 | Stocktake / cycle counting | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #125 — Stock transfers between warehouses (PR open)
+**Working:** #127 — Stocktake / cycle counting (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
