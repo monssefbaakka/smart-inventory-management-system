@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Stocktake / cycle counting** — count a warehouse line by line with the variance against the
+  expected quantity, then complete the count to apply every line as an adjustment through the shared
+  stock-movement trail (#127).
 - **Stock transfers between warehouses** — move goods from one location to another in a single call;
   both stock levels change by equal and opposite amounts, the product total is untouched, and both
   legs land in the movement history as `TRANSFER_OUT`/`TRANSFER_IN` (#125).
