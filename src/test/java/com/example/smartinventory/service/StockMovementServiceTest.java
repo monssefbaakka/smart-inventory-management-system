@@ -15,6 +15,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.smartinventory.exception.InsufficientStockException;
+import com.example.smartinventory.exception.InvalidStockTransferException;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
@@ -144,6 +145,15 @@ class StockMovementServiceTest {
 
         assertThat(result.getWarehouse()).isNull();
         verifyNoInteractions(stockLevelService, warehouseService);
+    }
+
+    @Test
+    void recordRejectsTransferLegs() {
+        assertThatThrownBy(() -> stockMovementService.record(1L, 7L, MovementType.TRANSFER_IN, 3, null))
+                .isInstanceOf(InvalidStockTransferException.class)
+                .hasMessageContaining("TRANSFER_IN");
+
+        verifyNoInteractions(productService, productRepository, stockLevelService, stockMovementRepository);
     }
 
     @Test

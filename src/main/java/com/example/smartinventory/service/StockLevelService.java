@@ -27,14 +27,15 @@ public class StockLevelService {
 
     /**
      * Applies a movement to one warehouse's level for a product, creating the level on first use.
-     * {@code IN} adds, {@code OUT} removes, and {@code ADJUSTMENT} sets the level to the given value.
+     * {@code IN} and {@code TRANSFER_IN} add, {@code OUT} and {@code TRANSFER_OUT} remove, and
+     * {@code ADJUSTMENT} sets the level to the given value.
      *
      * @param product   the product being moved
      * @param warehouse the location holding the stock
      * @param type      direction of the movement
      * @param quantity  amount moved (or the new absolute quantity for {@code ADJUSTMENT})
-     * @return the change applied to the level, which the caller mirrors onto the product's overall
-     *         quantity; negative when stock left the warehouse
+     * @return the change applied to the level; for the plain movement types the caller mirrors it onto
+     *         the product's overall quantity. Negative when stock left the warehouse.
      */
     public int apply(Product product, Warehouse warehouse, MovementType type, Integer quantity) {
         StockLevel level = stockLevelRepository
@@ -43,8 +44,8 @@ public class StockLevelService {
 
         int current = level.getQuantity() == null ? 0 : level.getQuantity();
         int delta = switch (type) {
-            case IN -> quantity;
-            case OUT -> {
+            case IN, TRANSFER_IN -> quantity;
+            case OUT, TRANSFER_OUT -> {
                 if (current < quantity) {
                     throw new InsufficientStockException(
                             "Cannot remove " + quantity + " units of product " + product.getId()
@@ -53,7 +54,6 @@ public class StockLevelService {
                 yield -quantity;
             }
             case ADJUSTMENT -> quantity - current;
-            default -> throw new IllegalArgumentException("Unsupported movement type: " + type);
         };
 
         level.setQuantity(current + delta);

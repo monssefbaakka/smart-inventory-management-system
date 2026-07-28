@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Stock transfers between warehouses** — move goods from one location to another in a single call;
+  both stock levels change by equal and opposite amounts, the product total is untouched, and both
+  legs land in the movement history as `TRANSFER_OUT`/`TRANSFER_IN` (#125).
 - **Multi-warehouse/location stock tracking** — warehouse CRUD, per-warehouse stock levels, and stock
   movements that apply to a named location as well as the product total (#123).
 - **Barcode/QR scanning support** — optional unique `barcode` on products, scan lookup endpoint, and

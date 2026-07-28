@@ -22,6 +22,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
+- **Stock Transfers:** Move goods between warehouses in one call; both locations change by equal and opposite amounts and the product's overall quantity stays put.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 
 ---
@@ -164,6 +165,38 @@ Movements recorded without a warehouse change the overall quantity only.
 
 An `OUT` movement against a warehouse is rejected with `409 Conflict` when that location holds too
 little stock, even if the product has enough elsewhere.
+
+### Stock Transfers
+
+A transfer moves stock between two warehouses in a single call. It changes *where* the stock is, not
+how much of it exists: the source level drops, the destination level rises by the same amount, and
+the product's overall quantity is untouched. Both legs are written to the movement history as
+`TRANSFER_OUT` and `TRANSFER_IN`, so every level change is still explained by a movement row.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/stock-transfers` | Move stock between two warehouses (ADMIN) |
+| `GET /api/stock-transfers` | Transfer history, most recent first |
+| `GET /api/stock-transfers?productId={id}` | Transfers of one product |
+| `GET /api/stock-transfers?warehouseId={id}` | Transfers into *or* out of one warehouse |
+| `GET /api/stock-transfers/{id}` | A single transfer |
+
+```json
+POST /api/stock-transfers
+{
+  "productId": 1,
+  "sourceWarehouseId": 1,
+  "destinationWarehouseId": 2,
+  "quantity": 10,
+  "note": "Rebalancing after regional demand spike"
+}
+```
+
+Transfers are rejected with `400 Bad Request` when both sides name the same warehouse or the
+destination is inactive, and with `409 Conflict` when the source location holds too little. Moving
+stock *out of* an inactive warehouse stays allowed, so a site being wound down can be drained.
+`TRANSFER_IN` and `TRANSFER_OUT` are not accepted by the ordinary movement endpoint — they always
+come in pairs and are written only by a transfer.
 
 ### Barcode & QR Codes
 

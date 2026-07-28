@@ -6,6 +6,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.exception.InsufficientStockException;
+import com.example.smartinventory.exception.InvalidStockTransferException;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
@@ -37,14 +38,23 @@ public class StockMovementService {
      * level, and the product's overall quantity moves by the same amount, so the product total stays
      * the sum of what the locations hold. Without a warehouse only the overall quantity changes.
      *
+     * <p>The transfer legs are not accepted here: they always come in pairs and leave the product
+     * total unchanged, so they are written by {@code StockTransferService} instead.
+     *
      * @param productId   identifier of the affected product
      * @param warehouseId identifier of the location the stock moved through, or {@code null}
      * @param type        direction of the movement
      * @param quantity    amount moved (or the new absolute quantity for {@code ADJUSTMENT})
      * @param note        optional free-text note
      * @return the persisted movement record
+     * @throws InvalidStockTransferException if {@code type} is one leg of a transfer
      */
     public StockMovement record(Long productId, Long warehouseId, MovementType type, Integer quantity, String note) {
+        if (type.isTransferLeg()) {
+            throw new InvalidStockTransferException(
+                    "Movement type " + type + " is recorded by a warehouse transfer, not as a plain movement");
+        }
+
         Product product = productService.findById(productId);
         Warehouse warehouse = warehouseId == null ? null : warehouseService.findById(warehouseId);
 
