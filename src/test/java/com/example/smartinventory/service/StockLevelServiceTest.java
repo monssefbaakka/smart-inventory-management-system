@@ -97,6 +97,38 @@ class StockLevelServiceTest {
     }
 
     @Test
+    void applyTransferInAddsToTheDestinationLevel() {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.of(level(10)));
+        when(stockLevelRepository.save(any(StockLevel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        int delta = stockLevelService.apply(PRODUCT, WAREHOUSE, MovementType.TRANSFER_IN, 5);
+
+        assertThat(delta).isEqualTo(5);
+        assertThat(captureSaved().getQuantity()).isEqualTo(15);
+    }
+
+    @Test
+    void applyTransferOutSubtractsFromTheSourceLevel() {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.of(level(10)));
+        when(stockLevelRepository.save(any(StockLevel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        int delta = stockLevelService.apply(PRODUCT, WAREHOUSE, MovementType.TRANSFER_OUT, 4);
+
+        assertThat(delta).isEqualTo(-4);
+        assertThat(captureSaved().getQuantity()).isEqualTo(6);
+    }
+
+    @Test
+    void applyTransferOutThrowsWhenSourceHoldsTooLittle() {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.of(level(2)));
+
+        assertThatThrownBy(() -> stockLevelService.apply(PRODUCT, WAREHOUSE, MovementType.TRANSFER_OUT, 5))
+                .isInstanceOf(InsufficientStockException.class)
+                .hasMessageContaining("WH-1");
+        verify(stockLevelRepository, never()).save(any(StockLevel.class));
+    }
+
+    @Test
     void findByWarehouseReturnsFlattenedLevels() {
         when(stockLevelRepository.findByWarehouseId(7L)).thenReturn(List.of(level(12)));
 
