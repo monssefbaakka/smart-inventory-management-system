@@ -23,6 +23,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
 - **Stock Transfers:** Move goods between warehouses in one call; both locations change by equal and opposite amounts and the product's overall quantity stays put.
+- **Stocktake / Cycle Counting:** Count a warehouse line by line, see the variance against what the system expected, then commit the whole count as one reconciliation.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 
 ---
@@ -197,6 +198,36 @@ destination is inactive, and with `409 Conflict` when the source location holds 
 stock *out of* an inactive warehouse stays allowed, so a site being wound down can be drained.
 `TRANSFER_IN` and `TRANSFER_OUT` are not accepted by the ordinary movement endpoint — they always
 come in pairs and are written only by a transfer.
+
+### Stocktake / Cycle Counting
+
+A stock count reconciles one warehouse against what the system believes it holds. Counts are entered
+while the count is `DRAFT` and touch no stock; each line snapshots the expected quantity when it is
+entered, so the variance (`counted - expected`) is visible before anything is committed. Completing
+the count applies every line as an `ADJUSTMENT` against the counted warehouse, so the per-warehouse
+level *and* the product's overall quantity settle on the counted figure, and each correction lands in
+the movement history.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/stock-counts` | Open a count against a warehouse (ADMIN) |
+| `POST /api/stock-counts/{id}/lines` | Record what was found for one product (ADMIN) |
+| `POST /api/stock-counts/{id}/complete` | Apply every line to stock and close the count (ADMIN) |
+| `POST /api/stock-counts/{id}/cancel` | Abandon a draft count, leaving stock untouched (ADMIN) |
+| `GET /api/stock-counts` · `?warehouseId=` · `?status=` | Count history, most recent first |
+| `GET /api/stock-counts/{id}` | One count with its lines and variances |
+
+```json
+POST /api/stock-counts/3/lines
+{
+  "productId": 1,
+  "countedQuantity": 38
+}
+```
+
+Counting the same product twice replaces the earlier line — a recount is the normal case, not an
+error. Lines may only be added while the count is `DRAFT`, and only a `DRAFT` count can be completed
+or cancelled; anything else answers `409 Conflict`, as does completing a count with no lines.
 
 ### Barcode & QR Codes
 
