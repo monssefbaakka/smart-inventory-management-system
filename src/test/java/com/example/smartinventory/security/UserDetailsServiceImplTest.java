@@ -32,6 +32,7 @@ class UserDetailsServiceImplTest {
                 .email("admin@example.com")
                 .password("hashed")
                 .role(Role.ADMIN)
+                .tenantId("acme")
                 .build();
         when(userRepository.findByEmail("admin@example.com")).thenReturn(Optional.of(user));
 
@@ -42,6 +43,22 @@ class UserDetailsServiceImplTest {
         assertThat(result.getAuthorities())
                 .extracting(Object::toString)
                 .containsExactly("ROLE_ADMIN");
+    }
+
+    @Test
+    void loadUserByUsernameCarriesTheAccountsTenant() {
+        User user = User.builder()
+                .email("user@acme.example")
+                .password("hashed")
+                .role(Role.USER)
+                .tenantId("acme")
+                .build();
+        when(userRepository.findByEmail("user@acme.example")).thenReturn(Optional.of(user));
+
+        UserDetails result = userDetailsService.loadUserByUsername("user@acme.example");
+
+        assertThat(result).isInstanceOf(AuthenticatedUser.class);
+        assertThat(((AuthenticatedUser) result).getTenantId()).isEqualTo("acme");
     }
 
     @Test

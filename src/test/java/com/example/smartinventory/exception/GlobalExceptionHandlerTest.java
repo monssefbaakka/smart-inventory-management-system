@@ -38,6 +38,24 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handlesDuplicateTenantSlug() {
+        ResponseEntity<ErrorResponse> response = handler.handleDuplicateTenantSlug(
+                new DuplicateTenantSlugException("Tenant slug already in use: acme"), webRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.CONFLICT);
+        assertThat(response.getBody().getMessage()).isEqualTo("Tenant slug already in use: acme");
+    }
+
+    @Test
+    void handlesInactiveTenant() {
+        ResponseEntity<ErrorResponse> response = handler.handleInactiveTenant(
+                new InactiveTenantException("Tenant is not active: acme"), webRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().getMessage()).isEqualTo("Tenant is not active: acme");
+    }
+
+    @Test
     void handlesAccessDenied() {
         ResponseEntity<ErrorResponse> response = handler.handleAccessDenied(
                 new AccessDeniedException("denied"), webRequest());

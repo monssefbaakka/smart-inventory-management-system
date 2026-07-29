@@ -19,6 +19,7 @@ import com.example.smartinventory.security.JwtAuthenticationFilter;
 import com.example.smartinventory.security.RateLimitFilter;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.RateLimitService;
+import com.example.smartinventory.tenant.TenantFilter;
 
 import lombok.RequiredArgsConstructor;
 import tools.jackson.databind.json.JsonMapper;
@@ -45,12 +46,13 @@ public class SecurityConfig {
      *
      * @param http            the {@link HttpSecurity} builder to configure
      * @param rateLimitFilter the request throttling filter, placed after authentication
+     * @param tenantFilter    the filter binding the caller's tenant to the request thread
      * @return the built {@link SecurityFilterChain}
      * @throws Exception if the security configuration cannot be built
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, RateLimitFilter rateLimitFilter)
-            throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http, RateLimitFilter rateLimitFilter,
+            TenantFilter tenantFilter) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -58,8 +60,34 @@ public class SecurityConfig {
                         .requestMatchers(PUBLIC_ENDPOINTS).permitAll()
                         .anyRequest().authenticated())
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
-                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class);
+                .addFilterAfter(rateLimitFilter, JwtAuthenticationFilter.class)
+                .addFilterAfter(tenantFilter, RateLimitFilter.class);
         return http.build();
+    }
+
+    /**
+     * Builds the tenant-scoping filter used by the security chain.
+     *
+     * @return the tenant filter
+     */
+    @Bean
+    public TenantFilter tenantFilter() {
+        return new TenantFilter();
+    }
+
+    /**
+     * Prevents Boot from also registering {@link TenantFilter} in the plain servlet chain, where it
+     * would run before authentication and, being a once-per-request filter, suppress the instance
+     * inside the security chain that can actually see the authenticated principal.
+     *
+     * @param tenantFilter the filter to keep out of the servlet chain
+     * @return a disabled registration for the filter
+     */
+    @Bean
+    public FilterRegistrationBean<TenantFilter> tenantFilterRegistration(TenantFilter tenantFilter) {
+        FilterRegistrationBean<TenantFilter> registration = new FilterRegistrationBean<>(tenantFilter);
+        registration.setEnabled(false);
+        return registration;
     }
 
     /**

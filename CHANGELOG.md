@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Multi-tenant support** — one deployment serves many organisations: a tenant registry with
+  ADMIN-only endpoints, a `tenant_id` discriminator on every tenant-owned table, Hibernate
+  discriminator-based tenancy driven by the authenticated caller's tenant, and registration into a
+  named tenant (#129).
 - **Stocktake / cycle counting** — count a warehouse line by line with the variance against the
   expected quantity, then complete the count to apply every line as an adjustment through the shared
   stock-movement trail (#127).
