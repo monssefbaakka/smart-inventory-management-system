@@ -51,6 +51,16 @@ public class User {
     @Column(nullable = false, length = 50)
     private Role role;
 
+    /**
+     * Slug of the tenant this account belongs to. Deliberately a plain column rather than a
+     * {@code @TenantId} discriminator: accounts are looked up by email during login, before any
+     * tenant is known.
+     */
+    @NotBlank
+    @Size(max = 64)
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 

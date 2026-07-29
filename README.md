@@ -25,6 +25,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Stock Transfers:** Move goods between warehouses in one call; both locations change by equal and opposite amounts and the product's overall quantity stays put.
 - **Stocktake / Cycle Counting:** Count a warehouse line by line, see the variance against what the system expected, then commit the whole count as one reconciliation.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
+- **Multi-Tenancy:** One deployment serves many organisations; every row carries its tenant and every query is scoped to the caller's tenant, so tenants never see each other's inventory.
 
 ---
 
@@ -243,6 +244,46 @@ product, and label images can be rendered on demand.
 
 Label endpoints encode the product's `barcode`, falling back to its `sku` when no barcode is
 assigned, so every product can be labelled and scanned.
+
+### Multi-Tenancy
+
+A single deployment can serve several organisations. Every tenant-owned table carries a `tenant_id`
+column holding the tenant's slug, and Hibernate's discriminator-based multi-tenancy stamps that
+value on insert and appends it to every query — isolation is enforced in the persistence layer, not
+by each service remembering to filter.
+
+The tenant for a request is the tenant of the authenticated account: the login principal carries it,
+a filter binds it to the request thread, and it is unbound again when the request completes. Work
+running outside a request (startup, scheduled jobs) falls back to the default tenant.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/tenants` | Register a tenant (ADMIN) |
+| `GET /api/tenants` · `GET /api/tenants/{id}` | Read the tenant registry (ADMIN) |
+| `PUT /api/tenants/{id}` | Rename or deactivate a tenant; the slug is immutable (ADMIN) |
+| `GET /api/tenants/current` | The tenant the calling account is scoped to |
+
+```json
+POST /api/auth/register
+{
+  "email": "buyer@acme.example",
+  "password": "password123",
+  "tenantSlug": "acme"
+}
+```
+
+Registrations naming no `tenantSlug` join the default tenant, and registering into a deactivated
+tenant is rejected with `400 Bad Request`. Business keys are unique *within* a tenant rather than
+across the installation — two tenants may both hold SKU `SKU-1` or a category named `Tools` — while
+login stays global, since an account's email identifies both the user and the tenant it belongs to.
+A resource belonging to another tenant answers `404 Not Found`, exactly as a non-existent one does.
+
+| Property | Environment variable | Default | Purpose |
+| :--- | :--- | :--- | :--- |
+| `multitenancy.default-tenant` | `DEFAULT_TENANT` | `default` | Tenant used outside requests and for registrations naming none |
+
+The tenant registry spans the whole installation, so managing it is an ADMIN-only operation; every
+other endpoint only ever sees the caller's own tenant.
 
 ### API Documentation (Swagger / OpenAPI)
 

@@ -2,6 +2,8 @@ package com.example.smartinventory.model;
 
 import java.time.Instant;
 
+import org.hibernate.annotations.TenantId;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
@@ -40,6 +42,11 @@ public class StockTransfer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+
+    /** Owning tenant; Hibernate stamps it on insert and filters every query by it. */
+    @TenantId
+    @Column(name = "tenant_id", nullable = false, updatable = false, length = 64)
+    private String tenantId;
 
     @NotNull
     @ManyToOne(fetch = FetchType.LAZY)

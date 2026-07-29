@@ -80,6 +80,20 @@ class AuthControllerTest {
     }
 
     @Test
+    void registerAcceptsATenantSlug() throws Exception {
+        when(authService.register(any(RegisterRequest.class)))
+                .thenReturn(AuthResponse.builder().token("token-789").tokenType("Bearer").build());
+
+        mockMvc.perform(post("/api/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"email":"new@acme.example","password":"password123","tenantSlug":"acme"}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.token").value("token-789"));
+    }
+
+    @Test
     void registerRejectsInvalidPayload() throws Exception {
         mockMvc.perform(post("/api/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)

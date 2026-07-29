@@ -28,4 +28,10 @@ public class RegisterRequest {
     @Schema(description = "Password, 8-100 characters", example = "password123")
     private String password;
 
+    /** Tenant the account joins; omitted registrations join the default tenant. */
+    @Size(max = 64)
+    @Schema(description = "Slug of the tenant to join; defaults to the installation's default tenant",
+            example = "acme")
+    private String tenantSlug;
+
 }

@@ -57,6 +57,45 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * Handles attempts to create a tenant whose slug is already taken.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 409 response body describing the failure
+     */
+    @ExceptionHandler(DuplicateTenantSlugException.class)
+    public ResponseEntity<ErrorResponse> handleDuplicateTenantSlug(DuplicateTenantSlugException ex,
+            WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
+     * Handles operations targeting a tenant that has been deactivated.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 400 response body describing the failure
+     */
+    @ExceptionHandler(InactiveTenantException.class)
+    public ResponseEntity<ErrorResponse> handleInactiveTenant(InactiveTenantException ex, WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
      * Handles stock-out movements that would drive a product's quantity negative.
      *
      * @param ex      the thrown exception
