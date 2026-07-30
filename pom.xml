@@ -82,7 +82,13 @@
 		<dependency>
 			<groupId>com.github.librepdf</groupId>
 			<artifactId>openpdf</artifactId>
-			<version>2.0.3</version>
+			<!--
+			  Pinned to the 2.0.x line: 2.1.0 and every later release, including all of 3.x,
+			  are compiled for Java 21, while this project targets Java 17. OpenPDF 3.x also
+			  renames com.lowagie.text to org.openpdf.text. Both are blockers until the
+			  project moves to Java 21; see the ignore rule in .github/dependabot.yml.
+			-->
+			<version>2.0.5</version>
 		</dependency>
 		<dependency>
 			<groupId>com.google.zxing</groupId>
