@@ -10,6 +10,11 @@ updates:
       prefix: "build"
     labels:
       - "dependencies"
+    ignore:
+      # OpenPDF 2.1.0 and later, including all of 3.x, are compiled for Java 21;
+      # this project targets Java 17. Drop this rule when the project moves to 21.
+      - dependency-name: "com.github.librepdf:openpdf"
+        versions: [">=2.1.0"]
 
   # GitHub Actions
   - package-ecosystem: "github-actions"
