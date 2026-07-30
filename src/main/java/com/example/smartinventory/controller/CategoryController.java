@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.CategoryResponse;
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.service.CategoryService;
 
@@ -43,9 +44,9 @@ public class CategoryController {
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content)
     })
-    public ResponseEntity<Category> create(@Valid @RequestBody Category category) {
+    public ResponseEntity<CategoryResponse> create(@Valid @RequestBody Category category) {
         Category created = categoryService.create(category);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(CategoryResponse.from(created));
     }
 
     @GetMapping("/{id}")
@@ -54,16 +55,16 @@ public class CategoryController {
         @ApiResponse(responseCode = "200", description = "Category found"),
         @ApiResponse(responseCode = "404", description = "Category not found", content = @Content)
     })
-    public ResponseEntity<Category> findById(
+    public ResponseEntity<CategoryResponse> findById(
             @Parameter(description = "Identifier of the category") @PathVariable Long id) {
-        return ResponseEntity.ok(categoryService.findById(id));
+        return ResponseEntity.ok(CategoryResponse.from(categoryService.findById(id)));
     }
 
     @GetMapping
     @Operation(summary = "List all categories")
     @ApiResponse(responseCode = "200", description = "Categories returned")
-    public ResponseEntity<List<Category>> findAll() {
-        return ResponseEntity.ok(categoryService.findAll());
+    public ResponseEntity<List<CategoryResponse>> findAll() {
+        return ResponseEntity.ok(categoryService.findAll().stream().map(CategoryResponse::from).toList());
     }
 
     @PutMapping("/{id}")
@@ -75,10 +76,10 @@ public class CategoryController {
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
         @ApiResponse(responseCode = "404", description = "Category not found", content = @Content)
     })
-    public ResponseEntity<Category> update(
+    public ResponseEntity<CategoryResponse> update(
             @Parameter(description = "Identifier of the category") @PathVariable Long id,
             @Valid @RequestBody Category category) {
-        return ResponseEntity.ok(categoryService.update(id, category));
+        return ResponseEntity.ok(CategoryResponse.from(categoryService.update(id, category)));
     }
 
     @DeleteMapping("/{id}")

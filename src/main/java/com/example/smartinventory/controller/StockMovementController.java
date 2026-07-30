@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.dto.StockMovementRequest;
+import com.example.smartinventory.dto.StockMovementResponse;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.service.StockMovementService;
 
@@ -55,14 +56,20 @@ public class StockMovementController {
         @ApiResponse(responseCode = "409", description = "OUT movement exceeds available stock",
                 content = @Content)
     })
-    public ResponseEntity<StockMovement> record(
+    public ResponseEntity<StockMovementResponse> record(
             @Parameter(description = "Identifier of the affected product") @PathVariable Long productId,
             @Valid @RequestBody StockMovementRequest request) {
         StockMovement movement = stockMovementService.record(productId, request.warehouseId(), request.type(),
                 request.quantity(), request.note());
-        return ResponseEntity.status(HttpStatus.CREATED).body(movement);
+        return ResponseEntity.status(HttpStatus.CREATED).body(StockMovementResponse.from(movement));
     }
 
+    /**
+     * Returns a product's stock movement history, most recent first.
+     *
+     * @param productId identifier of the product
+     * @return the product's movement history
+     */
     @GetMapping
     @Operation(summary = "List stock movements for a product",
             description = "Returns the product's stock movement history, most recent first.")
@@ -70,9 +77,11 @@ public class StockMovementController {
         @ApiResponse(responseCode = "200", description = "Movement history returned"),
         @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
     })
-    public ResponseEntity<List<StockMovement>> findByProduct(
+    public ResponseEntity<List<StockMovementResponse>> findByProduct(
             @Parameter(description = "Identifier of the product") @PathVariable Long productId) {
-        return ResponseEntity.ok(stockMovementService.findByProduct(productId));
+        return ResponseEntity.ok(stockMovementService.findByProduct(productId).stream()
+                .map(StockMovementResponse::from)
+                .toList());
     }
 
 }

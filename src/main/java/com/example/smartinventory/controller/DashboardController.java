@@ -9,8 +9,8 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.dto.DashboardSummaryResponse;
-import com.example.smartinventory.model.Product;
-import com.example.smartinventory.model.StockMovement;
+import com.example.smartinventory.dto.ProductResponse;
+import com.example.smartinventory.dto.StockMovementResponse;
 import com.example.smartinventory.service.DashboardService;
 
 import io.swagger.v3.oas.annotations.Operation;
@@ -38,23 +38,31 @@ public class DashboardController {
         return ResponseEntity.ok(dashboardService.summary());
     }
 
+    /**
+     * Returns the most recent stock movements across all products.
+     *
+     * @param limit maximum number of movements to return, clamped server-side to [1, 100]
+     * @return the recent movements, most recent first
+     */
     @GetMapping("/recent-movements")
     @Operation(summary = "Recent stock movements",
             description = "Returns the most recent stock movements across all products. "
                     + "The limit is clamped server-side to the range [1, 100].")
     @ApiResponse(responseCode = "200", description = "Recent movements returned")
-    public ResponseEntity<List<StockMovement>> recentMovements(
+    public ResponseEntity<List<StockMovementResponse>> recentMovements(
             @Parameter(description = "Maximum number of movements to return (clamped to 1-100)")
             @RequestParam(defaultValue = DEFAULT_RECENT_MOVEMENTS_LIMIT) int limit) {
-        return ResponseEntity.ok(dashboardService.recentMovements(limit));
+        return ResponseEntity.ok(dashboardService.recentMovements(limit).stream()
+                .map(StockMovementResponse::from)
+                .toList());
     }
 
     @GetMapping("/low-stock")
     @Operation(summary = "Low-stock products",
             description = "Returns products at or below their reorder threshold.")
     @ApiResponse(responseCode = "200", description = "Low-stock products returned")
-    public ResponseEntity<List<Product>> lowStockProducts() {
-        return ResponseEntity.ok(dashboardService.lowStockProducts());
+    public ResponseEntity<List<ProductResponse>> lowStockProducts() {
+        return ResponseEntity.ok(dashboardService.lowStockProducts().stream().map(ProductResponse::from).toList());
     }
 
 }

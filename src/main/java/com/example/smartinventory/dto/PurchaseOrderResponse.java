@@ -1,0 +1,62 @@
+package com.example.smartinventory.dto;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
+
+import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderStatus;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+
+/** A purchase order raised against a supplier, with its line items. */
+@Schema(description = "A purchase order and its line items")
+public record PurchaseOrderResponse(
+
+        @Schema(description = "Identifier of the purchase order", example = "4")
+        Long id,
+
+        @Schema(description = "Identifier of the supplier the order is raised against", example = "2")
+        Long supplierId,
+
+        @Schema(description = "Supplier name", example = "Acme Supplies")
+        String supplierName,
+
+        @Schema(description = "Lifecycle status of the order", example = "DRAFT")
+        PurchaseOrderStatus status,
+
+        @Schema(description = "Free-text note recorded with the order", example = "Quarterly restock")
+        String note,
+
+        @Schema(description = "Ordered line items")
+        List<PurchaseOrderItemResponse> items,
+
+        @Schema(description = "Sum of every line total", example = "237.50")
+        BigDecimal total,
+
+        @Schema(description = "When the order was created")
+        Instant createdAt,
+
+        @Schema(description = "When the order was last updated")
+        Instant updatedAt) {
+
+    /**
+     * Flattens a persisted order into its response form.
+     *
+     * @param order the order to convert; its supplier, items and their products must be loadable
+     * @return the response payload
+     */
+    public static PurchaseOrderResponse from(PurchaseOrder order) {
+        return new PurchaseOrderResponse(
+                order.getId(),
+                order.getSupplier().getId(),
+                order.getSupplier().getName(),
+                order.getStatus(),
+                order.getNote(),
+                order.getItems().stream().map(PurchaseOrderItemResponse::from).toList(),
+                order.getTotal(),
+                order.getCreatedAt(),
+                order.getUpdatedAt());
+    }
+
+}

@@ -24,7 +24,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.smartinventory.exception.ResourceNotFoundException;
+import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.security.JwtService;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.BarcodeService;
@@ -72,6 +74,39 @@ class ProductControllerTest {
         mockMvc.perform(get("/api/products/1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.name").value("Widget"));
+    }
+
+    @Test
+    void findByIdFlattensCategoryAndSupplier() throws Exception {
+        Product product = Product.builder()
+                .id(1L)
+                .name("Widget")
+                .tenantId("acme")
+                .category(Category.builder().id(3L).name("Tools").build())
+                .supplier(Supplier.builder().id(4L).name("Acme Supplies").build())
+                .build();
+        when(productService.findById(1L)).thenReturn(product);
+
+        mockMvc.perform(get("/api/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoryId").value(3))
+                .andExpect(jsonPath("$.categoryName").value("Tools"))
+                .andExpect(jsonPath("$.supplierId").value(4))
+                .andExpect(jsonPath("$.supplierName").value("Acme Supplies"))
+                .andExpect(jsonPath("$.category").doesNotExist())
+                .andExpect(jsonPath("$.supplier").doesNotExist())
+                .andExpect(jsonPath("$.tenantId").doesNotExist());
+    }
+
+    @Test
+    void findByIdOmitsCategoryAndSupplierWhenUnset() throws Exception {
+        Product product = Product.builder().id(1L).name("Widget").build();
+        when(productService.findById(1L)).thenReturn(product);
+
+        mockMvc.perform(get("/api/products/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.categoryId").doesNotExist())
+                .andExpect(jsonPath("$.supplierName").doesNotExist());
     }
 
     @Test

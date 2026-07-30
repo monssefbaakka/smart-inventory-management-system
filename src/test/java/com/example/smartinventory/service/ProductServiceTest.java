@@ -7,7 +7,9 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -17,7 +19,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.AuditAction;
+import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.repository.ProductRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -25,6 +29,12 @@ class ProductServiceTest {
 
     @Mock
     private ProductRepository productRepository;
+
+    @Mock
+    private CategoryService categoryService;
+
+    @Mock
+    private SupplierService supplierService;
 
     @Mock
     private AuditService auditService;
@@ -174,6 +184,79 @@ class ProductServiceTest {
         Product result = productService.update(1L, updated);
 
         assertThat(result.getBarcode()).isEqualTo("5901234123457");
+    }
+
+    @Test
+    void createReplacesRequestedAssociationsWithPersistedOnes() {
+        Category persistedCategory = Category.builder().id(3L).name("Tools").build();
+        Supplier persistedSupplier = Supplier.builder().id(4L).name("Acme").build();
+        Product product = Product.builder()
+                .name("Widget")
+                .sku("SKU-1")
+                .price(BigDecimal.TEN)
+                .quantity(5)
+                .category(Category.builder().id(3L).build())
+                .supplier(Supplier.builder().id(4L).build())
+                .build();
+        when(categoryService.findById(3L)).thenReturn(persistedCategory);
+        when(supplierService.findById(4L)).thenReturn(persistedSupplier);
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product result = productService.create(product);
+
+        assertThat(result.getCategory()).isSameAs(persistedCategory);
+        assertThat(result.getSupplier()).isSameAs(persistedSupplier);
+    }
+
+    @Test
+    void createLeavesAssociationsUnsetWhenPayloadNamesNone() {
+        Product product = Product.builder()
+                .name("Widget")
+                .sku("SKU-1")
+                .price(BigDecimal.TEN)
+                .quantity(5)
+                .category(Category.builder().build())
+                .build();
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product result = productService.create(product);
+
+        assertThat(result.getCategory()).isNull();
+        assertThat(result.getSupplier()).isNull();
+        verifyNoInteractions(categoryService, supplierService);
+    }
+
+    @Test
+    void createFailsWhenNamedCategoryDoesNotExist() {
+        Product product = Product.builder()
+                .name("Widget")
+                .sku("SKU-1")
+                .price(BigDecimal.TEN)
+                .quantity(5)
+                .category(Category.builder().id(99L).build())
+                .build();
+        when(categoryService.findById(99L))
+                .thenThrow(new ResourceNotFoundException("Category not found with id: 99"));
+
+        assertThatThrownBy(() -> productService.create(product))
+                .isInstanceOf(ResourceNotFoundException.class)
+                .hasMessageContaining("99");
+        verify(productRepository, never()).save(any(Product.class));
+    }
+
+    @Test
+    void updateResolvesNamedCategory() {
+        Category persistedCategory = Category.builder().id(3L).name("Tools").build();
+        Product existing = Product.builder().id(1L).name("A").sku("S").price(BigDecimal.ONE).quantity(1).build();
+        Product updated = Product.builder().name("A").sku("S").price(BigDecimal.ONE).quantity(1)
+                .category(Category.builder().id(3L).build()).build();
+        when(productRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(categoryService.findById(3L)).thenReturn(persistedCategory);
+        when(productRepository.save(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        Product result = productService.update(1L, updated);
+
+        assertThat(result.getCategory()).isSameAs(persistedCategory);
     }
 
     @Test

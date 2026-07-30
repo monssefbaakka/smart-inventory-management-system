@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.ProductResponse;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.service.BarcodeService;
 import com.example.smartinventory.service.ProductService;
@@ -48,17 +49,17 @@ public class ProductController {
         @ApiResponse(responseCode = "401", description = "Missing or invalid token", content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content)
     })
-    public ResponseEntity<Product> create(@Valid @RequestBody Product product) {
+    public ResponseEntity<ProductResponse> create(@Valid @RequestBody Product product) {
         Product created = productService.create(product);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ProductResponse.from(created));
     }
 
     @GetMapping("/low-stock")
     @Operation(summary = "List low-stock products",
             description = "Returns products whose quantity is at or below their reorder threshold.")
     @ApiResponse(responseCode = "200", description = "Low-stock products returned")
-    public ResponseEntity<List<Product>> findLowStock() {
-        return ResponseEntity.ok(productService.findLowStockProducts());
+    public ResponseEntity<List<ProductResponse>> findLowStock() {
+        return ResponseEntity.ok(productService.findLowStockProducts().stream().map(ProductResponse::from).toList());
     }
 
     /**
@@ -74,9 +75,9 @@ public class ProductController {
         @ApiResponse(responseCode = "200", description = "Product found"),
         @ApiResponse(responseCode = "404", description = "No product carries that barcode", content = @Content)
     })
-    public ResponseEntity<Product> findByBarcode(
+    public ResponseEntity<ProductResponse> findByBarcode(
             @Parameter(description = "Scanned barcode symbol content") @PathVariable String barcode) {
-        return ResponseEntity.ok(productService.findByBarcode(barcode));
+        return ResponseEntity.ok(ProductResponse.from(productService.findByBarcode(barcode)));
     }
 
     /**
@@ -121,16 +122,16 @@ public class ProductController {
         @ApiResponse(responseCode = "200", description = "Product found"),
         @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
     })
-    public ResponseEntity<Product> findById(
+    public ResponseEntity<ProductResponse> findById(
             @Parameter(description = "Identifier of the product") @PathVariable Long id) {
-        return ResponseEntity.ok(productService.findById(id));
+        return ResponseEntity.ok(ProductResponse.from(productService.findById(id)));
     }
 
     @GetMapping
     @Operation(summary = "List all products")
     @ApiResponse(responseCode = "200", description = "Products returned")
-    public ResponseEntity<List<Product>> findAll() {
-        return ResponseEntity.ok(productService.findAll());
+    public ResponseEntity<List<ProductResponse>> findAll() {
+        return ResponseEntity.ok(productService.findAll().stream().map(ProductResponse::from).toList());
     }
 
     @PutMapping("/{id}")
@@ -142,10 +143,10 @@ public class ProductController {
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
         @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
     })
-    public ResponseEntity<Product> update(
+    public ResponseEntity<ProductResponse> update(
             @Parameter(description = "Identifier of the product") @PathVariable Long id,
             @Valid @RequestBody Product product) {
-        return ResponseEntity.ok(productService.update(id, product));
+        return ResponseEntity.ok(ProductResponse.from(productService.update(id, product)));
     }
 
     @DeleteMapping("/{id}")

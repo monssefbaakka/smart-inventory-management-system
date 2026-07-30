@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.SupplierResponse;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.service.SupplierService;
 
@@ -43,9 +44,9 @@ public class SupplierController {
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content)
     })
-    public ResponseEntity<Supplier> create(@Valid @RequestBody Supplier supplier) {
+    public ResponseEntity<SupplierResponse> create(@Valid @RequestBody Supplier supplier) {
         Supplier created = supplierService.create(supplier);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(SupplierResponse.from(created));
     }
 
     @GetMapping("/{id}")
@@ -54,16 +55,16 @@ public class SupplierController {
         @ApiResponse(responseCode = "200", description = "Supplier found"),
         @ApiResponse(responseCode = "404", description = "Supplier not found", content = @Content)
     })
-    public ResponseEntity<Supplier> findById(
+    public ResponseEntity<SupplierResponse> findById(
             @Parameter(description = "Identifier of the supplier") @PathVariable Long id) {
-        return ResponseEntity.ok(supplierService.findById(id));
+        return ResponseEntity.ok(SupplierResponse.from(supplierService.findById(id)));
     }
 
     @GetMapping
     @Operation(summary = "List all suppliers")
     @ApiResponse(responseCode = "200", description = "Suppliers returned")
-    public ResponseEntity<List<Supplier>> findAll() {
-        return ResponseEntity.ok(supplierService.findAll());
+    public ResponseEntity<List<SupplierResponse>> findAll() {
+        return ResponseEntity.ok(supplierService.findAll().stream().map(SupplierResponse::from).toList());
     }
 
     @PutMapping("/{id}")
@@ -75,10 +76,10 @@ public class SupplierController {
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
         @ApiResponse(responseCode = "404", description = "Supplier not found", content = @Content)
     })
-    public ResponseEntity<Supplier> update(
+    public ResponseEntity<SupplierResponse> update(
             @Parameter(description = "Identifier of the supplier") @PathVariable Long id,
             @Valid @RequestBody Supplier supplier) {
-        return ResponseEntity.ok(supplierService.update(id, supplier));
+        return ResponseEntity.ok(SupplierResponse.from(supplierService.update(id, supplier)));
     }
 
     @DeleteMapping("/{id}")

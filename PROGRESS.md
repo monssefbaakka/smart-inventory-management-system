@@ -67,9 +67,10 @@ implemented in repo but GitHub issue not yet closed
 | 123 | Multi-warehouse/location stock tracking | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 125 | Stock transfers between warehouses | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 127 | Stocktake / cycle counting | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 129 | Multi-tenant support | ![working](https://img.shields.io/badge/status-working-blue) |
+| 129 | Multi-tenant support | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 135 | REST endpoints return 500 when serialising lazy JPA associations | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #129 — Multi-tenant support (PR open)
+**Working:** #135 — REST endpoints return 500 when serialising lazy JPA associations (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

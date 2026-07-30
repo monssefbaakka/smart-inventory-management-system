@@ -43,7 +43,7 @@ class StockMovementControllerTest {
 
     @Test
     void recordReturnsCreatedMovement() throws Exception {
-        Product product = Product.builder().id(1L).build();
+        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN).quantity(5)
                 .build();
         when(stockMovementService.record(1L, null, MovementType.IN, 5, "restock")).thenReturn(movement);
@@ -55,7 +55,12 @@ class StockMovementControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.type").value("IN"));
+                .andExpect(jsonPath("$.type").value("IN"))
+                .andExpect(jsonPath("$.productId").value(1))
+                .andExpect(jsonPath("$.sku").value("SKU-1"))
+                .andExpect(jsonPath("$.productName").value("Widget"))
+                .andExpect(jsonPath("$.warehouseId").doesNotExist())
+                .andExpect(jsonPath("$.product").doesNotExist());
     }
 
     @Test
@@ -72,19 +77,21 @@ class StockMovementControllerTest {
                                 {"type":"IN","quantity":5,"warehouseId":7}
                                 """))
                 .andExpect(status().isCreated())
-                .andExpect(jsonPath("$.warehouse.code").value("WH-1"));
+                .andExpect(jsonPath("$.warehouseId").value(7))
+                .andExpect(jsonPath("$.warehouseCode").value("WH-1"));
     }
 
     @Test
     void findByProductReturnsHistory() throws Exception {
-        Product product = Product.builder().id(1L).build();
+        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.OUT).quantity(2)
                 .build();
         when(stockMovementService.findByProduct(1L)).thenReturn(List.of(movement));
 
         mockMvc.perform(get("/api/products/1/movements"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].sku").value("SKU-1"));
     }
 
 }

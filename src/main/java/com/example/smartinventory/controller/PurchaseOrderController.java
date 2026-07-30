@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.dto.PurchaseOrderRequest;
+import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.service.PurchaseOrderService;
 
@@ -47,9 +48,9 @@ public class PurchaseOrderController {
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
         @ApiResponse(responseCode = "404", description = "Supplier or product not found", content = @Content)
     })
-    public ResponseEntity<PurchaseOrder> create(@Valid @RequestBody PurchaseOrderRequest request) {
+    public ResponseEntity<PurchaseOrderResponse> create(@Valid @RequestBody PurchaseOrderRequest request) {
         PurchaseOrder created = purchaseOrderService.create(request);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.status(HttpStatus.CREATED).body(PurchaseOrderResponse.from(created));
     }
 
     @GetMapping("/{id}")
@@ -58,9 +59,9 @@ public class PurchaseOrderController {
         @ApiResponse(responseCode = "200", description = "Purchase order found"),
         @ApiResponse(responseCode = "404", description = "Purchase order not found", content = @Content)
     })
-    public ResponseEntity<PurchaseOrder> findById(
+    public ResponseEntity<PurchaseOrderResponse> findById(
             @Parameter(description = "Identifier of the purchase order") @PathVariable Long id) {
-        return ResponseEntity.ok(purchaseOrderService.findById(id));
+        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.findById(id)));
     }
 
     /**
@@ -73,13 +74,13 @@ public class PurchaseOrderController {
     @Operation(summary = "List purchase orders",
             description = "Lists all purchase orders, or only those for a supplier when supplierId is given.")
     @ApiResponse(responseCode = "200", description = "Purchase orders returned")
-    public ResponseEntity<List<PurchaseOrder>> findAll(
+    public ResponseEntity<List<PurchaseOrderResponse>> findAll(
             @Parameter(description = "Optional supplier id to filter by")
             @RequestParam(required = false) Long supplierId) {
         List<PurchaseOrder> orders = supplierId == null
                 ? purchaseOrderService.findAll()
                 : purchaseOrderService.findBySupplier(supplierId);
-        return ResponseEntity.ok(orders);
+        return ResponseEntity.ok(orders.stream().map(PurchaseOrderResponse::from).toList());
     }
 
     @PostMapping("/{id}/place")
@@ -92,9 +93,9 @@ public class PurchaseOrderController {
         @ApiResponse(responseCode = "404", description = "Purchase order not found", content = @Content),
         @ApiResponse(responseCode = "409", description = "Order is not in a placeable state", content = @Content)
     })
-    public ResponseEntity<PurchaseOrder> place(
+    public ResponseEntity<PurchaseOrderResponse> place(
             @Parameter(description = "Identifier of the purchase order") @PathVariable Long id) {
-        return ResponseEntity.ok(purchaseOrderService.place(id));
+        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.place(id)));
     }
 
     @PostMapping("/{id}/receive")
@@ -108,9 +109,9 @@ public class PurchaseOrderController {
         @ApiResponse(responseCode = "404", description = "Purchase order not found", content = @Content),
         @ApiResponse(responseCode = "409", description = "Order is not in a receivable state", content = @Content)
     })
-    public ResponseEntity<PurchaseOrder> receive(
+    public ResponseEntity<PurchaseOrderResponse> receive(
             @Parameter(description = "Identifier of the purchase order") @PathVariable Long id) {
-        return ResponseEntity.ok(purchaseOrderService.receive(id));
+        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.receive(id)));
     }
 
     @PostMapping("/{id}/cancel")
@@ -124,9 +125,9 @@ public class PurchaseOrderController {
         @ApiResponse(responseCode = "404", description = "Purchase order not found", content = @Content),
         @ApiResponse(responseCode = "409", description = "A received order cannot be cancelled", content = @Content)
     })
-    public ResponseEntity<PurchaseOrder> cancel(
+    public ResponseEntity<PurchaseOrderResponse> cancel(
             @Parameter(description = "Identifier of the purchase order") @PathVariable Long id) {
-        return ResponseEntity.ok(purchaseOrderService.cancel(id));
+        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.cancel(id)));
     }
 
     @DeleteMapping("/{id}")
