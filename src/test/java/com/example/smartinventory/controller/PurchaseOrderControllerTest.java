@@ -1,5 +1,6 @@
 package com.example.smartinventory.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -18,7 +19,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.smartinventory.dto.PurchaseOrderRequest;
+import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.security.JwtService;
@@ -43,7 +46,18 @@ class PurchaseOrderControllerTest {
     private UserDetailsServiceImpl userDetailsService;
 
     private PurchaseOrder order(PurchaseOrderStatus status) {
-        return PurchaseOrder.builder().id(1L).supplier(Supplier.builder().id(7L).build()).status(status).build();
+        PurchaseOrder order = PurchaseOrder.builder()
+                .id(1L)
+                .supplier(Supplier.builder().id(7L).name("Acme Supplies").build())
+                .status(status)
+                .build();
+        order.addItem(PurchaseOrderItem.builder()
+                .id(11L)
+                .product(Product.builder().id(3L).sku("SKU-3").name("Widget").build())
+                .quantity(4)
+                .unitPrice(new BigDecimal("2.50"))
+                .build());
+        return order;
     }
 
     @Test
@@ -57,7 +71,16 @@ class PurchaseOrderControllerTest {
                                 """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(1))
-                .andExpect(jsonPath("$.status").value("DRAFT"));
+                .andExpect(jsonPath("$.status").value("DRAFT"))
+                .andExpect(jsonPath("$.supplierId").value(7))
+                .andExpect(jsonPath("$.supplierName").value("Acme Supplies"))
+                .andExpect(jsonPath("$.total").value(10.00))
+                .andExpect(jsonPath("$.items[0].productId").value(3))
+                .andExpect(jsonPath("$.items[0].sku").value("SKU-3"))
+                .andExpect(jsonPath("$.items[0].productName").value("Widget"))
+                .andExpect(jsonPath("$.items[0].lineTotal").value(10.00))
+                .andExpect(jsonPath("$.supplier").doesNotExist())
+                .andExpect(jsonPath("$.items[0].product").doesNotExist());
     }
 
     @Test

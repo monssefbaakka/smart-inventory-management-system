@@ -17,6 +17,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.smartinventory.dto.DashboardSummaryResponse;
+import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
@@ -63,14 +64,16 @@ class DashboardControllerTest {
 
     @Test
     void recentMovementsReturnsOk() throws Exception {
-        Product product = Product.builder().id(1L).build();
+        Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN).quantity(5)
                 .build();
         when(dashboardService.recentMovements(5)).thenReturn(List.of(movement));
 
         mockMvc.perform(get("/api/dashboard/recent-movements").param("limit", "5"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].sku").value("SKU-1"))
+                .andExpect(jsonPath("$[0].product").doesNotExist());
     }
 
     @Test
@@ -83,12 +86,15 @@ class DashboardControllerTest {
 
     @Test
     void lowStockReturnsOk() throws Exception {
-        Product product = Product.builder().id(1L).quantity(1).reorderThreshold(5).build();
+        Product product = Product.builder().id(1L).quantity(1).reorderThreshold(5)
+                .category(Category.builder().id(3L).name("Tools").build()).build();
         when(dashboardService.lowStockProducts()).thenReturn(List.of(product));
 
         mockMvc.perform(get("/api/dashboard/low-stock"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$[0].id").value(1))
+                .andExpect(jsonPath("$[0].categoryName").value("Tools"))
+                .andExpect(jsonPath("$[0].category").doesNotExist());
     }
 
 }

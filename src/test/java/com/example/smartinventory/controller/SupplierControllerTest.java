@@ -60,12 +60,28 @@ class SupplierControllerTest {
 
     @Test
     void findByIdReturnsSupplier() throws Exception {
-        Supplier supplier = Supplier.builder().id(1L).name("Acme").build();
+        Supplier supplier = Supplier.builder().id(1L).name("Acme").contactName("Jane Doe")
+                .email("acme@example.com").phone("+1-555-0100").address("1 Industrial Way").build();
         when(supplierService.findById(1L)).thenReturn(supplier);
 
         mockMvc.perform(get("/api/suppliers/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Acme"));
+                .andExpect(jsonPath("$.name").value("Acme"))
+                .andExpect(jsonPath("$.contactName").value("Jane Doe"))
+                .andExpect(jsonPath("$.email").value("acme@example.com"))
+                .andExpect(jsonPath("$.phone").value("+1-555-0100"))
+                .andExpect(jsonPath("$.address").value("1 Industrial Way"));
+    }
+
+    @Test
+    void responseOmitsProductsAndTenant() throws Exception {
+        Supplier supplier = Supplier.builder().id(1L).name("Acme").tenantId("acme").build();
+        when(supplierService.findById(1L)).thenReturn(supplier);
+
+        mockMvc.perform(get("/api/suppliers/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.products").doesNotExist())
+                .andExpect(jsonPath("$.tenantId").doesNotExist());
     }
 
     @Test

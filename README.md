@@ -285,6 +285,47 @@ A resource belonging to another tenant answers `404 Not Found`, exactly as a non
 The tenant registry spans the whole installation, so managing it is an ADMIN-only operation; every
 other endpoint only ever sees the caller's own tenant.
 
+### Response Shape
+
+Endpoints return response DTOs, never JPA entities. Related records are flattened to their
+identifier and a label rather than nested whole, and persistence details such as the `tenant_id`
+discriminator stay out of the payload:
+
+```json
+GET /api/products/1
+{
+  "id": 1,
+  "name": "Widget",
+  "sku": "SKU-1",
+  "price": 19.99,
+  "quantity": 42,
+  "reorderThreshold": 10,
+  "categoryId": 3,
+  "categoryName": "Tools",
+  "supplierId": 2,
+  "supplierName": "Acme Supplies"
+}
+```
+
+The application runs with `spring.jpa.open-in-view=false`, so the persistence session is already
+closed by the time a response is written. Mapping to DTOs — and fetching the associations those
+DTOs read — is what keeps serialisation off uninitialised proxies.
+
+A product is attached to a category or supplier by naming its id; the named record must exist, or
+the request is rejected with `404 Not Found`:
+
+```json
+POST /api/products
+{
+  "name": "Widget",
+  "sku": "SKU-1",
+  "price": 19.99,
+  "quantity": 42,
+  "category": { "id": 3 },
+  "supplier": { "id": 2 }
+}
+```
+
 ### API Documentation (Swagger / OpenAPI)
 
 Once the application is running, the REST API is documented interactively:

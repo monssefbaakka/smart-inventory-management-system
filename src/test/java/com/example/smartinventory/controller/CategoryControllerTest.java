@@ -60,12 +60,24 @@ class CategoryControllerTest {
 
     @Test
     void findByIdReturnsCategory() throws Exception {
-        Category category = Category.builder().id(1L).name("Electronics").build();
+        Category category = Category.builder().id(1L).name("Electronics").description("Gadgets").build();
         when(categoryService.findById(1L)).thenReturn(category);
 
         mockMvc.perform(get("/api/categories/1"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Electronics"));
+                .andExpect(jsonPath("$.name").value("Electronics"))
+                .andExpect(jsonPath("$.description").value("Gadgets"));
+    }
+
+    @Test
+    void responseOmitsProductsAndTenant() throws Exception {
+        Category category = Category.builder().id(1L).name("Electronics").tenantId("acme").build();
+        when(categoryService.findById(1L)).thenReturn(category);
+
+        mockMvc.perform(get("/api/categories/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.products").doesNotExist())
+                .andExpect(jsonPath("$.tenantId").doesNotExist());
     }
 
     @Test

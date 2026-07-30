@@ -7,7 +7,9 @@ import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.AuditAction;
+import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.repository.ProductRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,8 @@ public class ProductService {
     static final String AUDIT_ENTITY_TYPE = "Product";
 
     private final ProductRepository productRepository;
+    private final CategoryService categoryService;
+    private final SupplierService supplierService;
     private final AuditService auditService;
 
     /**
@@ -31,6 +35,8 @@ public class ProductService {
      * @return the persisted product
      */
     public Product create(Product product) {
+        product.setCategory(resolveCategory(product.getCategory()));
+        product.setSupplier(resolveSupplier(product.getSupplier()));
         Product saved = productRepository.save(product);
         auditService.record(AUDIT_ENTITY_TYPE, saved.getId(), AuditAction.CREATE);
         return saved;
@@ -102,8 +108,8 @@ public class ProductService {
         if (updatedProduct.getReorderThreshold() != null) {
             existing.setReorderThreshold(updatedProduct.getReorderThreshold());
         }
-        existing.setCategory(updatedProduct.getCategory());
-        existing.setSupplier(updatedProduct.getSupplier());
+        existing.setCategory(resolveCategory(updatedProduct.getCategory()));
+        existing.setSupplier(resolveSupplier(updatedProduct.getSupplier()));
         Product saved = productRepository.save(existing);
         auditService.record(AUDIT_ENTITY_TYPE, saved.getId(), AuditAction.UPDATE);
         return saved;
@@ -118,6 +124,36 @@ public class ProductService {
         Product existing = findById(id);
         productRepository.delete(existing);
         auditService.record(AUDIT_ENTITY_TYPE, existing.getId(), AuditAction.DELETE);
+    }
+
+    /**
+     * Replaces the category carried by a request payload with the persisted one it names, so the
+     * product holds a managed reference whose name can be rendered into the response. A payload
+     * naming no category, or naming one without an id, leaves the product uncategorised.
+     *
+     * @param requested the category as sent by the caller, possibly {@code null}
+     * @return the persisted category, or {@code null} when none was named
+     * @throws ResourceNotFoundException if the named category does not exist
+     */
+    private Category resolveCategory(Category requested) {
+        if (requested == null || requested.getId() == null) {
+            return null;
+        }
+        return categoryService.findById(requested.getId());
+    }
+
+    /**
+     * Replaces the supplier carried by a request payload with the persisted one it names.
+     *
+     * @param requested the supplier as sent by the caller, possibly {@code null}
+     * @return the persisted supplier, or {@code null} when none was named
+     * @throws ResourceNotFoundException if the named supplier does not exist
+     */
+    private Supplier resolveSupplier(Supplier requested) {
+        if (requested == null || requested.getId() == null) {
+            return null;
+        }
+        return supplierService.findById(requested.getId());
     }
 
 }

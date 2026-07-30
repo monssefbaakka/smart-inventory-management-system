@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **REST responses no longer fail on lazy associations** — products, categories, suppliers, stock
+  movements and purchase orders are returned as flat response DTOs instead of JPA entities, so
+  endpoints no longer answer `500 Failed to write request` when Jackson reaches an uninitialised
+  proxy under `spring.jpa.open-in-view=false`. The payloads also stop leaking the `tenant_id`
+  discriminator, and a product naming a category or supplier that does not exist now gets `404`
+  instead of a constraint violation (#135).
+
 ### Added
 
 - **Multi-tenant support** — one deployment serves many organisations: a tenant registry with
