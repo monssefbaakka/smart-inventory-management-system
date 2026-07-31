@@ -13,6 +13,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -64,14 +68,16 @@ class AuditServiceTest {
     }
 
     @Test
-    void findAllReturnsEntriesNewestFirst() {
+    void findAllReturnsThePageTheRepositoryFinds() {
+        Pageable pageable = PageRequest.of(0, 20);
         AuditLog entry = AuditLog.builder().id(1L).entityType("Product").entityId(1L)
                 .action(AuditAction.UPDATE).username("bob").build();
-        when(auditLogRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(entry));
+        when(auditLogRepository.findAll(pageable)).thenReturn(new PageImpl<>(List.of(entry), pageable, 1));
 
-        List<AuditLog> result = auditService.findAll();
+        Page<AuditLog> result = auditService.findAll(pageable);
 
-        assertThat(result).containsExactly(entry);
+        assertThat(result.getContent()).containsExactly(entry);
+        assertThat(result.getTotalElements()).isEqualTo(1);
     }
 
 }

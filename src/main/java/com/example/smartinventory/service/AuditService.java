@@ -1,7 +1,7 @@
 package com.example.smartinventory.service;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -44,13 +44,14 @@ public class AuditService {
     }
 
     /**
-     * Returns the full audit log, most recent entries first.
+     * Returns one page of the audit log.
      *
-     * @return audit entries ordered newest first
+     * @param pageable the page to return and the order to return it in
+     * @return the requested page of audit entries
      */
     @Transactional(readOnly = true)
-    public List<AuditLog> findAll() {
-        return auditLogRepository.findAllByOrderByCreatedAtDesc();
+    public Page<AuditLog> findAll(Pageable pageable) {
+        return auditLogRepository.findAll(pageable);
     }
 
     private String currentUsername() {

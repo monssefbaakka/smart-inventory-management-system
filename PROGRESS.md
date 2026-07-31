@@ -69,10 +69,10 @@ implemented in repo but GitHub issue not yet closed
 | 127 | Stocktake / cycle counting | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 129 | Multi-tenant support | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 135 | REST endpoints return 500 when serialising lazy JPA associations | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 138 | Paginate, sort and filter the product listing | ![working](https://img.shields.io/badge/status-working-blue) |
+| 138 | Paginate, sort and filter the product listing | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 140 | Paginate the history listings | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #138 — Paginate, sort and filter the product listing (PR open)
-**Next up:** carry the page envelope to the other listing endpoints, then pick the next milestone
-from Future Improvements in ROADMAP.md
+**Working:** #140 — Paginate the history listings (PR open)
+**Next up:** pick next milestone from Future Improvements in ROADMAP.md

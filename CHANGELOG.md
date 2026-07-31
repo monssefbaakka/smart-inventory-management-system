@@ -18,6 +18,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The history listings return a page, not the whole table** — `GET /api/products/{id}/movements`,
+  `GET /api/stock-transfers`, `GET /api/stock-counts`, `GET /api/purchase-orders` and
+  `GET /api/audit-logs` now answer with the same envelope as the product listing, ordered
+  `createdAt,desc` by default, and take `page`, `size` and `sort`. Callers reading the array directly
+  must read `content`. Their existing filters are unchanged (#140).
+- **`GET /api/audit-logs` returns a DTO** — audit entries come back as `AuditLogResponse` instead of
+  the `AuditLog` entity, so the payload no longer carries the `tenant_id` discriminator (#140).
 - **`GET /api/products` returns a page, not the whole catalogue** — the response is now an envelope
   carrying `content` plus `page`, `size`, `totalElements`, `totalPages`, `first` and `last`, instead
   of a bare JSON array. Callers reading the array directly must read `content`. Page size defaults to
@@ -25,6 +32,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Paging on every unbounded listing** — the five history endpoints share one implementation of the
+  page-size cap, the sortable-field allowlist and the `400` responses with the product listing, each
+  with its own set of sortable fields (#140).
 - **Paging, sorting and filtering on the product listing** — `page`, `size` and `sort=field,dir` over
   an allowlist of product fields, plus optional `search` (name and SKU, case-insensitive),
   `categoryId`, `supplierId`, `minPrice`, `maxPrice` and `lowStock` filters that combine with AND. An

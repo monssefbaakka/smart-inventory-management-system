@@ -17,6 +17,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.example.smartinventory.dto.StockCountLineRequest;
 import com.example.smartinventory.dto.StockCountRequest;
@@ -37,6 +41,7 @@ class StockCountServiceTest {
     private static final Warehouse WAREHOUSE =
             Warehouse.builder().id(7L).code("WH-1").name("Main Depot").build();
     private static final Product PRODUCT = Product.builder().id(1L).sku("SKU-1").name("Widget").build();
+    private static final Pageable PAGEABLE = PageRequest.of(0, 20);
 
     @Mock
     private StockCountRepository stockCountRepository;
@@ -216,46 +221,50 @@ class StockCountServiceTest {
     }
 
     @Test
-    void findWithoutFiltersReturnsEveryCount() {
-        when(stockCountRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(draftCount()));
+    void findWithoutFiltersReturnsAPageOfEveryCount() {
+        when(stockCountRepository.findAll(PAGEABLE)).thenReturn(page(draftCount()));
 
-        List<StockCountResponse> result = stockCountService.find(null, null);
+        Page<StockCountResponse> result = stockCountService.find(null, null, PAGEABLE);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
+        assertThat(result.getTotalElements()).isEqualTo(1);
         verifyNoInteractions(warehouseService);
     }
 
     @Test
     void findByWarehouseChecksTheWarehouseExists() {
-        when(stockCountRepository.findByWarehouseIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(draftCount()));
+        when(stockCountRepository.findByWarehouseId(7L, PAGEABLE)).thenReturn(page(draftCount()));
 
-        List<StockCountResponse> result = stockCountService.find(7L, null);
+        Page<StockCountResponse> result = stockCountService.find(7L, null, PAGEABLE);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verify(warehouseService).findById(7L);
     }
 
     @Test
     void findByStatusFiltersOnStatusAlone() {
-        when(stockCountRepository.findByStatusOrderByCreatedAtDesc(StockCountStatus.DRAFT))
-                .thenReturn(List.of(draftCount()));
+        when(stockCountRepository.findByStatus(StockCountStatus.DRAFT, PAGEABLE)).thenReturn(page(draftCount()));
 
-        List<StockCountResponse> result = stockCountService.find(null, StockCountStatus.DRAFT);
+        Page<StockCountResponse> result = stockCountService.find(null, StockCountStatus.DRAFT, PAGEABLE);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verifyNoInteractions(warehouseService);
     }
 
     @Test
     void findByWarehouseAndStatusCombinesBothFilters() {
-        when(stockCountRepository.findByWarehouseIdAndStatusOrderByCreatedAtDesc(7L, StockCountStatus.COMPLETED))
-                .thenReturn(List.of(countWithStatus(StockCountStatus.COMPLETED)));
+        when(stockCountRepository.findByWarehouseIdAndStatus(7L, StockCountStatus.COMPLETED, PAGEABLE))
+                .thenReturn(page(countWithStatus(StockCountStatus.COMPLETED)));
 
-        List<StockCountResponse> result = stockCountService.find(7L, StockCountStatus.COMPLETED);
+        Page<StockCountResponse> result = stockCountService.find(7L, StockCountStatus.COMPLETED, PAGEABLE);
 
-        assertThat(result).singleElement()
+        assertThat(result.getContent()).singleElement()
                 .satisfies(count -> assertThat(count.status()).isEqualTo(StockCountStatus.COMPLETED));
         verify(warehouseService).findById(7L);
+    }
+
+    private static Page<StockCount> page(StockCount count) {
+        return new PageImpl<>(List.of(count), PAGEABLE, 1);
     }
 
     private void stubLine(StockCount count) {

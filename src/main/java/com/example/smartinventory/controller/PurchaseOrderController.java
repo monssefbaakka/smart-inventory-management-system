@@ -14,6 +14,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.PageRequests;
+import com.example.smartinventory.dto.PageResponse;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
 import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.model.PurchaseOrder;
@@ -34,6 +36,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Tag(name = "Purchase Orders", description = "Create purchase orders and drive their lifecycle")
 public class PurchaseOrderController {
+
+    /** The sortable fields as one comma-separated string, for documentation and error messages. */
+    static final String SORTABLE_FIELDS_DESCRIPTION = "id, createdAt, updatedAt, status";
+
+    /** Order fields a listing may be ordered by. */
+    static final List<String> SORTABLE_FIELDS = List.of(SORTABLE_FIELDS_DESCRIPTION.split(", "));
 
     private final PurchaseOrderService purchaseOrderService;
 
@@ -65,22 +73,35 @@ public class PurchaseOrderController {
     }
 
     /**
-     * Lists purchase orders, optionally filtered to a single supplier.
+     * Returns one page of purchase orders, most recent first by default, optionally filtered to a
+     * single supplier.
      *
      * @param supplierId optional supplier filter
-     * @return the matching purchase orders
+     * @param page       zero-based index of the page to return
+     * @param size       maximum number of orders on the page
+     * @param sort       {@code field} or {@code field,direction} to order by
+     * @return the requested page of matching orders
      */
     @GetMapping
     @Operation(summary = "List purchase orders",
-            description = "Lists all purchase orders, or only those for a supplier when supplierId is given.")
-    @ApiResponse(responseCode = "200", description = "Purchase orders returned")
-    public ResponseEntity<List<PurchaseOrderResponse>> findAll(
+            description = "Returns one page of purchase orders, most recent first unless another ordering is "
+                    + "asked for, and only those for a supplier when supplierId is given. Sortable fields: "
+                    + SORTABLE_FIELDS_DESCRIPTION + ". Page size is capped at " + PageRequests.MAX_PAGE_SIZE + ".")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Page of purchase orders returned"),
+        @ApiResponse(responseCode = "400", description = "Unusable paging or sorting parameter", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Filtered supplier not found", content = @Content)
+    })
+    public ResponseEntity<PageResponse<PurchaseOrderResponse>> findAll(
             @Parameter(description = "Optional supplier id to filter by")
-            @RequestParam(required = false) Long supplierId) {
-        List<PurchaseOrder> orders = supplierId == null
-                ? purchaseOrderService.findAll()
-                : purchaseOrderService.findBySupplier(supplierId);
-        return ResponseEntity.ok(orders.stream().map(PurchaseOrderResponse::from).toList());
+            @RequestParam(required = false) Long supplierId,
+            @Parameter(description = "Zero-based page index") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size, at most " + PageRequests.MAX_PAGE_SIZE)
+            @RequestParam(defaultValue = "" + PageRequests.DEFAULT_PAGE_SIZE) int size,
+            @Parameter(description = "Ordering as 'field' or 'field,asc|desc'")
+            @RequestParam(defaultValue = PageRequests.NEWEST_FIRST) String sort) {
+        return ResponseEntity.ok(PageResponse.from(
+                purchaseOrderService.find(supplierId, PageRequests.of(page, size, sort, SORTABLE_FIELDS))));
     }
 
     @PostMapping("/{id}/place")

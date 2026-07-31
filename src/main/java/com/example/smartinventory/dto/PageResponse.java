@@ -40,6 +40,18 @@ public record PageResponse<T>(
         boolean last) {
 
     /**
+     * Wraps a page whose content is already in its response form, as returned by services that map
+     * inside their own transaction.
+     *
+     * @param page the page to wrap
+     * @param <T>  response type carried by the page
+     * @return the page envelope
+     */
+    public static <T> PageResponse<T> from(Page<T> page) {
+        return from(page, Function.identity());
+    }
+
+    /**
      * Wraps a page of entities, converting each one into its response form.
      *
      * @param page   the page as returned by the repository

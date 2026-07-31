@@ -1,12 +1,13 @@
 package com.example.smartinventory.service;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.dto.PurchaseOrderItemRequest;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
+import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.exception.InvalidPurchaseOrderStateException;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.MovementType;
@@ -64,15 +65,29 @@ public class PurchaseOrderService {
                 .orElseThrow(() -> new ResourceNotFoundException("Purchase order not found with id: " + id));
     }
 
+    /**
+     * Returns one page of purchase orders, optionally narrowed to a single supplier.
+     *
+     * <p>The orders are mapped to their responses inside this transaction: the paged query fetches
+     * the supplier but deliberately not the line items, because fetching a collection alongside a
+     * page would force the page to be assembled in memory. The items of the orders on the page are
+     * loaded here instead, while the session is still open.
+     *
+     * @param supplierId identifier of a supplier to filter by, or {@code null}
+     * @param pageable   the page to return and the order to return it in
+     * @return the requested page of matching orders
+     * @throws ResourceNotFoundException if the named supplier does not exist
+     */
     @Transactional(readOnly = true)
-    public List<PurchaseOrder> findAll() {
-        return purchaseOrderRepository.findAll();
-    }
-
-    @Transactional(readOnly = true)
-    public List<PurchaseOrder> findBySupplier(Long supplierId) {
-        supplierService.findById(supplierId);
-        return purchaseOrderRepository.findBySupplierIdOrderByCreatedAtDesc(supplierId);
+    public Page<PurchaseOrderResponse> find(Long supplierId, Pageable pageable) {
+        Page<PurchaseOrder> orders;
+        if (supplierId == null) {
+            orders = purchaseOrderRepository.findAllBy(pageable);
+        } else {
+            supplierService.findById(supplierId);
+            orders = purchaseOrderRepository.findBySupplierId(supplierId, pageable);
+        }
+        return orders.map(PurchaseOrderResponse::from);
     }
 
     /**

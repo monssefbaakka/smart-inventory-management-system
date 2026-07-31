@@ -285,16 +285,36 @@ A resource belonging to another tenant answers `404 Not Found`, exactly as a non
 The tenant registry spans the whole installation, so managing it is an ADMIN-only operation; every
 other endpoint only ever sees the caller's own tenant.
 
-### Product Listing: Paging, Sorting & Filtering
+### Paged Listings
 
-`GET /api/products` returns one page at a time rather than the whole catalogue. Paging is capped, so
-no single call can pull every row:
+Every listing that can grow without bound returns one page at a time, through the same `page` /
+`size` / `sort` parameters and the same envelope. Page size defaults to 20 and is capped at 100, so
+no single call can pull a whole table:
+
+| Endpoint | Default order | Sortable fields |
+| :--- | :--- | :--- |
+| `GET /api/products` | `id,asc` | `id`, `name`, `sku`, `price`, `quantity`, `reorderThreshold`, `createdAt`, `updatedAt` |
+| `GET /api/products/{id}/movements` | `createdAt,desc` | `id`, `createdAt`, `quantity`, `type` |
+| `GET /api/stock-transfers` | `createdAt,desc` | `id`, `createdAt`, `quantity` |
+| `GET /api/stock-counts` | `createdAt,desc` | `id`, `createdAt`, `completedAt`, `status` |
+| `GET /api/purchase-orders` | `createdAt,desc` | `id`, `createdAt`, `updatedAt`, `status` |
+| `GET /api/audit-logs` | `createdAt,desc` | `id`, `createdAt`, `entityType`, `entityId`, `action`, `username` |
+
+The filters each listing already had (`productId`, `warehouseId`, `status`, `supplierId`) still
+apply, and combine with paging. A `sort` field outside the listing's own allowlist, a negative
+`page`, or a `size` outside `1..100` is a client error and answers `400 Bad Request` — an unknown
+field never reaches the database.
+
+The reference-table listings — `/api/categories`, `/api/suppliers`, `/api/warehouses`,
+`/api/tenants` — are deliberately unpaged: they are bounded by how many categories or sites an
+organisation has.
+
+### Product Listing: Filtering
+
+`GET /api/products` also narrows the catalogue by content:
 
 | Parameter | Default | Purpose |
 | :--- | :--- | :--- |
-| `page` | `0` | Zero-based index of the page to return |
-| `size` | `20` | Results per page, at most `100` |
-| `sort` | `id,asc` | `field` or `field,asc\|desc` over `id`, `name`, `sku`, `price`, `quantity`, `reorderThreshold`, `createdAt`, `updatedAt` |
 | `search` | — | Case-insensitive text matched against the product name *and* SKU |
 | `categoryId` | — | Keeps only products in that category |
 | `supplierId` | — | Keeps only products from that supplier |
@@ -317,11 +337,9 @@ GET /api/products?page=0&size=2&sort=price,desc
 }
 ```
 
-A `sort` field outside the list above, a negative `page`, or a `size` outside `1..100` is a client
-error and answers `400 Bad Request` — an unknown field never reaches the database. The category and
-supplier are fetched with the page, so a listing costs one query regardless of how many rows it
-carries. `GET /api/products/low-stock` is unchanged and still returns a plain array; it is the same
-result as `?lowStock=true`, without paging.
+The category and supplier are fetched with the page, so a product listing costs one query regardless
+of how many rows it carries. `GET /api/products/low-stock` is unchanged and still returns a plain
+array; it is the same result as `?lowStock=true`, without paging.
 
 ### Response Shape
 

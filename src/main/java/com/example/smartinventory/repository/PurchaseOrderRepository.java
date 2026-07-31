@@ -3,6 +3,8 @@ package com.example.smartinventory.repository;
 import java.util.List;
 import java.util.Optional;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -25,12 +27,25 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     List<PurchaseOrder> findAll();
 
     /**
-     * Returns all purchase orders raised against a supplier, most recent first.
+     * Returns one page of every purchase order.
+     *
+     * <p>Only the {@code supplier} is fetched: fetching the {@code items} collection alongside a
+     * page would make Hibernate apply the paging in memory, over every row the query matched.
+     *
+     * @param pageable the page to return and the order to return it in
+     * @return the requested page of orders
+     */
+    @EntityGraph(attributePaths = {"supplier"})
+    Page<PurchaseOrder> findAllBy(Pageable pageable);
+
+    /**
+     * Returns one page of the purchase orders raised against a supplier.
      *
      * @param supplierId identifier of the supplier
-     * @return the supplier's purchase orders, newest first
+     * @param pageable   the page to return and the order to return it in
+     * @return the requested page of that supplier's orders
      */
-    @EntityGraph(attributePaths = {"supplier", "items", "items.product"})
-    List<PurchaseOrder> findBySupplierIdOrderByCreatedAtDesc(Long supplierId);
+    @EntityGraph(attributePaths = {"supplier"})
+    Page<PurchaseOrder> findBySupplierId(Long supplierId, Pageable pageable);
 
 }

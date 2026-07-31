@@ -17,6 +17,10 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.example.smartinventory.dto.StockTransferResponse;
 import com.example.smartinventory.exception.InsufficientStockException;
@@ -34,6 +38,8 @@ import com.example.smartinventory.repository.StockTransferRepository;
 class StockTransferServiceTest {
 
     private static final Product PRODUCT = Product.builder().id(1L).sku("SKU-1").name("Widget").quantity(20).build();
+
+    private static final Pageable PAGEABLE = PageRequest.of(0, 20);
 
     @Mock
     private StockTransferRepository stockTransferRepository;
@@ -185,43 +191,45 @@ class StockTransferServiceTest {
     }
 
     @Test
-    void findWithoutFiltersReturnsWholeHistory() {
-        when(stockTransferRepository.findAllByOrderByCreatedAtDesc()).thenReturn(List.of(transfer()));
+    void findWithoutFiltersReturnsAPageOfTheWholeHistory() {
+        when(stockTransferRepository.findAll(PAGEABLE)).thenReturn(page());
 
-        List<StockTransferResponse> result = stockTransferService.find(null, null);
+        Page<StockTransferResponse> result = stockTransferService.find(null, null, PAGEABLE);
 
-        assertThat(result).singleElement().satisfies(entry -> assertThat(entry.quantity()).isEqualTo(6));
+        assertThat(result.getContent()).singleElement()
+                .satisfies(entry -> assertThat(entry.quantity()).isEqualTo(6));
+        assertThat(result.getTotalElements()).isEqualTo(1);
         verifyNoInteractions(productService, warehouseService);
     }
 
     @Test
     void findByProductFiltersOnProductAndChecksItExists() {
-        when(stockTransferRepository.findByProductIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(transfer()));
+        when(stockTransferRepository.findByProductId(1L, PAGEABLE)).thenReturn(page());
 
-        List<StockTransferResponse> result = stockTransferService.find(1L, null);
+        Page<StockTransferResponse> result = stockTransferService.find(1L, null, PAGEABLE);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verify(productService).findById(1L);
         verifyNoInteractions(warehouseService);
     }
 
     @Test
     void findByWarehouseMatchesEitherSideOfTheMove() {
-        when(stockTransferRepository.findBySourceWarehouseIdOrDestinationWarehouseIdOrderByCreatedAtDesc(2L, 2L))
-                .thenReturn(List.of(transfer()));
+        when(stockTransferRepository.findBySourceWarehouseIdOrDestinationWarehouseId(2L, 2L, PAGEABLE))
+                .thenReturn(page());
 
-        List<StockTransferResponse> result = stockTransferService.find(null, 2L);
+        Page<StockTransferResponse> result = stockTransferService.find(null, 2L, PAGEABLE);
 
-        assertThat(result).hasSize(1);
+        assertThat(result.getContent()).hasSize(1);
         verify(warehouseService).findById(2L);
         verifyNoInteractions(productService);
     }
 
     @Test
     void findPrefersProductWhenBothFiltersAreGiven() {
-        when(stockTransferRepository.findByProductIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(transfer()));
+        when(stockTransferRepository.findByProductId(1L, PAGEABLE)).thenReturn(page());
 
-        stockTransferService.find(1L, 2L);
+        stockTransferService.find(1L, 2L, PAGEABLE);
 
         verify(productService).findById(1L);
         verifyNoInteractions(warehouseService);
@@ -235,6 +243,10 @@ class StockTransferServiceTest {
 
     private static Warehouse warehouse(Long id, String code, boolean active) {
         return Warehouse.builder().id(id).code(code).name("Depot " + code).active(active).build();
+    }
+
+    private static Page<StockTransfer> page() {
+        return new PageImpl<>(List.of(transfer()), PAGEABLE, 1);
     }
 
     private static StockTransfer transfer() {

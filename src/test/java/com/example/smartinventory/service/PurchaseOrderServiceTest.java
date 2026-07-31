@@ -15,9 +15,14 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.example.smartinventory.dto.PurchaseOrderItemRequest;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
+import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.exception.InvalidPurchaseOrderStateException;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
@@ -29,6 +34,8 @@ import com.example.smartinventory.repository.PurchaseOrderRepository;
 
 @ExtendWith(MockitoExtension.class)
 class PurchaseOrderServiceTest {
+
+    private static final Supplier SUPPLIER = Supplier.builder().id(7L).name("Acme Supplies").build();
 
     @Mock
     private PurchaseOrderRepository purchaseOrderRepository;
@@ -138,13 +145,28 @@ class PurchaseOrderServiceTest {
 
     @Test
     void findBySupplierValidatesSupplierExists() {
-        PurchaseOrder order = PurchaseOrder.builder().id(1L).build();
-        when(purchaseOrderRepository.findBySupplierIdOrderByCreatedAtDesc(7L)).thenReturn(List.of(order));
+        Pageable pageable = PageRequest.of(0, 20);
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).supplier(SUPPLIER).build();
+        when(purchaseOrderRepository.findBySupplierId(7L, pageable))
+                .thenReturn(new PageImpl<>(List.of(order), pageable, 1));
 
-        List<PurchaseOrder> result = purchaseOrderService.findBySupplier(7L);
+        Page<PurchaseOrderResponse> result = purchaseOrderService.find(7L, pageable);
 
-        assertThat(result).containsExactly(order);
+        assertThat(result.getContent()).singleElement()
+                .satisfies(response -> assertThat(response.id()).isEqualTo(1L));
         verify(supplierService).findById(7L);
+    }
+
+    @Test
+    void findWithoutASupplierReturnsAPageOfEveryOrder() {
+        Pageable pageable = PageRequest.of(0, 20);
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).supplier(SUPPLIER).build();
+        when(purchaseOrderRepository.findAllBy(pageable)).thenReturn(new PageImpl<>(List.of(order), pageable, 1));
+
+        Page<PurchaseOrderResponse> result = purchaseOrderService.find(null, pageable);
+
+        assertThat(result.getTotalElements()).isEqualTo(1);
+        verifyNoInteractions(supplierService);
     }
 
 }

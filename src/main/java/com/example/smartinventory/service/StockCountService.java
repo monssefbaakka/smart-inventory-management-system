@@ -1,8 +1,9 @@
 package com.example.smartinventory.service;
 
 import java.time.Instant;
-import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -146,26 +147,29 @@ public class StockCountService {
     }
 
     /**
-     * Returns counts most recent first, optionally narrowed by warehouse, by status, or by both.
+     * Returns one page of counts, optionally narrowed by warehouse, by status, or by both. The
+     * counts are mapped to their responses inside this transaction, so their lines are still
+     * loadable while the page is assembled.
      *
      * @param warehouseId identifier of a warehouse to filter by, or {@code null}
      * @param status      lifecycle status to filter by, or {@code null}
-     * @return the matching counts
+     * @param pageable    the page to return and the order to return it in
+     * @return the requested page of matching counts
      */
     @Transactional(readOnly = true)
-    public List<StockCountResponse> find(Long warehouseId, StockCountStatus status) {
-        List<StockCount> counts;
+    public Page<StockCountResponse> find(Long warehouseId, StockCountStatus status, Pageable pageable) {
+        Page<StockCount> counts;
         if (warehouseId != null) {
             warehouseService.findById(warehouseId);
             counts = status == null
-                    ? stockCountRepository.findByWarehouseIdOrderByCreatedAtDesc(warehouseId)
-                    : stockCountRepository.findByWarehouseIdAndStatusOrderByCreatedAtDesc(warehouseId, status);
+                    ? stockCountRepository.findByWarehouseId(warehouseId, pageable)
+                    : stockCountRepository.findByWarehouseIdAndStatus(warehouseId, status, pageable);
         } else if (status != null) {
-            counts = stockCountRepository.findByStatusOrderByCreatedAtDesc(status);
+            counts = stockCountRepository.findByStatus(status, pageable);
         } else {
-            counts = stockCountRepository.findAllByOrderByCreatedAtDesc();
+            counts = stockCountRepository.findAll(pageable);
         }
-        return counts.stream().map(StockCountResponse::from).toList();
+        return counts.map(StockCountResponse::from);
     }
 
     private StockCount load(Long id) {

@@ -1,7 +1,7 @@
 package com.example.smartinventory.service;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -103,15 +103,18 @@ public class StockMovementService {
     }
 
     /**
-     * Returns the movement history for a product, most recent first.
+     * Returns one page of the movement history for a product.
      *
      * @param productId identifier of the product
-     * @return list of stock movements for the product
+     * @param pageable  the page to return and the order to return it in
+     * @return the requested page of the product's stock movements
+     * @throws com.example.smartinventory.exception.ResourceNotFoundException if the product does not
+     *                                                                        exist
      */
     @Transactional(readOnly = true)
-    public List<StockMovement> findByProduct(Long productId) {
+    public Page<StockMovement> findByProduct(Long productId, Pageable pageable) {
         productService.findById(productId);
-        return stockMovementRepository.findByProductIdOrderByCreatedAtDesc(productId);
+        return stockMovementRepository.findByProductId(productId, pageable);
     }
 
 }
