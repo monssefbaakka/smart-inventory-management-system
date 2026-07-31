@@ -7,16 +7,25 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
+import com.example.smartinventory.dto.ProductSearchCriteria;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.AuditAction;
 import com.example.smartinventory.model.Category;
@@ -74,13 +83,31 @@ class ProductServiceTest {
     }
 
     @Test
-    void findAllReturnsAllProducts() {
+    void searchReturnsThePageTheRepositoryFinds() {
         Product product = Product.builder().id(1L).build();
-        when(productRepository.findAll()).thenReturn(List.of(product));
+        Pageable pageable = PageRequest.of(0, 20);
+        Page<Product> page = new PageImpl<>(List.of(product), pageable, 1);
+        when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable)))
+                .thenReturn(page);
 
-        List<Product> result = productService.findAll();
+        Page<Product> result = productService.search(ProductSearchCriteria.UNFILTERED, pageable);
 
-        assertThat(result).containsExactly(product);
+        assertThat(result.getContent()).containsExactly(product);
+        assertThat(result.getTotalElements()).isEqualTo(1);
+    }
+
+    @Test
+    void searchPassesTheCriteriaToTheQueryAsASpecification() {
+        Pageable pageable = PageRequest.of(1, 5);
+        ProductSearchCriteria criteria = new ProductSearchCriteria("wid", 3L, null, null, null, true);
+        when(productRepository.findAll(ArgumentMatchers.<Specification<Product>>any(), eq(pageable)))
+                .thenReturn(Page.empty(pageable));
+
+        productService.search(criteria, pageable);
+
+        ArgumentCaptor<Specification<Product>> specification = ArgumentCaptor.captor();
+        verify(productRepository).findAll(specification.capture(), eq(pageable));
+        assertThat(specification.getValue()).isNotNull();
     }
 
     @Test

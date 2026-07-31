@@ -2,15 +2,19 @@ package com.example.smartinventory.service;
 
 import java.util.List;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.smartinventory.dto.ProductSearchCriteria;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.AuditAction;
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.repository.ProductRepository;
+import com.example.smartinventory.repository.ProductSpecifications;
 
 import lombok.RequiredArgsConstructor;
 
@@ -75,9 +79,16 @@ public class ProductService {
         return barcode == null || barcode.isBlank() ? product.getSku() : barcode;
     }
 
+    /**
+     * Returns one page of the products matching {@code criteria}.
+     *
+     * @param criteria the filters to narrow the listing by
+     * @param pageable the page to return and the order to return it in
+     * @return the requested page of products
+     */
     @Transactional(readOnly = true)
-    public List<Product> findAll() {
-        return productRepository.findAll();
+    public Page<Product> search(ProductSearchCriteria criteria, Pageable pageable) {
+        return productRepository.findAll(ProductSpecifications.matching(criteria), pageable);
     }
 
     /**

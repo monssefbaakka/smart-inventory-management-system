@@ -175,6 +175,26 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * Handles listing requests whose paging, sorting or filter parameters cannot be honoured.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 400 response body describing the failure
+     */
+    @ExceptionHandler(InvalidQueryParameterException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidQueryParameter(InvalidQueryParameterException ex,
+            WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
      * Handles requests that are authenticated but lack the required authority.
      *
      * @param ex      the thrown exception

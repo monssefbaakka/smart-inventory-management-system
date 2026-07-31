@@ -16,8 +16,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   discriminator, and a product naming a category or supplier that does not exist now gets `404`
   instead of a constraint violation (#135).
 
+### Changed
+
+- **`GET /api/products` returns a page, not the whole catalogue** — the response is now an envelope
+  carrying `content` plus `page`, `size`, `totalElements`, `totalPages`, `first` and `last`, instead
+  of a bare JSON array. Callers reading the array directly must read `content`. Page size defaults to
+  20 and is capped at 100 (#138).
+
 ### Added
 
+- **Paging, sorting and filtering on the product listing** — `page`, `size` and `sort=field,dir` over
+  an allowlist of product fields, plus optional `search` (name and SKU, case-insensitive),
+  `categoryId`, `supplierId`, `minPrice`, `maxPrice` and `lowStock` filters that combine with AND. An
+  unusable sort field, page or size is answered with `400 Bad Request` rather than reaching the
+  database (#138).
 - **Multi-tenant support** — one deployment serves many organisations: a tenant registry with
   ADMIN-only endpoints, a `tenant_id` discriminator on every tenant-owned table, Hibernate
   discriminator-based tenancy driven by the authenticated caller's tenant, and registration into a
