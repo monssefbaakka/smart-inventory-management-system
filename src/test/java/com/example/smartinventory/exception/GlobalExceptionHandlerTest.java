@@ -56,6 +56,15 @@ class GlobalExceptionHandlerTest {
     }
 
     @Test
+    void handlesInvalidQueryParameter() {
+        ResponseEntity<ErrorResponse> response = handler.handleInvalidQueryParameter(
+                new InvalidQueryParameterException("Cannot sort by 'tenantId'"), webRequest());
+
+        assertThat(response.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(response.getBody().getMessage()).isEqualTo("Cannot sort by 'tenantId'");
+    }
+
+    @Test
     void handlesAccessDenied() {
         ResponseEntity<ErrorResponse> response = handler.handleAccessDenied(
                 new AccessDeniedException("denied"), webRequest());

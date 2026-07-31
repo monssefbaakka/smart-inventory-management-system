@@ -3,9 +3,12 @@ package com.example.smartinventory.controller;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -15,14 +18,21 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.smartinventory.dto.ProductSearchCriteria;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
@@ -118,13 +128,138 @@ class ProductControllerTest {
     }
 
     @Test
-    void findAllReturnsProducts() throws Exception {
+    void searchReturnsAPageOfProducts() throws Exception {
         Product product = Product.builder().id(1L).name("Widget").build();
-        when(productService.findAll()).thenReturn(List.of(product));
+        when(productService.search(any(ProductSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(product), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/products"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.page").value(0))
+                .andExpect(jsonPath("$.size").value(20))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.totalPages").value(1))
+                .andExpect(jsonPath("$.first").value(true))
+                .andExpect(jsonPath("$.last").value(true));
+    }
+
+    @Test
+    void searchDefaultsToTheFirstPageOrderedById() throws Exception {
+        when(productService.search(any(ProductSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/products"))
+                .andExpect(status().isOk());
+
+        assertThat(capturedPageable()).isEqualTo(PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "id")));
+    }
+
+    @Test
+    void searchHonoursThePagingAndSortingAsked() throws Exception {
+        when(productService.search(any(ProductSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/products").param("page", "2").param("size", "5").param("sort", "price,desc"))
+                .andExpect(status().isOk());
+
+        assertThat(capturedPageable()).isEqualTo(PageRequest.of(2, 5, Sort.by(Sort.Direction.DESC, "price")));
+    }
+
+    @Test
+    void searchSortsAscendingWhenNoDirectionIsGiven() throws Exception {
+        when(productService.search(any(ProductSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/products").param("sort", "name"))
+                .andExpect(status().isOk());
+
+        assertThat(capturedPageable().getSort()).isEqualTo(Sort.by(Sort.Direction.ASC, "name"));
+    }
+
+    @Test
+    void searchPassesEveryFilterThrough() throws Exception {
+        when(productService.search(any(ProductSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/products")
+                        .param("search", "wid")
+                        .param("categoryId", "3")
+                        .param("supplierId", "4")
+                        .param("minPrice", "5.50")
+                        .param("maxPrice", "50")
+                        .param("lowStock", "true"))
+                .andExpect(status().isOk());
+
+        assertThat(capturedCriteria()).isEqualTo(
+                new ProductSearchCriteria("wid", 3L, 4L, new BigDecimal("5.50"), new BigDecimal("50"), true));
+    }
+
+    @Test
+    void searchAppliesNoFilterWhenNoneIsGiven() throws Exception {
+        when(productService.search(any(ProductSearchCriteria.class), any(Pageable.class)))
+                .thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/products"))
+                .andExpect(status().isOk());
+
+        assertThat(capturedCriteria()).isEqualTo(ProductSearchCriteria.UNFILTERED);
+    }
+
+    @Test
+    void searchRejectsAnUnknownSortField() throws Exception {
+        mockMvc.perform(get("/api/products").param("sort", "tenantId"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("Cannot sort by 'tenantId'")));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    void searchRejectsAnUnknownSortDirection() throws Exception {
+        mockMvc.perform(get("/api/products").param("sort", "name,sideways"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("sideways")));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    void searchRejectsANegativePage() throws Exception {
+        mockMvc.perform(get("/api/products").param("page", "-1"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("page must not be negative")));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    void searchRejectsAPageSizeBeyondTheCap() throws Exception {
+        mockMvc.perform(get("/api/products").param("size", "101"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("size must be between 1 and 100")));
+
+        verifyNoInteractions(productService);
+    }
+
+    @Test
+    void searchRejectsAnEmptyPage() throws Exception {
+        mockMvc.perform(get("/api/products").param("size", "0"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(productService);
+    }
+
+    private Pageable capturedPageable() {
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
+        verify(productService).search(any(ProductSearchCriteria.class), pageable.capture());
+        return pageable.getValue();
+    }
+
+    private ProductSearchCriteria capturedCriteria() {
+        ArgumentCaptor<ProductSearchCriteria> criteria = ArgumentCaptor.captor();
+        verify(productService).search(criteria.capture(), any(Pageable.class));
+        return criteria.getValue();
     }
 
     @Test

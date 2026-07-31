@@ -285,6 +285,44 @@ A resource belonging to another tenant answers `404 Not Found`, exactly as a non
 The tenant registry spans the whole installation, so managing it is an ADMIN-only operation; every
 other endpoint only ever sees the caller's own tenant.
 
+### Product Listing: Paging, Sorting & Filtering
+
+`GET /api/products` returns one page at a time rather than the whole catalogue. Paging is capped, so
+no single call can pull every row:
+
+| Parameter | Default | Purpose |
+| :--- | :--- | :--- |
+| `page` | `0` | Zero-based index of the page to return |
+| `size` | `20` | Results per page, at most `100` |
+| `sort` | `id,asc` | `field` or `field,asc\|desc` over `id`, `name`, `sku`, `price`, `quantity`, `reorderThreshold`, `createdAt`, `updatedAt` |
+| `search` | — | Case-insensitive text matched against the product name *and* SKU |
+| `categoryId` | — | Keeps only products in that category |
+| `supplierId` | — | Keeps only products from that supplier |
+| `minPrice` / `maxPrice` | — | Keeps only products inside the price band |
+| `lowStock` | `false` | Keeps only products at or below their reorder threshold |
+
+Filters are optional and combine with AND, so `?search=widget&categoryId=3&lowStock=true&sort=price,desc`
+is a single query. A page comes back inside an envelope carrying the metadata needed to walk the rest:
+
+```json
+GET /api/products?page=0&size=2&sort=price,desc
+{
+  "content": [ { "id": 7, "name": "Widget Pro", "price": 49.99, "…": "…" } ],
+  "page": 0,
+  "size": 2,
+  "totalElements": 137,
+  "totalPages": 69,
+  "first": true,
+  "last": false
+}
+```
+
+A `sort` field outside the list above, a negative `page`, or a `size` outside `1..100` is a client
+error and answers `400 Bad Request` — an unknown field never reaches the database. The category and
+supplier are fetched with the page, so a listing costs one query regardless of how many rows it
+carries. `GET /api/products/low-stock` is unchanged and still returns a plain array; it is the same
+result as `?lowStock=true`, without paging.
+
 ### Response Shape
 
 Endpoints return response DTOs, never JPA entities. Related records are flattened to their
