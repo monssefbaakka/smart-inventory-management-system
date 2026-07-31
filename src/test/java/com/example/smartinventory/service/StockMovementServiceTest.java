@@ -13,6 +13,10 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.example.smartinventory.exception.InsufficientStockException;
 import com.example.smartinventory.exception.InvalidStockTransferException;
@@ -157,16 +161,19 @@ class StockMovementServiceTest {
     }
 
     @Test
-    void findByProductReturnsHistory() {
+    void findByProductReturnsAPageOfHistoryAndChecksTheProductExists() {
+        Pageable pageable = PageRequest.of(0, 20);
         Product product = Product.builder().id(1L).build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN).quantity(3)
                 .build();
         when(productService.findById(1L)).thenReturn(product);
-        when(stockMovementRepository.findByProductIdOrderByCreatedAtDesc(1L)).thenReturn(List.of(movement));
+        when(stockMovementRepository.findByProductId(1L, pageable))
+                .thenReturn(new PageImpl<>(List.of(movement), pageable, 1));
 
-        List<StockMovement> result = stockMovementService.findByProduct(1L);
+        Page<StockMovement> result = stockMovementService.findByProduct(1L, pageable);
 
-        assertThat(result).containsExactly(movement);
+        assertThat(result.getContent()).containsExactly(movement);
+        verify(productService).findById(1L);
     }
 
 }

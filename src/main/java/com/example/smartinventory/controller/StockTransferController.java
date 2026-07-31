@@ -13,6 +13,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.PageRequests;
+import com.example.smartinventory.dto.PageResponse;
 import com.example.smartinventory.dto.StockTransferRequest;
 import com.example.smartinventory.dto.StockTransferResponse;
 import com.example.smartinventory.service.StockTransferService;
@@ -32,6 +34,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Tag(name = "Stock Transfers", description = "Move stock between warehouses and read past moves")
 public class StockTransferController {
+
+    /** The sortable fields as one comma-separated string, for documentation and error messages. */
+    static final String SORTABLE_FIELDS_DESCRIPTION = "id, createdAt, quantity";
+
+    /** Transfer fields a listing may be ordered by. */
+    static final List<String> SORTABLE_FIELDS = List.of(SORTABLE_FIELDS_DESCRIPTION.split(", "));
 
     private final StockTransferService stockTransferService;
 
@@ -75,26 +83,39 @@ public class StockTransferController {
     }
 
     /**
-     * Lists transfers, most recent first, optionally narrowed to one product or one warehouse.
+     * Returns one page of transfers, most recent first by default, optionally narrowed to one
+     * product or one warehouse.
      *
      * @param productId   identifier of a product to filter by, or {@code null}
      * @param warehouseId identifier of a warehouse to filter by, or {@code null}
-     * @return the matching transfers
+     * @param page        zero-based index of the page to return
+     * @param size        maximum number of transfers on the page
+     * @param sort        {@code field} or {@code field,direction} to order by
+     * @return the requested page of matching transfers
      */
     @GetMapping
     @Operation(summary = "List stock transfers",
-            description = "Returns transfers most recent first. Filter by product, or by a warehouse on "
-                    + "either side of the move; product wins when both are given.")
+            description = "Returns one page of transfers, most recent first unless another ordering is asked "
+                    + "for. Filter by product, or by a warehouse on either side of the move; product wins "
+                    + "when both are given. Sortable fields: " + SORTABLE_FIELDS_DESCRIPTION
+                    + ". Page size is capped at " + PageRequests.MAX_PAGE_SIZE + ".")
     @ApiResponses({
-        @ApiResponse(responseCode = "200", description = "Transfers returned"),
+        @ApiResponse(responseCode = "200", description = "Page of transfers returned"),
+        @ApiResponse(responseCode = "400", description = "Unusable paging or sorting parameter", content = @Content),
         @ApiResponse(responseCode = "404", description = "Filtered product or warehouse not found",
                 content = @Content)
     })
-    public ResponseEntity<List<StockTransferResponse>> find(
+    public ResponseEntity<PageResponse<StockTransferResponse>> find(
             @Parameter(description = "Only transfers of this product") @RequestParam(required = false) Long productId,
             @Parameter(description = "Only transfers into or out of this warehouse")
-            @RequestParam(required = false) Long warehouseId) {
-        return ResponseEntity.ok(stockTransferService.find(productId, warehouseId));
+            @RequestParam(required = false) Long warehouseId,
+            @Parameter(description = "Zero-based page index") @RequestParam(defaultValue = "0") int page,
+            @Parameter(description = "Page size, at most " + PageRequests.MAX_PAGE_SIZE)
+            @RequestParam(defaultValue = "" + PageRequests.DEFAULT_PAGE_SIZE) int size,
+            @Parameter(description = "Ordering as 'field' or 'field,asc|desc'")
+            @RequestParam(defaultValue = PageRequests.NEWEST_FIRST) String sort) {
+        return ResponseEntity.ok(PageResponse.from(stockTransferService.find(productId, warehouseId,
+                PageRequests.of(page, size, sort, SORTABLE_FIELDS))));
     }
 
 }

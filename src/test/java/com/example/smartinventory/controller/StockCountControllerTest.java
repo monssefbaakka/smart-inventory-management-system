@@ -3,20 +3,29 @@ package com.example.smartinventory.controller;
 import java.time.Instant;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -158,23 +167,60 @@ class StockCountControllerTest {
     }
 
     @Test
-    void findReturnsEveryCountWithoutFilters() throws Exception {
-        when(stockCountService.find(isNull(), isNull())).thenReturn(List.of(response(StockCountStatus.DRAFT)));
+    void findReturnsAPageOfEveryCountWithoutFilters() throws Exception {
+        when(stockCountService.find(isNull(), isNull(), any(Pageable.class)))
+                .thenReturn(new PageImpl<>(List.of(response(StockCountStatus.DRAFT)), PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/stock-counts"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(3));
+                .andExpect(jsonPath("$.content[0].id").value(3))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.size").value(20));
     }
 
     @Test
     void findPassesWarehouseAndStatusFiltersThrough() throws Exception {
-        when(stockCountService.find(7L, StockCountStatus.COMPLETED))
-                .thenReturn(List.of(response(StockCountStatus.COMPLETED)));
+        when(stockCountService.find(eq(7L), eq(StockCountStatus.COMPLETED), any(Pageable.class)))
+                .thenReturn(Page.empty());
 
         mockMvc.perform(get("/api/stock-counts").param("warehouseId", "7").param("status", "COMPLETED"))
                 .andExpect(status().isOk());
 
-        verify(stockCountService).find(7L, StockCountStatus.COMPLETED);
+        verify(stockCountService).find(eq(7L), eq(StockCountStatus.COMPLETED), any(Pageable.class));
+    }
+
+    @Test
+    void findDefaultsToTheMostRecentFirst() throws Exception {
+        when(stockCountService.find(isNull(), isNull(), any(Pageable.class))).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/stock-counts"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
+        verify(stockCountService).find(isNull(), isNull(), pageable.capture());
+        assertThat(pageable.getValue())
+                .isEqualTo(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
+
+    @Test
+    void findHonoursThePagingAndSortingAsked() throws Exception {
+        when(stockCountService.find(isNull(), isNull(), any(Pageable.class))).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/stock-counts").param("page", "3").param("size", "10").param("sort", "status,asc"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
+        verify(stockCountService).find(isNull(), isNull(), pageable.capture());
+        assertThat(pageable.getValue()).isEqualTo(PageRequest.of(3, 10, Sort.by(Sort.Direction.ASC, "status")));
+    }
+
+    @Test
+    void findRejectsAnUnknownSortField() throws Exception {
+        mockMvc.perform(get("/api/stock-counts").param("sort", "warehouse"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("Cannot sort by 'warehouse'")));
+
+        verifyNoInteractions(stockCountService);
     }
 
     private static StockCountResponse response(StockCountStatus status) {

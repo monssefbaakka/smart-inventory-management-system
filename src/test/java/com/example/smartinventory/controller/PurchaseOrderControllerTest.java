@@ -3,22 +3,35 @@ package com.example.smartinventory.controller;
 import java.math.BigDecimal;
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.containsString;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.smartinventory.dto.PurchaseOrderRequest;
+import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderItem;
@@ -94,21 +107,63 @@ class PurchaseOrderControllerTest {
     }
 
     @Test
-    void findAllReturnsOrders() throws Exception {
-        when(purchaseOrderService.findAll()).thenReturn(List.of(order(PurchaseOrderStatus.DRAFT)));
+    void findAllReturnsAPageOfOrders() throws Exception {
+        when(purchaseOrderService.find(isNull(), any(Pageable.class))).thenReturn(
+                new PageImpl<>(List.of(PurchaseOrderResponse.from(order(PurchaseOrderStatus.DRAFT))),
+                        PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/purchase-orders"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(1));
+                .andExpect(jsonPath("$.content[0].id").value(1))
+                .andExpect(jsonPath("$.totalElements").value(1))
+                .andExpect(jsonPath("$.first").value(true));
     }
 
     @Test
     void findAllFiltersBySupplierWhenProvided() throws Exception {
-        when(purchaseOrderService.findBySupplier(7L)).thenReturn(List.of(order(PurchaseOrderStatus.PLACED)));
+        when(purchaseOrderService.find(eq(7L), any(Pageable.class))).thenReturn(
+                new PageImpl<>(List.of(PurchaseOrderResponse.from(order(PurchaseOrderStatus.PLACED))),
+                        PageRequest.of(0, 20), 1));
 
         mockMvc.perform(get("/api/purchase-orders").param("supplierId", "7"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("PLACED"));
+                .andExpect(jsonPath("$.content[0].status").value("PLACED"));
+
+        verify(purchaseOrderService).find(eq(7L), any(Pageable.class));
+    }
+
+    @Test
+    void findAllDefaultsToTheMostRecentFirst() throws Exception {
+        when(purchaseOrderService.find(isNull(), any(Pageable.class))).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/purchase-orders"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
+        verify(purchaseOrderService).find(isNull(), pageable.capture());
+        assertThat(pageable.getValue())
+                .isEqualTo(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")));
+    }
+
+    @Test
+    void findAllHonoursThePagingAndSortingAsked() throws Exception {
+        when(purchaseOrderService.find(isNull(), any(Pageable.class))).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/purchase-orders").param("page", "1").param("size", "50").param("sort", "status,asc"))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
+        verify(purchaseOrderService).find(isNull(), pageable.capture());
+        assertThat(pageable.getValue()).isEqualTo(PageRequest.of(1, 50, Sort.by(Sort.Direction.ASC, "status")));
+    }
+
+    @Test
+    void findAllRejectsAnUnknownSortField() throws Exception {
+        mockMvc.perform(get("/api/purchase-orders").param("sort", "supplier"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value(containsString("Cannot sort by 'supplier'")));
+
+        verifyNoInteractions(purchaseOrderService);
     }
 
     @Test

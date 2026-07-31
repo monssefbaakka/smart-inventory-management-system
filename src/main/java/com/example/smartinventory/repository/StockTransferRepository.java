@@ -1,7 +1,7 @@
 package com.example.smartinventory.repository;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.smartinventory.model.StockTransfer;
@@ -10,28 +10,23 @@ import com.example.smartinventory.model.StockTransfer;
 public interface StockTransferRepository extends JpaRepository<StockTransfer, Long> {
 
     /**
-     * Returns every recorded transfer, most recent first.
-     *
-     * @return the full transfer history
-     */
-    List<StockTransfer> findAllByOrderByCreatedAtDesc();
-
-    /**
-     * Returns the transfers that moved one product, most recent first.
+     * Returns one page of the transfers that moved one product.
      *
      * @param productId identifier of the product
-     * @return that product's transfer history
+     * @param pageable  the page to return and the order to return it in
+     * @return the requested page of that product's transfer history
      */
-    List<StockTransfer> findByProductIdOrderByCreatedAtDesc(Long productId);
+    Page<StockTransfer> findByProductId(Long productId, Pageable pageable);
 
     /**
-     * Returns the transfers a warehouse took part in on either side, most recent first.
+     * Returns one page of the transfers a warehouse took part in on either side.
      *
      * @param sourceWarehouseId      identifier matched against the source side
      * @param destinationWarehouseId identifier matched against the destination side
-     * @return transfers into or out of that warehouse
+     * @param pageable               the page to return and the order to return it in
+     * @return the requested page of transfers into or out of that warehouse
      */
-    List<StockTransfer> findBySourceWarehouseIdOrDestinationWarehouseIdOrderByCreatedAtDesc(
-            Long sourceWarehouseId, Long destinationWarehouseId);
+    Page<StockTransfer> findBySourceWarehouseIdOrDestinationWarehouseId(
+            Long sourceWarehouseId, Long destinationWarehouseId, Pageable pageable);
 
 }

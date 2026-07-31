@@ -1,7 +1,7 @@
 package com.example.smartinventory.service;
 
-import java.util.List;
-
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -109,27 +109,28 @@ public class StockTransferService {
     }
 
     /**
-     * Returns the transfer history, most recent first, optionally narrowed to one product or one
-     * warehouse. A warehouse matches transfers on either side of the move.
+     * Returns one page of the transfer history, optionally narrowed to one product or one warehouse.
+     * A warehouse matches transfers on either side of the move.
      *
      * @param productId   identifier of a product to filter by, or {@code null}
      * @param warehouseId identifier of a warehouse to filter by, or {@code null}
-     * @return the matching transfers
+     * @param pageable    the page to return and the order to return it in
+     * @return the requested page of matching transfers
      */
     @Transactional(readOnly = true)
-    public List<StockTransferResponse> find(Long productId, Long warehouseId) {
-        List<StockTransfer> transfers;
+    public Page<StockTransferResponse> find(Long productId, Long warehouseId, Pageable pageable) {
+        Page<StockTransfer> transfers;
         if (productId != null) {
             productService.findById(productId);
-            transfers = stockTransferRepository.findByProductIdOrderByCreatedAtDesc(productId);
+            transfers = stockTransferRepository.findByProductId(productId, pageable);
         } else if (warehouseId != null) {
             warehouseService.findById(warehouseId);
             transfers = stockTransferRepository
-                    .findBySourceWarehouseIdOrDestinationWarehouseIdOrderByCreatedAtDesc(warehouseId, warehouseId);
+                    .findBySourceWarehouseIdOrDestinationWarehouseId(warehouseId, warehouseId, pageable);
         } else {
-            transfers = stockTransferRepository.findAllByOrderByCreatedAtDesc();
+            transfers = stockTransferRepository.findAll(pageable);
         }
-        return transfers.stream().map(StockTransferResponse::from).toList();
+        return transfers.map(StockTransferResponse::from);
     }
 
 }
