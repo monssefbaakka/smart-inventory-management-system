@@ -175,6 +175,44 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     }
 
     /**
+     * Handles movements naming a batch that cannot take part in them.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 400 response body describing the failure
+     */
+    @ExceptionHandler(InvalidBatchException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidBatch(InvalidBatchException ex, WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
+    }
+
+    /**
+     * Handles batch operations that conflict with the state the batch is already in.
+     *
+     * @param ex      the thrown exception
+     * @param request the current request
+     * @return a 409 response body describing the failure
+     */
+    @ExceptionHandler(InvalidBatchStateException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidBatchState(InvalidBatchStateException ex, WebRequest request) {
+        ErrorResponse body = ErrorResponse.builder()
+                .timestamp(Instant.now())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(ex.getMessage())
+                .path(path(request))
+                .build();
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body);
+    }
+
+    /**
      * Handles listing requests whose paging, sorting or filter parameters cannot be honoured.
      *
      * @param ex      the thrown exception
