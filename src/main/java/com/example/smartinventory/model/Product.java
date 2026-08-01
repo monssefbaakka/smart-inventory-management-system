@@ -19,6 +19,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
@@ -79,6 +80,14 @@ public class Product {
     @Column(name = "reorder_threshold", nullable = false)
     @Builder.Default
     private Integer reorderThreshold = 10;
+
+    /**
+     * Units to order when the product is replenished. Optional: left unset, the automatic
+     * reorder orders enough to bring stock back to twice the reorder threshold.
+     */
+    @Positive
+    @Column(name = "reorder_quantity")
+    private Integer reorderQuantity;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "category_id")

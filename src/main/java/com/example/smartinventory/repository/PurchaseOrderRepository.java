@@ -1,5 +1,6 @@
 package com.example.smartinventory.repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -9,6 +10,7 @@ import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderStatus;
 
 /**
  * Repository for {@link PurchaseOrder} persistence operations.
@@ -47,5 +49,15 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      */
     @EntityGraph(attributePaths = {"supplier"})
     Page<PurchaseOrder> findBySupplierId(Long supplierId, Pageable pageable);
+
+    /**
+     * Reports whether a product is already on order, so replenishment is not raised twice for
+     * the same shortfall.
+     *
+     * @param statuses the order statuses that count as still open
+     * @param productId identifier of the product to look for among the line items
+     * @return {@code true} if some order in one of those statuses carries the product
+     */
+    boolean existsByStatusInAndItemsProductId(Collection<PurchaseOrderStatus> statuses, Long productId);
 
 }

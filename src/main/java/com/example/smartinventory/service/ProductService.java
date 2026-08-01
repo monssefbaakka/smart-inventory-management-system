@@ -119,6 +119,7 @@ public class ProductService {
         if (updatedProduct.getReorderThreshold() != null) {
             existing.setReorderThreshold(updatedProduct.getReorderThreshold());
         }
+        existing.setReorderQuantity(updatedProduct.getReorderQuantity());
         existing.setCategory(resolveCategory(updatedProduct.getCategory()));
         existing.setSupplier(resolveSupplier(updatedProduct.getSupplier()));
         Product saved = productRepository.save(existing);

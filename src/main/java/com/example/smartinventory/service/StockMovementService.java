@@ -28,6 +28,7 @@ public class StockMovementService {
     private final WarehouseService warehouseService;
     private final StockLevelService stockLevelService;
     private final StockEventNotificationService stockEventNotificationService;
+    private final AutoReorderService autoReorderService;
 
     /**
      * Records a stock movement for a product and applies it to the product's quantity.
@@ -37,6 +38,10 @@ public class StockMovementService {
      * <p>When {@code warehouseId} is given the movement is also applied to that warehouse's stock
      * level, and the product's overall quantity moves by the same amount, so the product total stays
      * the sum of what the locations hold. Without a warehouse only the overall quantity changes.
+     *
+     * <p>Once the movement is written the resulting stock level is evaluated: a level at or below the
+     * product's reorder threshold notifies the configured channels and, when the automatic reorder is
+     * enabled, raises a draft purchase order for the product.
      *
      * <p>The transfer legs are not accepted here: they always come in pairs and leave the product
      * total unchanged, so they are written by {@code StockTransferService} instead.
@@ -82,6 +87,7 @@ public class StockMovementService {
         StockMovement saved = stockMovementRepository.save(movement);
 
         stockEventNotificationService.evaluate(product);
+        autoReorderService.evaluate(product);
 
         return saved;
     }
