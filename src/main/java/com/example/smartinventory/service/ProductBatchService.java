@@ -1,11 +1,15 @@
 package com.example.smartinventory.service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.dto.ProductBatchRequest;
+import com.example.smartinventory.exception.InsufficientStockException;
+import com.example.smartinventory.exception.InvalidBatchException;
 import com.example.smartinventory.exception.InvalidBatchStateException;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.Product;
@@ -77,6 +81,117 @@ public class ProductBatchService {
     public List<ProductBatch> findByProduct(Long productId) {
         productService.findById(productId);
         return productBatchRepository.findByProduct(productId);
+    }
+
+    /**
+     * Adds received stock to a lot.
+     *
+     * @param batch     the lot the goods belong to
+     * @param product   the product the movement is recorded against
+     * @param warehouse the location the movement applied to, or {@code null}
+     * @param quantity  units received
+     * @throws InvalidBatchException if the lot belongs to another product or is held elsewhere
+     */
+    public void receive(ProductBatch batch, Product product, Warehouse warehouse, int quantity) {
+        requireUsableFor(batch, product, warehouse);
+        batch.setQuantity(batch.getQuantity() + quantity);
+        productBatchRepository.save(batch);
+    }
+
+    /**
+     * Removes stock from one named lot.
+     *
+     * @param batch     the lot the goods are taken from
+     * @param product   the product the movement is recorded against
+     * @param warehouse the location the movement applied to, or {@code null}
+     * @param quantity  units to remove
+     * @throws InvalidBatchException      if the lot belongs to another product or is held elsewhere
+     * @throws InsufficientStockException if the lot holds less than {@code quantity}
+     */
+    public void consume(ProductBatch batch, Product product, Warehouse warehouse, int quantity) {
+        requireUsableFor(batch, product, warehouse);
+        if (batch.getQuantity() < quantity) {
+            throw new InsufficientStockException(
+                    "Cannot remove " + quantity + " units from batch " + batch.getLotCode()
+                            + ": only " + batch.getQuantity() + " in stock");
+        }
+        batch.setQuantity(batch.getQuantity() - quantity);
+        productBatchRepository.save(batch);
+    }
+
+    /**
+     * Reports whether a product has any lot still holding stock, and therefore whether an outward
+     * movement that names no lot has to be allocated across lots.
+     *
+     * @param productId identifier of the product
+     * @return {@code true} when at least one lot of the product holds stock
+     */
+    @Transactional(readOnly = true)
+    public boolean hasStockedBatches(Long productId) {
+        return !productBatchRepository.findAllocatable(productId).isEmpty();
+    }
+
+    /**
+     * Takes stock out of a product's lots earliest expiry first, so the units closest to expiring
+     * leave the building before the ones behind them. Lots that never expire are drawn on last.
+     * Naming a warehouse restricts the allocation to the stock held there.
+     *
+     * @param product   the product being moved
+     * @param warehouse the location the stock leaves, or {@code null} to draw on every lot
+     * @param quantity  units to remove
+     * @return the lots the units were taken from, in the order they were drawn on
+     * @throws InsufficientStockException if the lots together hold less than {@code quantity}
+     */
+    public List<ProductBatch> consumeEarliestExpiryFirst(Product product, Warehouse warehouse, int quantity) {
+        List<ProductBatch> candidates = warehouse == null
+                ? productBatchRepository.findAllocatable(product.getId())
+                : productBatchRepository.findAllocatableInWarehouse(product.getId(), warehouse.getId());
+
+        int available = candidates.stream().mapToInt(ProductBatch::getQuantity).sum();
+        if (available < quantity) {
+            throw new InsufficientStockException(
+                    "Cannot remove " + quantity + " units of product " + product.getId()
+                            + " from its batches: only " + available + " in stock across "
+                            + candidates.size() + " batches");
+        }
+
+        List<ProductBatch> drawnOn = new ArrayList<>();
+        int outstanding = quantity;
+        for (ProductBatch batch : candidates) {
+            if (outstanding == 0) {
+                break;
+            }
+            int taken = Math.min(batch.getQuantity(), outstanding);
+            batch.setQuantity(batch.getQuantity() - taken);
+            productBatchRepository.save(batch);
+            drawnOn.add(batch);
+            outstanding -= taken;
+        }
+        return drawnOn;
+    }
+
+    /**
+     * Rejects a lot that cannot take part in a movement: one belonging to a different product, or
+     * one held somewhere other than where the stock moved. A lot tracked without a warehouse only
+     * takes part in movements recorded without one.
+     *
+     * @param batch     the lot named by the movement
+     * @param product   the product the movement is recorded against
+     * @param warehouse the location the movement applied to, or {@code null}
+     * @throws InvalidBatchException if the lot cannot take part in the movement
+     */
+    private void requireUsableFor(ProductBatch batch, Product product, Warehouse warehouse) {
+        if (!batch.getProduct().getId().equals(product.getId())) {
+            throw new InvalidBatchException("Batch " + batch.getId() + " belongs to product "
+                    + batch.getProduct().getId() + ", not product " + product.getId());
+        }
+
+        Long batchWarehouseId = batch.getWarehouse() == null ? null : batch.getWarehouse().getId();
+        Long movementWarehouseId = warehouse == null ? null : warehouse.getId();
+        if (!Objects.equals(batchWarehouseId, movementWarehouseId)) {
+            throw new InvalidBatchException("Batch " + batch.getId() + " is held in warehouse "
+                    + batchWarehouseId + ", but the movement applies to warehouse " + movementWarehouseId);
+        }
     }
 
     /**
