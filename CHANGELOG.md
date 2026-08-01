@@ -38,6 +38,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   optional `reorderQuantity` on a product, defaulting to enough to reach twice the reorder threshold.
   A product already on an open order, or with no supplier, is skipped. Off by default; enable with
   `auto-reorder.enabled` (#142).
+- **Batch/lot tracking with expiry dates** — a product's stock can be tracked as lots, each with its
+  own lot code, optional expiry date, optional warehouse and quantity. Movements take an optional
+  `batchId`; an `OUT` naming none is allocated across the product's lots earliest expiry first, and
+  an `ADJUSTMENT` may not name one. New endpoints declare, read and delete lots and report stock
+  expiring within a window or already expired. Products without lots are unaffected (#144).
 - **Paging on every unbounded listing** — the five history endpoints share one implementation of the
   page-size cap, the sortable-field allowlist and the `400` responses with the product listing, each
   with its own set of sortable fields (#140).

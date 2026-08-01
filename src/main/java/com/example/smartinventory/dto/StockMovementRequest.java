@@ -19,6 +19,10 @@ public record StockMovementRequest(
                 example = "1")
         Long warehouseId,
 
+        @Schema(description = "Optional batch the movement applies to; an OUT movement naming none is "
+                + "allocated across the product's batches earliest expiry first", example = "5")
+        Long batchId,
+
         @NotNull @Positive
         @Schema(description = "Positive quantity moved (or absolute target for ADJUSTMENT)", example = "10")
         Integer quantity,

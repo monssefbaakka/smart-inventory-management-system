@@ -12,8 +12,8 @@ import com.example.smartinventory.model.StockMovement;
 /**
  * Repository for {@link StockMovement} persistence operations.
  *
- * <p>The finders fetch the lazy {@code product} and {@code warehouse} associations, because
- * responses are rendered from them after the transaction has closed.
+ * <p>The finders fetch the lazy {@code product}, {@code warehouse} and {@code batch} associations,
+ * because responses are rendered from them after the transaction has closed.
  */
 public interface StockMovementRepository extends JpaRepository<StockMovement, Long> {
 
@@ -24,7 +24,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
      * @param pageable  the page to return and the order to return it in
      * @return the requested page of that product's movements
      */
-    @EntityGraph(attributePaths = {"product", "warehouse"})
+    @EntityGraph(attributePaths = {"product", "warehouse", "batch"})
     Page<StockMovement> findByProductId(Long productId, Pageable pageable);
 
     /**
@@ -33,7 +33,7 @@ public interface StockMovementRepository extends JpaRepository<StockMovement, Lo
      * @param pageable paging/limit information
      * @return the requested page of movements ordered by creation time descending
      */
-    @EntityGraph(attributePaths = {"product", "warehouse"})
+    @EntityGraph(attributePaths = {"product", "warehouse", "batch"})
     List<StockMovement> findAllByOrderByCreatedAtDesc(Pageable pageable);
 
 }

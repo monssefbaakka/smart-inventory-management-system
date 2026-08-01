@@ -5,6 +5,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -19,9 +21,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
 import com.example.smartinventory.exception.InsufficientStockException;
+import com.example.smartinventory.exception.InvalidBatchException;
 import com.example.smartinventory.exception.InvalidStockTransferException;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.ProductBatch;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.repository.ProductRepository;
@@ -51,6 +55,9 @@ class StockMovementServiceTest {
     @Mock
     private AutoReorderService autoReorderService;
 
+    @Mock
+    private ProductBatchService productBatchService;
+
     @InjectMocks
     private StockMovementService stockMovementService;
 
@@ -60,7 +67,7 @@ class StockMovementServiceTest {
         when(productService.findById(1L)).thenReturn(product);
         when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        StockMovement result = stockMovementService.record(1L, null, MovementType.IN, 3, "restock");
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.IN, 3, "restock");
 
         assertThat(product.getQuantity()).isEqualTo(8);
         assertThat(result.getType()).isEqualTo(MovementType.IN);
@@ -76,7 +83,7 @@ class StockMovementServiceTest {
         when(productService.findById(1L)).thenReturn(product);
         when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        stockMovementService.record(1L, null, MovementType.OUT, 2, null);
+        stockMovementService.record(1L, null, null, MovementType.OUT, 2, null);
 
         assertThat(product.getQuantity()).isEqualTo(3);
     }
@@ -86,7 +93,7 @@ class StockMovementServiceTest {
         Product product = Product.builder().id(1L).quantity(1).build();
         when(productService.findById(1L)).thenReturn(product);
 
-        assertThatThrownBy(() -> stockMovementService.record(1L, null, MovementType.OUT, 5, null))
+        assertThatThrownBy(() -> stockMovementService.record(1L, null, null, MovementType.OUT, 5, null))
                 .isInstanceOf(InsufficientStockException.class);
     }
 
@@ -96,7 +103,7 @@ class StockMovementServiceTest {
         when(productService.findById(1L)).thenReturn(product);
         when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        stockMovementService.record(1L, null, MovementType.ADJUSTMENT, 42, "recount");
+        stockMovementService.record(1L, null, null, MovementType.ADJUSTMENT, 42, "recount");
 
         assertThat(product.getQuantity()).isEqualTo(42);
     }
@@ -110,7 +117,7 @@ class StockMovementServiceTest {
         when(stockLevelService.apply(product, warehouse, MovementType.IN, 3)).thenReturn(3);
         when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        StockMovement result = stockMovementService.record(1L, 7L, MovementType.IN, 3, "receipt");
+        StockMovement result = stockMovementService.record(1L, 7L, null, MovementType.IN, 3, "receipt");
 
         assertThat(product.getQuantity()).isEqualTo(8);
         assertThat(result.getWarehouse()).isSameAs(warehouse);
@@ -126,7 +133,7 @@ class StockMovementServiceTest {
         when(stockLevelService.apply(product, warehouse, MovementType.OUT, 2)).thenReturn(-2);
         when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        stockMovementService.record(1L, 7L, MovementType.OUT, 2, null);
+        stockMovementService.record(1L, 7L, null, MovementType.OUT, 2, null);
 
         assertThat(product.getQuantity()).isEqualTo(3);
     }
@@ -139,7 +146,7 @@ class StockMovementServiceTest {
         when(warehouseService.findById(7L)).thenReturn(warehouse);
         when(stockLevelService.apply(product, warehouse, MovementType.ADJUSTMENT, 0)).thenReturn(-4);
 
-        assertThatThrownBy(() -> stockMovementService.record(1L, 7L, MovementType.ADJUSTMENT, 0, null))
+        assertThatThrownBy(() -> stockMovementService.record(1L, 7L, null, MovementType.ADJUSTMENT, 0, null))
                 .isInstanceOf(InsufficientStockException.class);
     }
 
@@ -149,7 +156,7 @@ class StockMovementServiceTest {
         when(productService.findById(1L)).thenReturn(product);
         when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        StockMovement result = stockMovementService.record(1L, null, MovementType.IN, 3, null);
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.IN, 3, null);
 
         assertThat(result.getWarehouse()).isNull();
         verifyNoInteractions(stockLevelService, warehouseService);
@@ -157,11 +164,85 @@ class StockMovementServiceTest {
 
     @Test
     void recordRejectsTransferLegs() {
-        assertThatThrownBy(() -> stockMovementService.record(1L, 7L, MovementType.TRANSFER_IN, 3, null))
+        assertThatThrownBy(() -> stockMovementService.record(1L, 7L, null, MovementType.TRANSFER_IN, 3, null))
                 .isInstanceOf(InvalidStockTransferException.class)
                 .hasMessageContaining("TRANSFER_IN");
 
         verifyNoInteractions(productService, productRepository, stockLevelService, stockMovementRepository);
+    }
+
+    @Test
+    void recordInNamingABatchReceivesIntoIt() {
+        Product product = Product.builder().id(1L).quantity(5).build();
+        ProductBatch batch = ProductBatch.builder().id(4L).product(product).lotCode("A-2291").quantity(2).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(productBatchService.findById(4L)).thenReturn(batch);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovement result = stockMovementService.record(1L, null, 4L, MovementType.IN, 3, null);
+
+        assertThat(result.getBatch()).isSameAs(batch);
+        verify(productBatchService).receive(batch, product, null, 3);
+    }
+
+    @Test
+    void recordOutNamingABatchTakesFromIt() {
+        Product product = Product.builder().id(1L).quantity(5).build();
+        ProductBatch batch = ProductBatch.builder().id(4L).product(product).lotCode("A-2291").quantity(5).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(productBatchService.findById(4L)).thenReturn(batch);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockMovementService.record(1L, null, 4L, MovementType.OUT, 2, null);
+
+        verify(productBatchService).consume(batch, product, null, 2);
+        verify(productBatchService, never()).consumeEarliestExpiryFirst(any(), any(), anyInt());
+    }
+
+    @Test
+    void recordOutNamingNoBatchIsAllocatedAcrossTheProductBatches() {
+        Product product = Product.builder().id(1L).quantity(5).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(productBatchService.hasStockedBatches(1L)).thenReturn(true);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.OUT, 2, null);
+
+        assertThat(result.getBatch()).isNull();
+        verify(productBatchService).consumeEarliestExpiryFirst(product, null, 2);
+    }
+
+    @Test
+    void recordOutLeavesAProductWithoutBatchesAlone() {
+        Product product = Product.builder().id(1L).quantity(5).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(productBatchService.hasStockedBatches(1L)).thenReturn(false);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockMovementService.record(1L, null, null, MovementType.OUT, 2, null);
+
+        assertThat(product.getQuantity()).isEqualTo(3);
+        verify(productBatchService, never()).consumeEarliestExpiryFirst(any(), any(), anyInt());
+    }
+
+    @Test
+    void recordRejectsAnAdjustmentNamingABatch() {
+        assertThatThrownBy(() -> stockMovementService.record(1L, null, 4L, MovementType.ADJUSTMENT, 9, null))
+                .isInstanceOf(InvalidBatchException.class)
+                .hasMessageContaining("ADJUSTMENT");
+
+        verifyNoInteractions(productService, productBatchService, stockMovementRepository);
+    }
+
+    @Test
+    void recordAdjustmentLeavesTheBatchesUntouched() {
+        Product product = Product.builder().id(1L).quantity(5).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockMovementService.record(1L, null, null, MovementType.ADJUSTMENT, 42, "recount");
+
+        verifyNoInteractions(productBatchService);
     }
 
     @Test

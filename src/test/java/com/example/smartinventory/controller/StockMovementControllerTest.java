@@ -58,7 +58,7 @@ class StockMovementControllerTest {
         Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN).quantity(5)
                 .build();
-        when(stockMovementService.record(1L, null, MovementType.IN, 5, "restock")).thenReturn(movement);
+        when(stockMovementService.record(1L, null, null, MovementType.IN, 5, "restock")).thenReturn(movement);
 
         mockMvc.perform(post("/api/products/1/movements")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,7 +81,7 @@ class StockMovementControllerTest {
         Warehouse warehouse = Warehouse.builder().id(7L).code("WH-1").name("Main Depot").build();
         StockMovement movement = StockMovement.builder().id(2L).product(product).warehouse(warehouse)
                 .type(MovementType.IN).quantity(5).build();
-        when(stockMovementService.record(1L, 7L, MovementType.IN, 5, null)).thenReturn(movement);
+        when(stockMovementService.record(1L, 7L, null, MovementType.IN, 5, null)).thenReturn(movement);
 
         mockMvc.perform(post("/api/products/1/movements")
                         .contentType(MediaType.APPLICATION_JSON)

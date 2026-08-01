@@ -69,8 +69,8 @@ public class StockMovementController {
     public ResponseEntity<StockMovementResponse> record(
             @Parameter(description = "Identifier of the affected product") @PathVariable Long productId,
             @Valid @RequestBody StockMovementRequest request) {
-        StockMovement movement = stockMovementService.record(productId, request.warehouseId(), request.type(),
-                request.quantity(), request.note());
+        StockMovement movement = stockMovementService.record(productId, request.warehouseId(), request.batchId(),
+                request.type(), request.quantity(), request.note());
         return ResponseEntity.status(HttpStatus.CREATED).body(StockMovementResponse.from(movement));
     }
 
