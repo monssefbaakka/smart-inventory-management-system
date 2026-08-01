@@ -37,6 +37,9 @@ public record ProductResponse(
         @Schema(description = "Quantity at or below which the product counts as low stock", example = "10")
         Integer reorderThreshold,
 
+        @Schema(description = "Units to order when the product is replenished, when one is set", example = "50")
+        Integer reorderQuantity,
+
         @Schema(description = "Identifier of the owning category, when one is set", example = "3")
         Long categoryId,
 
@@ -73,6 +76,7 @@ public record ProductResponse(
                 product.getPrice(),
                 product.getQuantity(),
                 product.getReorderThreshold(),
+                product.getReorderQuantity(),
                 category == null ? null : category.getId(),
                 category == null ? null : category.getName(),
                 supplier == null ? null : supplier.getId(),

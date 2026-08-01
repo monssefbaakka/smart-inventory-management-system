@@ -48,6 +48,9 @@ class StockMovementServiceTest {
     @Mock
     private StockEventNotificationService stockEventNotificationService;
 
+    @Mock
+    private AutoReorderService autoReorderService;
+
     @InjectMocks
     private StockMovementService stockMovementService;
 
@@ -64,6 +67,7 @@ class StockMovementServiceTest {
         assertThat(result.getQuantity()).isEqualTo(3);
         verify(productRepository).save(product);
         verify(stockEventNotificationService).evaluate(product);
+        verify(autoReorderService).evaluate(product);
     }
 
     @Test
