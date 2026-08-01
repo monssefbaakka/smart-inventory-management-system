@@ -25,6 +25,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
 - **Stock Transfers:** Move goods between warehouses in one call; both locations change by equal and opposite amounts and the product's overall quantity stays put.
 - **Stocktake / Cycle Counting:** Count a warehouse line by line, see the variance against what the system expected, then commit the whole count as one reconciliation.
+- **Batch & Expiry Tracking:** Track stock in lots with their own expiry dates, consume them earliest-expiry-first, and report what is expiring soon or already expired.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 - **Multi-Tenancy:** One deployment serves many organisations; every row carries its tenant and every query is scoped to the caller's tenant, so tenants never see each other's inventory.
 
@@ -266,6 +267,51 @@ POST /api/stock-counts/3/lines
 Counting the same product twice replaces the earlier line — a recount is the normal case, not an
 error. Lines may only be added while the count is `DRAFT`, and only a `DRAFT` count can be completed
 or cancelled; anything else answers `409 Conflict`, as does completing a count with no lines.
+
+### Batches & Expiry
+
+A batch is a lot of one product: a quantity sharing a lot code and an expiry date, optionally held in
+a named warehouse. A recall names a lot rather than a product, and a carton received in March is not
+the same stock as one received in July, so lots are tracked separately from the product total.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/products/{id}/batches` | Declare a lot of a product (ADMIN) |
+| `GET /api/products/{id}/batches` | Every lot of a product, earliest expiry first |
+| `GET /api/batches/{id}` | A single lot |
+| `GET /api/batches/expiring?days=30` | Lots still holding stock that expire within the window |
+| `GET /api/batches/expired` | Lots past their expiry date that still hold stock |
+| `DELETE /api/batches/{id}` | Stop tracking an empty lot (ADMIN) |
+
+A lot is declared empty and filled by movements, so what it holds is always explained by the movement
+history:
+
+```json
+POST /api/products/1/batches
+{
+  "lotCode": "A-2291",
+  "expiryDate": "2026-12-31",
+  "warehouseId": 1
+}
+```
+
+The movement payload takes an optional `batchId`:
+
+- `IN` naming a lot adds to it; `OUT` naming a lot takes from it and is rejected with `409 Conflict`
+  when the lot holds too little.
+- `OUT` naming no lot is spread across the product's lots **earliest expiry first**, lots with no
+  expiry date drawn on last. Naming a warehouse restricts the allocation to the stock held there.
+  Availability is summed before anything is deducted, so a movement asking for more than the lots
+  hold leaves every one of them untouched.
+- `ADJUSTMENT` may not name a lot and leaves the lots alone: it sets an absolute quantity, and which
+  lots that figure belongs to is a question only a stocktake can answer.
+
+A lot that belongs to a different product, or is held somewhere other than where the stock moved, is
+rejected with `400 Bad Request`. A lot still holding stock cannot be deleted — that stock exists and
+has to leave through a movement.
+
+Batch tracking is opt-in per product simply by having lots: a product with none behaves exactly as it
+did before, and the movement history records the lot on every movement that named one.
 
 ### Barcode & QR Codes
 
