@@ -3,6 +3,7 @@ package com.example.smartinventory.dto;
 import java.time.Instant;
 
 import com.example.smartinventory.model.MovementType;
+import com.example.smartinventory.model.ProductBatch;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.model.Warehouse;
 
@@ -32,6 +33,14 @@ public record StockMovementResponse(
                 example = "WH-NORTH")
         String warehouseCode,
 
+        @Schema(description = "Identifier of the batch the movement applied to, when one was named",
+                example = "5")
+        Long batchId,
+
+        @Schema(description = "Lot code of the batch the movement applied to, when one was named",
+                example = "A-2291")
+        String lotCode,
+
         @Schema(description = "Direction of the movement", example = "IN")
         MovementType type,
 
@@ -52,6 +61,7 @@ public record StockMovementResponse(
      */
     public static StockMovementResponse from(StockMovement movement) {
         Warehouse warehouse = movement.getWarehouse();
+        ProductBatch batch = movement.getBatch();
         return new StockMovementResponse(
                 movement.getId(),
                 movement.getProduct().getId(),
@@ -59,6 +69,8 @@ public record StockMovementResponse(
                 movement.getProduct().getName(),
                 warehouse == null ? null : warehouse.getId(),
                 warehouse == null ? null : warehouse.getCode(),
+                batch == null ? null : batch.getId(),
+                batch == null ? null : batch.getLotCode(),
                 movement.getType(),
                 movement.getQuantity(),
                 movement.getNote(),

@@ -6,9 +6,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.example.smartinventory.exception.InsufficientStockException;
+import com.example.smartinventory.exception.InvalidBatchException;
 import com.example.smartinventory.exception.InvalidStockTransferException;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
+import com.example.smartinventory.model.ProductBatch;
 import com.example.smartinventory.model.StockMovement;
 import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.repository.ProductRepository;
@@ -29,6 +31,7 @@ public class StockMovementService {
     private final StockLevelService stockLevelService;
     private final StockEventNotificationService stockEventNotificationService;
     private final AutoReorderService autoReorderService;
+    private final ProductBatchService productBatchService;
 
     /**
      * Records a stock movement for a product and applies it to the product's quantity.
@@ -48,20 +51,30 @@ public class StockMovementService {
      *
      * @param productId   identifier of the affected product
      * @param warehouseId identifier of the location the stock moved through, or {@code null}
+     * @param batchId     identifier of the lot the stock belongs to, or {@code null}
      * @param type        direction of the movement
      * @param quantity    amount moved (or the new absolute quantity for {@code ADJUSTMENT})
      * @param note        optional free-text note
      * @return the persisted movement record
      * @throws InvalidStockTransferException if {@code type} is one leg of a transfer
+     * @throws InvalidBatchException         if an {@code ADJUSTMENT} names a lot, or the named lot
+     *                                       cannot take part in the movement
      */
-    public StockMovement record(Long productId, Long warehouseId, MovementType type, Integer quantity, String note) {
+    public StockMovement record(Long productId, Long warehouseId, Long batchId, MovementType type, Integer quantity,
+            String note) {
         if (type.isTransferLeg()) {
             throw new InvalidStockTransferException(
                     "Movement type " + type + " is recorded by a warehouse transfer, not as a plain movement");
         }
+        if (batchId != null && type == MovementType.ADJUSTMENT) {
+            throw new InvalidBatchException(
+                    "An ADJUSTMENT sets an absolute quantity and cannot name a batch; correct a lot by moving "
+                            + "stock in or out of it");
+        }
 
         Product product = productService.findById(productId);
         Warehouse warehouse = warehouseId == null ? null : warehouseService.findById(warehouseId);
+        ProductBatch batch = batchId == null ? null : productBatchService.findById(batchId);
 
         if (warehouse == null) {
             applyToProduct(product, type, quantity);
@@ -76,10 +89,12 @@ public class StockMovementService {
             product.setQuantity(total);
         }
         productRepository.save(product);
+        applyToBatches(product, warehouse, batch, type, quantity);
 
         StockMovement movement = StockMovement.builder()
                 .product(product)
                 .warehouse(warehouse)
+                .batch(batch)
                 .type(type)
                 .quantity(quantity)
                 .note(note)
@@ -90,6 +105,40 @@ public class StockMovementService {
         autoReorderService.evaluate(product);
 
         return saved;
+    }
+
+    /**
+     * Applies the movement to the product's lots. A movement naming one adds to or takes from that
+     * lot; an outward movement naming none is spread across the product's lots earliest expiry
+     * first, but only once the product actually has lots, so products tracked without batches keep
+     * behaving exactly as they did before.
+     *
+     * <p>An {@code ADJUSTMENT} leaves the lots untouched: it sets an absolute quantity, and which
+     * lots that figure belongs to is a question only a stocktake can answer.
+     *
+     * @param product   the product being moved
+     * @param warehouse the location the movement applied to, or {@code null}
+     * @param batch     the lot named by the movement, or {@code null}
+     * @param type      direction of the movement
+     * @param quantity  amount moved
+     */
+    private void applyToBatches(Product product, Warehouse warehouse, ProductBatch batch, MovementType type,
+            Integer quantity) {
+        switch (type) {
+            case IN -> {
+                if (batch != null) {
+                    productBatchService.receive(batch, product, warehouse, quantity);
+                }
+            }
+            case OUT -> {
+                if (batch != null) {
+                    productBatchService.consume(batch, product, warehouse, quantity);
+                } else if (productBatchService.hasStockedBatches(product.getId())) {
+                    productBatchService.consumeEarliestExpiryFirst(product, warehouse, quantity);
+                }
+            }
+            default -> { }
+        }
     }
 
     private void applyToProduct(Product product, MovementType type, Integer quantity) {

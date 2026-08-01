@@ -146,8 +146,8 @@ class StockCountServiceTest {
 
         StockCountResponse result = stockCountService.complete(3L);
 
-        verify(stockMovementService).record(1L, 7L, MovementType.ADJUSTMENT, 38, "Stock count #3");
-        verify(stockMovementService).record(2L, 7L, MovementType.ADJUSTMENT, 7, "Stock count #3");
+        verify(stockMovementService).record(1L, 7L, null, MovementType.ADJUSTMENT, 38, "Stock count #3");
+        verify(stockMovementService).record(2L, 7L, null, MovementType.ADJUSTMENT, 7, "Stock count #3");
         assertThat(result.status()).isEqualTo(StockCountStatus.COMPLETED);
         assertThat(result.completedAt()).isNotNull();
         assertThat(result.totalVariance()).isEqualTo(-2);
@@ -173,8 +173,8 @@ class StockCountServiceTest {
                 .isInstanceOf(InvalidStockCountStateException.class)
                 .hasMessageContaining("CANCELLED");
 
-        verify(stockMovementService, never()).record(anyLong(), anyLong(), any(MovementType.class), any(),
-                anyString());
+        verify(stockMovementService, never()).record(anyLong(), anyLong(), any(Long.class),
+                any(MovementType.class), any(), anyString());
     }
 
     @Test

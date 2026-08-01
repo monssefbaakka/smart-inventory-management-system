@@ -118,7 +118,7 @@ public class PurchaseOrderService {
         requireStatus(order, PurchaseOrderStatus.PLACED, "received");
 
         for (PurchaseOrderItem item : order.getItems()) {
-            stockMovementService.record(item.getProduct().getId(), null, MovementType.IN, item.getQuantity(),
+            stockMovementService.record(item.getProduct().getId(), null, null, MovementType.IN, item.getQuantity(),
                     "Purchase order #" + order.getId() + " received");
         }
 

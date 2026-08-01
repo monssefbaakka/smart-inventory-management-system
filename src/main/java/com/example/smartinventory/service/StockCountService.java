@@ -109,7 +109,7 @@ public class StockCountService {
         }
 
         for (StockCountLine line : count.getLines()) {
-            stockMovementService.record(line.getProduct().getId(), count.getWarehouse().getId(),
+            stockMovementService.record(line.getProduct().getId(), count.getWarehouse().getId(), null,
                     MovementType.ADJUSTMENT, line.getCountedQuantity(), "Stock count #" + id);
         }
 

@@ -54,6 +54,11 @@ public class StockMovement {
     @JoinColumn(name = "warehouse_id")
     private Warehouse warehouse;
 
+    /** Lot the movement applied to; absent when it named none or was spread across several. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "batch_id")
+    private ProductBatch batch;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
