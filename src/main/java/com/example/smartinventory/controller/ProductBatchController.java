@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.dto.ProductBatchRequest;
@@ -78,6 +79,44 @@ public class ProductBatchController {
     public ResponseEntity<List<ProductBatchResponse>> findByProduct(
             @Parameter(description = "Identifier of the product") @PathVariable Long productId) {
         return ResponseEntity.ok(productBatchService.findByProduct(productId).stream()
+                .map(ProductBatchResponse::from)
+                .toList());
+    }
+
+    /**
+     * Returns the lots still holding stock that expire within the next {@code days} days.
+     *
+     * @param days how far ahead to look
+     * @return the lots expiring in that window
+     */
+    @GetMapping("/api/batches/expiring")
+    @Operation(summary = "List batches expiring soon",
+            description = "Returns the lots still holding stock that expire within the given number of "
+                    + "days, earliest expiry first. Lots that already expired are reported by "
+                    + "/api/batches/expired.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Expiring batches returned"),
+        @ApiResponse(responseCode = "400", description = "Negative window", content = @Content)
+    })
+    public ResponseEntity<List<ProductBatchResponse>> findExpiring(
+            @Parameter(description = "How many days ahead to look") @RequestParam(defaultValue = "30") int days) {
+        return ResponseEntity.ok(productBatchService.findExpiringWithin(days).stream()
+                .map(ProductBatchResponse::from)
+                .toList());
+    }
+
+    /**
+     * Returns the lots that are past their expiry date but still hold stock.
+     *
+     * @return the expired lots
+     */
+    @GetMapping("/api/batches/expired")
+    @Operation(summary = "List expired batches",
+            description = "Returns the lots that are past their expiry date but still hold stock, which "
+                    + "is the stock that has to be written off or quarantined.")
+    @ApiResponse(responseCode = "200", description = "Expired batches returned")
+    public ResponseEntity<List<ProductBatchResponse>> findExpired() {
+        return ResponseEntity.ok(productBatchService.findExpired().stream()
                 .map(ProductBatchResponse::from)
                 .toList());
     }

@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
@@ -11,6 +12,7 @@ import com.example.smartinventory.dto.ProductBatchRequest;
 import com.example.smartinventory.exception.InsufficientStockException;
 import com.example.smartinventory.exception.InvalidBatchException;
 import com.example.smartinventory.exception.InvalidBatchStateException;
+import com.example.smartinventory.exception.InvalidQueryParameterException;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.ProductBatch;
@@ -81,6 +83,35 @@ public class ProductBatchService {
     public List<ProductBatch> findByProduct(Long productId) {
         productService.findById(productId);
         return productBatchRepository.findByProduct(productId);
+    }
+
+    /**
+     * Returns the lots still holding stock that expire within the next {@code days} days, so goods
+     * can be sold, moved or discounted before they are worth nothing. Lots that have already
+     * expired are reported by {@link #findExpired()} instead.
+     *
+     * @param days how far ahead to look; zero reports only what expires today
+     * @return the matching lots, earliest expiry first
+     * @throws InvalidQueryParameterException if {@code days} is negative
+     */
+    @Transactional(readOnly = true)
+    public List<ProductBatch> findExpiringWithin(int days) {
+        if (days < 0) {
+            throw new InvalidQueryParameterException("days must not be negative, but was " + days);
+        }
+        LocalDate today = LocalDate.now();
+        return productBatchRepository.findExpiringBetween(today, today.plusDays(days));
+    }
+
+    /**
+     * Returns the lots that are past their expiry date but still hold stock: the goods that have to
+     * be written off or quarantined rather than shipped.
+     *
+     * @return the expired lots, earliest expiry first
+     */
+    @Transactional(readOnly = true)
+    public List<ProductBatch> findExpired() {
+        return productBatchRepository.findExpiredOn(LocalDate.now());
     }
 
     /**
