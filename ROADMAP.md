@@ -65,6 +65,7 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 - Stock transfers between warehouses (done — #125)
 - Stocktake / cycle counting with variance reporting (done — #127)
 - Stock movement history (in/out/adjustments)
+- Stock reservations with available-to-promise (done — #146)
 - Role-based access control
 - Low-stock alerts and reorder thresholds
 - Inventory reporting
