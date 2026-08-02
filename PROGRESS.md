@@ -70,9 +70,12 @@ implemented in repo but GitHub issue not yet closed
 | 129 | Multi-tenant support | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 135 | REST endpoints return 500 when serialising lazy JPA associations | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 138 | Paginate, sort and filter the product listing | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 140 | Paginate the history listings | ![working](https://img.shields.io/badge/status-working-blue) |
+| 140 | Paginate the history listings | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 142 | Automatically raise purchase orders at the reorder threshold | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 144 | Track stock in batches with expiry dates | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 146 | Reserve stock for outbound orders | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #140 — Paginate the history listings (PR open)
+**Working:** #146 — Reserve stock for outbound orders (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

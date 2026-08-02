@@ -26,6 +26,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Stock Transfers:** Move goods between warehouses in one call; both locations change by equal and opposite amounts and the product's overall quantity stays put.
 - **Stocktake / Cycle Counting:** Count a warehouse line by line, see the variance against what the system expected, then commit the whole count as one reconciliation.
 - **Batch & Expiry Tracking:** Track stock in lots with their own expiry dates, consume them earliest-expiry-first, and report what is expiring soon or already expired.
+- **Stock Reservations:** Hold stock against an outbound commitment so it stops counting as available, and read on hand, reserved and available side by side before promising anything.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 - **Multi-Tenancy:** One deployment serves many organisations; every row carries its tenant and every query is scoped to the caller's tenant, so tenants never see each other's inventory.
 
@@ -312,6 +313,52 @@ has to leave through a movement.
 
 Batch tracking is opt-in per product simply by having lots: a product with none behaves exactly as it
 did before, and the movement history records the lot on every movement that named one.
+
+### Stock Reservations
+
+A reservation holds stock against an outbound commitment — a sales order, a works order, a customer
+collection — so it stops counting as available. Nothing moves: the units stay on the shelf and the
+movement history is untouched until the reservation is fulfilled.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/products/{id}/reservations` | Hold stock against a commitment (ADMIN) |
+| `GET /api/products/{id}/reservations` · `?status=` | A product's reservations, newest first |
+| `GET /api/products/{id}/availability?warehouseId=` | On hand, reserved and available |
+| `GET /api/reservations/{id}` | A single reservation |
+| `POST /api/reservations/{id}/release` | Give the held stock back; nothing moves (ADMIN) |
+| `POST /api/reservations/{id}/fulfil` | Ship it: records the `OUT` movement and closes the hold (ADMIN) |
+
+```json
+POST /api/products/1/reservations
+{
+  "reference": "SO-1042",
+  "quantity": 12,
+  "warehouseId": 1,
+  "expiresAt": "2026-08-09T17:00:00Z"
+}
+```
+
+Available is on hand minus what is already held, floored at zero; reserving more than that is
+rejected with `409 Conflict`. A reservation naming a warehouse is checked against, and counts
+against, that location's level; one naming none is checked against the product total, so a hold taken
+without a location never suppresses a location's availability.
+
+An `expiresAt` makes the hold lapse: a quote nobody took up should not tie up the shelf forever. A
+lapsed hold stops counting against availability the moment it expires — no sweep rewrites the row —
+is reported with `"expired": true`, and can no longer be fulfilled, though it can still be released
+to settle the record.
+
+Fulfilling records the `OUT` movement for the reserved quantity against the reserved location, so the
+stock leaves through the ordinary trail: per-warehouse levels, earliest-expiry-first batch
+allocation, low-stock notifications and automatic reordering all see it as they see any other
+movement. If the stock is no longer there to ship, the movement is refused with `409 Conflict` and
+the reservation stays held. Releasing or fulfilling a reservation that is already settled answers
+`409 Conflict`.
+
+Reservations are a claim on stock, not a lock on it: an ordinary `OUT` movement still ships whatever
+is physically there. When that leaves more reserved than is on hand, availability reads zero rather
+than a negative number.
 
 ### Barcode & QR Codes
 
