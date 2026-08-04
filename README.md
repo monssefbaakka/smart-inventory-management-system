@@ -27,6 +27,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Stocktake / Cycle Counting:** Count a warehouse line by line, see the variance against what the system expected, then commit the whole count as one reconciliation.
 - **Batch & Expiry Tracking:** Track stock in lots with their own expiry dates, consume them earliest-expiry-first, and report what is expiring soon or already expired.
 - **Stock Reservations:** Hold stock against an outbound commitment so it stops counting as available, and read on hand, reserved and available side by side before promising anything.
+- **Inventory Costing:** Stock carries a weighted average of what it cost, rolled forward by every receipt, so the inventory can be valued at cost and the goods that left can be priced as cost of goods sold.
 - **Barcode & QR Support:** Products carry a scannable barcode, resolve by scan in a single lookup, and render printable Code 128 or QR labels as PNG.
 - **Multi-Tenancy:** One deployment serves many organisations; every row carries its tenant and every query is scoped to the caller's tenant, so tenants never see each other's inventory.
 
@@ -359,6 +360,51 @@ the reservation stays held. Releasing or fulfilling a reservation that is alread
 Reservations are a claim on stock, not a lock on it: an ordinary `OUT` movement still ships whatever
 is physically there. When that leaves more reserved than is on hand, availability reads zero rather
 than a negative number.
+
+### Inventory Costing
+
+A product's `price` is what it sells for. What its stock cost is a second figure, `averageCost`: the
+weighted average of what the units on hand were acquired at. It is never set from a request — a
+create payload naming one is ignored — because a cost is the consequence of a receipt, not a field to
+edit.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/products/{id}/movements` with `unitCost` | Receive stock at a stated cost |
+| `GET /api/reports/valuation` | Every product's quantity, average cost and value, with the total |
+| `GET /api/reports/cogs?from=&to=&productId=` | What the stock that left over a window cost |
+
+```json
+POST /api/products/1/movements
+{
+  "type": "IN",
+  "quantity": 100,
+  "unitCost": 7.00
+}
+```
+
+Receiving at a stated cost rolls the average: `(onHand × average + received × unitCost) / (onHand +
+received)`, kept to four decimal places. Two hundred bought at 4.00 and a hundred at 7.00 leave an
+average of 5.0000. A receipt without a `unitCost` is taken in at the running average and leaves it
+alone, and the first receipt of a product takes its cost outright.
+
+Every movement records what it was valued at, `unitCost` and `totalCost`, so the history says what
+each one was worth and not only how many units it shifted. An outward movement is valued at the
+average of the moment — that figure is the cost of goods sold, fixed when the stock leaves and
+undisturbed by whatever is received afterwards. An `ADJUSTMENT` ignores a stated cost: a recount
+settles how many units are on the shelf, not what they cost.
+
+Receiving a purchase order takes each line in at its `unitPrice`, so ordinary purchasing keeps the
+average honest without anyone entering the figure twice.
+
+`GET /api/reports/cogs` defaults to the whole record; `from` is inclusive, `to` exclusive, and a
+window that ends before it starts is rejected with `400 Bad Request`. Movements recorded before the
+system costed stock carry no cost and are summed as units with no value against them, so a history
+predating costing reports fewer money than goods.
+
+`GET /api/reports/stock-value` and the CSV, Excel and PDF exports are unchanged: they value stock at
+the selling price. A product never received at a stated cost carries an average of zero and is
+reported as worth nothing at cost, which is the honest answer — what its stock cost is not known.
 
 ### Barcode & QR Codes
 
