@@ -2,19 +2,27 @@ package com.example.smartinventory.controller;
 
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.CostOfGoodsSoldResponse;
+import com.example.smartinventory.dto.InventoryValuationResponse;
 import com.example.smartinventory.service.ReportService;
 
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 
@@ -45,10 +53,60 @@ public class ReportController {
 
     @GetMapping("/stock-value")
     @Operation(summary = "Total stock value",
-            description = "Returns the sum of price multiplied by quantity across all products.")
+            description = "Returns the sum of price multiplied by quantity across all products, at the "
+                    + "selling price. For what that stock cost, see /api/reports/valuation.")
     @ApiResponse(responseCode = "200", description = "Total stock value returned")
     public ResponseEntity<BigDecimal> totalStockValue() {
         return ResponseEntity.ok(reportService.totalStockValue());
+    }
+
+    /**
+     * Values the inventory at cost: every product's quantity, average cost and extended value, and
+     * the total they add up to.
+     *
+     * @return the inventory valued at cost
+     */
+    @GetMapping("/valuation")
+    @Operation(summary = "Inventory valuation at cost",
+            description = "Returns every product's quantity, weighted average cost and extended value, "
+                    + "with the total across the catalogue. A product never received at a stated cost "
+                    + "carries an average of zero.")
+    @ApiResponse(responseCode = "200", description = "Valuation returned")
+    public ResponseEntity<InventoryValuationResponse> valuation() {
+        return ResponseEntity.ok(reportService.valuation());
+    }
+
+    /**
+     * Totals what the stock that left over a window cost, optionally for a single product.
+     *
+     * @param from      start of the window, inclusive; defaults to the beginning of the record
+     * @param to        end of the window, exclusive; defaults to now
+     * @param productId identifier of a product to narrow the window to, or {@code null}
+     * @return the units that left and what they cost
+     */
+    @GetMapping("/cogs")
+    @Operation(summary = "Cost of goods sold",
+            description = "Totals the units that left stock over a window and what they cost to acquire, "
+                    + "optionally for one product. Outward movements are valued when they are recorded, "
+                    + "so a later receipt at a different price does not disturb the figure. The window "
+                    + "defaults to the whole record.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Cost of goods sold returned"),
+        @ApiResponse(responseCode = "400", description = "The window ends before it starts", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
+    })
+    public ResponseEntity<CostOfGoodsSoldResponse> costOfGoodsSold(
+            @Parameter(description = "Start of the window, inclusive, as an ISO-8601 instant")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
+            @Parameter(description = "End of the window, exclusive, as an ISO-8601 instant")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
+            @Parameter(description = "Identifier of a product to narrow the window to")
+            @RequestParam(required = false) Long productId) {
+        Instant start = from == null ? Instant.EPOCH : from;
+        Instant end = to == null ? Instant.now() : to;
+        return ResponseEntity.ok(reportService.costOfGoodsSold(start, end, productId));
     }
 
     /**
