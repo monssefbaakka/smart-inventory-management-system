@@ -1,10 +1,13 @@
 package com.example.smartinventory.dto;
 
+import java.math.BigDecimal;
+
 import com.example.smartinventory.model.MovementType;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 
 /** Request payload for recording a stock movement. */
@@ -26,6 +29,12 @@ public record StockMovementRequest(
         @NotNull @Positive
         @Schema(description = "Positive quantity moved (or absolute target for ADJUSTMENT)", example = "10")
         Integer quantity,
+
+        @PositiveOrZero
+        @Schema(description = "Cost of one received unit. Honoured on an IN movement, where it rolls the "
+                + "product's weighted average cost; omit to value the movement at that average",
+                example = "4.50")
+        BigDecimal unitCost,
 
         @Size(max = 500)
         @Schema(description = "Optional free-text note", example = "Restock from supplier")

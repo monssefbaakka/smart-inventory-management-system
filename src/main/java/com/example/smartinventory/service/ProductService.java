@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import org.springframework.data.domain.Page;
@@ -35,10 +36,15 @@ public class ProductService {
     /**
      * Persists a new product and records a {@code CREATE} audit entry.
      *
+     * <p>The product starts with an average cost of zero whatever the caller sent: a cost is the
+     * consequence of a receipt, and a figure typed into a create payload is a claim about stock
+     * nothing has been received into yet.
+     *
      * @param product the product to create
      * @return the persisted product
      */
     public Product create(Product product) {
+        product.setAverageCost(BigDecimal.ZERO);
         product.setCategory(resolveCategory(product.getCategory()));
         product.setSupplier(resolveSupplier(product.getSupplier()));
         Product saved = productRepository.save(product);

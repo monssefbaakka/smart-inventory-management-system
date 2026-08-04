@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -243,6 +244,83 @@ class StockMovementServiceTest {
         stockMovementService.record(1L, null, null, MovementType.ADJUSTMENT, 42, "recount");
 
         verifyNoInteractions(productBatchService);
+    }
+
+    @Test
+    void receivingAtAStatedCostRollsTheWeightedAverage() {
+        Product product = Product.builder().id(1L).quantity(200).averageCost(new BigDecimal("4.0000")).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.IN, 100, null,
+                new BigDecimal("7.00"));
+
+        assertThat(product.getAverageCost()).isEqualByComparingTo("5.0000");
+        assertThat(result.getUnitCost()).isEqualByComparingTo("7.00");
+        assertThat(result.getTotalCost()).isEqualByComparingTo("700.00");
+    }
+
+    @Test
+    void theFirstReceiptOfAProductTakesItsCostOutright() {
+        Product product = Product.builder().id(1L).quantity(0).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockMovementService.record(1L, null, null, MovementType.IN, 10, null, new BigDecimal("3.25"));
+
+        assertThat(product.getAverageCost()).isEqualByComparingTo("3.2500");
+    }
+
+    @Test
+    void receivingWithoutACostLeavesTheAverageWhereItWas() {
+        Product product = Product.builder().id(1L).quantity(10).averageCost(new BigDecimal("4.0000")).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.IN, 5, null, null);
+
+        assertThat(product.getAverageCost()).isEqualByComparingTo("4.0000");
+        assertThat(result.getUnitCost()).isEqualByComparingTo("4.0000");
+        assertThat(result.getTotalCost()).isEqualByComparingTo("20.0000");
+    }
+
+    @Test
+    void anOutwardMovementIsValuedAtTheAverageAndDoesNotDisturbIt() {
+        Product product = Product.builder().id(1L).quantity(10).averageCost(new BigDecimal("4.5000")).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.OUT, 4, null,
+                new BigDecimal("99.00"));
+
+        assertThat(product.getAverageCost()).isEqualByComparingTo("4.5000");
+        assertThat(result.getUnitCost()).isEqualByComparingTo("4.5000");
+        assertThat(result.getTotalCost()).isEqualByComparingTo("18.0000");
+    }
+
+    @Test
+    void anAdjustmentIsValuedAtTheAverageAndIgnoresAStatedCost() {
+        Product product = Product.builder().id(1L).quantity(10).averageCost(new BigDecimal("2.0000")).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockMovement result = stockMovementService.record(1L, null, null, MovementType.ADJUSTMENT, 7, "recount",
+                new BigDecimal("50.00"));
+
+        assertThat(product.getAverageCost()).isEqualByComparingTo("2.0000");
+        assertThat(result.getUnitCost()).isEqualByComparingTo("2.0000");
+        assertThat(result.getTotalCost()).isEqualByComparingTo("14.0000");
+    }
+
+    @Test
+    void anAverageThatDoesNotDivideEvenlyIsKeptToFourPlaces() {
+        Product product = Product.builder().id(1L).quantity(1).averageCost(new BigDecimal("1.0000")).build();
+        when(productService.findById(1L)).thenReturn(product);
+        when(stockMovementRepository.save(any(StockMovement.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockMovementService.record(1L, null, null, MovementType.IN, 2, null, new BigDecimal("2.00"));
+
+        assertThat(product.getAverageCost()).isEqualByComparingTo("1.6667");
     }
 
     @Test

@@ -7,7 +7,10 @@ import java.time.Instant;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -20,6 +23,10 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Sort;
 
+import com.example.smartinventory.dto.CostOfGoodsSoldResponse;
+import com.example.smartinventory.dto.CostOfGoodsSoldTotals;
+import com.example.smartinventory.dto.InventoryValuationResponse;
+import com.example.smartinventory.exception.InvalidQueryParameterException;
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
@@ -36,8 +43,90 @@ class ReportServiceTest {
     @Mock
     private StockMovementRepository stockMovementRepository;
 
+    @Mock
+    private ProductService productService;
+
     @InjectMocks
     private ReportService reportService;
+
+    @Test
+    void valuationValuesEveryProductAtItsAverageCostAndTotalsTheLines() {
+        Product a = Product.builder().id(1L).sku("SKU-1").name("Hammer").quantity(3)
+                .averageCost(new BigDecimal("10.0000")).build();
+        Product b = Product.builder().id(2L).sku("SKU-2").name("Nail").quantity(4)
+                .averageCost(new BigDecimal("2.5000")).build();
+        when(productRepository.findAll()).thenReturn(List.of(a, b));
+
+        InventoryValuationResponse result = reportService.valuation();
+
+        assertThat(result.products()).hasSize(2);
+        assertThat(result.products().get(0).value()).isEqualByComparingTo("30.0000");
+        assertThat(result.products().get(0).sku()).isEqualTo("SKU-1");
+        assertThat(result.total()).isEqualByComparingTo("40.0000");
+    }
+
+    @Test
+    void valuationReportsAProductNeverReceivedAtAStatedCostAsWorthNothing() {
+        Product product = Product.builder().id(1L).sku("SKU-1").name("Hammer").quantity(9).build();
+        when(productRepository.findAll()).thenReturn(List.of(product));
+
+        InventoryValuationResponse result = reportService.valuation();
+
+        assertThat(result.products().get(0).averageCost()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.total()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void costOfGoodsSoldTotalsTheOutwardMovementsOfTheWindow() {
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-02-01T00:00:00Z");
+        when(stockMovementRepository.sumCostOfGoodsSold(from, to))
+                .thenReturn(new CostOfGoodsSoldTotals(120L, new BigDecimal("600.0000")));
+
+        CostOfGoodsSoldResponse result = reportService.costOfGoodsSold(from, to, null);
+
+        assertThat(result.quantity()).isEqualTo(120L);
+        assertThat(result.totalCost()).isEqualByComparingTo("600.0000");
+        assertThat(result.productId()).isNull();
+    }
+
+    @Test
+    void costOfGoodsSoldNarrowsToOneProductAndChecksItExists() {
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-02-01T00:00:00Z");
+        when(stockMovementRepository.sumCostOfGoodsSoldByProduct(5L, from, to))
+                .thenReturn(new CostOfGoodsSoldTotals(4L, new BigDecimal("18.0000")));
+
+        CostOfGoodsSoldResponse result = reportService.costOfGoodsSold(from, to, 5L);
+
+        assertThat(result.productId()).isEqualTo(5L);
+        assertThat(result.totalCost()).isEqualByComparingTo("18.0000");
+        verify(productService).findById(5L);
+    }
+
+    @Test
+    void costOfGoodsSoldReadsAWindowWithoutMovementsAsZero() {
+        Instant from = Instant.parse("2026-01-01T00:00:00Z");
+        Instant to = Instant.parse("2026-02-01T00:00:00Z");
+        when(stockMovementRepository.sumCostOfGoodsSold(from, to))
+                .thenReturn(new CostOfGoodsSoldTotals(null, null));
+
+        CostOfGoodsSoldResponse result = reportService.costOfGoodsSold(from, to, null);
+
+        assertThat(result.quantity()).isZero();
+        assertThat(result.totalCost()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void costOfGoodsSoldRejectsAWindowThatEndsBeforeItStarts() {
+        Instant from = Instant.parse("2026-02-01T00:00:00Z");
+        Instant to = Instant.parse("2026-01-01T00:00:00Z");
+
+        assertThatThrownBy(() -> reportService.costOfGoodsSold(from, to, null))
+                .isInstanceOf(InvalidQueryParameterException.class);
+
+        verifyNoInteractions(stockMovementRepository, productService);
+    }
 
     @Test
     void totalStockValueSumsPriceTimesQuantity() {

@@ -32,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Inventory costing** — a product carries a weighted average of what its stock cost, rolled forward
+  by every receipt that states a `unitCost`, and every movement records what it was valued at.
+  `GET /api/reports/valuation` reports the inventory at cost and `GET /api/reports/cogs` totals what
+  the stock that left over a window cost. Receiving a purchase order takes the goods in at the line's
+  unit price. `GET /api/reports/stock-value` and the CSV, Excel and PDF exports still value stock at
+  the selling price (#148).
 - **Stock reservations** — stock can be held against an outbound commitment so it stops counting as
   available, with `GET /api/products/{id}/availability` reporting on hand, reserved and available.
   A hold names what it is for, optionally a warehouse and an expiry; reserving more than is available

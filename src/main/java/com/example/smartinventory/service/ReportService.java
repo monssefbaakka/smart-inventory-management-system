@@ -4,6 +4,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -16,6 +18,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.smartinventory.dto.CostOfGoodsSoldResponse;
+import com.example.smartinventory.dto.InventoryValuationLine;
+import com.example.smartinventory.dto.InventoryValuationResponse;
+import com.example.smartinventory.exception.InvalidQueryParameterException;
 import com.example.smartinventory.model.Category;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.StockMovement;
@@ -56,16 +62,65 @@ public class ReportService {
 
     private final StockMovementRepository stockMovementRepository;
 
+    private final ProductService productService;
+
     /**
-     * Computes the total value of all inventory on hand, summing {@code price * quantity}
-     * across every product.
+     * Computes the total retail value of all inventory on hand, summing {@code price * quantity}
+     * across every product. What that stock cost is reported by {@link #valuation()} instead.
      *
-     * @return the total stock value
+     * @return the total stock value at the selling price
      */
     public BigDecimal totalStockValue() {
         return productRepository.findAll().stream()
                 .map(product -> product.getPrice().multiply(BigDecimal.valueOf(product.getQuantity())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
+    }
+
+    /**
+     * Values the inventory at what it cost rather than at what it sells for: every product's units
+     * on hand multiplied by the weighted average they were acquired at, and the total those lines
+     * add up to.
+     *
+     * <p>A product that has never been received at a stated cost carries an average of zero and is
+     * reported as worth nothing, which is the honest answer: what its stock cost is not known.
+     *
+     * @return every product valued at cost, with the total
+     */
+    public InventoryValuationResponse valuation() {
+        List<InventoryValuationLine> lines = productRepository.findAll().stream()
+                .map(InventoryValuationLine::from)
+                .toList();
+        BigDecimal total = lines.stream()
+                .map(InventoryValuationLine::value)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        return new InventoryValuationResponse(lines, total);
+    }
+
+    /**
+     * Totals what the stock that left over a window cost to acquire, optionally for one product.
+     *
+     * <p>Outward movements are valued as they are recorded, so the figure is the cost of the goods
+     * as they were sold and no later receipt at a different price disturbs it.
+     *
+     * @param from      start of the window, inclusive
+     * @param to        end of the window, exclusive
+     * @param productId identifier of a product to narrow the window to, or {@code null}
+     * @return the units that left and what they cost
+     * @throws InvalidQueryParameterException if the window ends before it starts
+     * @throws com.example.smartinventory.exception.ResourceNotFoundException if the named product does
+     *                                        not exist
+     */
+    public CostOfGoodsSoldResponse costOfGoodsSold(Instant from, Instant to, Long productId) {
+        if (to.isBefore(from)) {
+            throw new InvalidQueryParameterException(
+                    "The window ends before it starts: from=" + from + " is after to=" + to);
+        }
+        if (productId == null) {
+            return CostOfGoodsSoldResponse.of(from, to, null, stockMovementRepository.sumCostOfGoodsSold(from, to));
+        }
+        productService.findById(productId);
+        return CostOfGoodsSoldResponse.of(from, to, productId,
+                stockMovementRepository.sumCostOfGoodsSoldByProduct(productId, from, to));
     }
 
     /**

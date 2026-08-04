@@ -56,8 +56,9 @@ public class StockMovementController {
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Record a stock movement",
             description = "Records an IN, OUT or ADJUSTMENT movement and applies it to the product's "
-                    + "quantity, and to the named warehouse's stock level when one is given. "
-                    + "Requires the ADMIN role.")
+                    + "quantity, and to the named warehouse's stock level when one is given. An IN "
+                    + "movement carrying a unitCost rolls the product's weighted average cost; every "
+                    + "movement is valued at that average otherwise. Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Movement recorded"),
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
@@ -70,7 +71,7 @@ public class StockMovementController {
             @Parameter(description = "Identifier of the affected product") @PathVariable Long productId,
             @Valid @RequestBody StockMovementRequest request) {
         StockMovement movement = stockMovementService.record(productId, request.warehouseId(), request.batchId(),
-                request.type(), request.quantity(), request.note());
+                request.type(), request.quantity(), request.note(), request.unitCost());
         return ResponseEntity.status(HttpStatus.CREATED).body(StockMovementResponse.from(movement));
     }
 

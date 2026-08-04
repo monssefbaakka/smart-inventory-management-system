@@ -1,5 +1,6 @@
 package com.example.smartinventory.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -58,7 +59,7 @@ class StockMovementControllerTest {
         Product product = Product.builder().id(1L).sku("SKU-1").name("Widget").build();
         StockMovement movement = StockMovement.builder().id(1L).product(product).type(MovementType.IN).quantity(5)
                 .build();
-        when(stockMovementService.record(1L, null, null, MovementType.IN, 5, "restock")).thenReturn(movement);
+        when(stockMovementService.record(1L, null, null, MovementType.IN, 5, "restock", null)).thenReturn(movement);
 
         mockMvc.perform(post("/api/products/1/movements")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -81,7 +82,7 @@ class StockMovementControllerTest {
         Warehouse warehouse = Warehouse.builder().id(7L).code("WH-1").name("Main Depot").build();
         StockMovement movement = StockMovement.builder().id(2L).product(product).warehouse(warehouse)
                 .type(MovementType.IN).quantity(5).build();
-        when(stockMovementService.record(1L, 7L, null, MovementType.IN, 5, null)).thenReturn(movement);
+        when(stockMovementService.record(1L, 7L, null, MovementType.IN, 5, null, null)).thenReturn(movement);
 
         mockMvc.perform(post("/api/products/1/movements")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -91,6 +92,34 @@ class StockMovementControllerTest {
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.warehouseId").value(7))
                 .andExpect(jsonPath("$.warehouseCode").value("WH-1"));
+    }
+
+    @Test
+    void recordPassesTheStatedUnitCostThroughAndReportsWhatItWasValuedAt() throws Exception {
+        Product product = Product.builder().id(1L).build();
+        StockMovement movement = StockMovement.builder().id(3L).product(product).type(MovementType.IN).quantity(5)
+                .unitCost(new BigDecimal("4.5000")).totalCost(new BigDecimal("22.5000")).build();
+        when(stockMovementService.record(1L, null, null, MovementType.IN, 5, null, new BigDecimal("4.50")))
+                .thenReturn(movement);
+
+        mockMvc.perform(post("/api/products/1/movements")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"IN","quantity":5,"unitCost":4.50}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.unitCost").value(4.5000))
+                .andExpect(jsonPath("$.totalCost").value(22.5000));
+    }
+
+    @Test
+    void recordRejectsANegativeUnitCost() throws Exception {
+        mockMvc.perform(post("/api/products/1/movements")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"type":"IN","quantity":5,"unitCost":-1.00}
+                                """))
+                .andExpect(status().isBadRequest());
     }
 
     @Test

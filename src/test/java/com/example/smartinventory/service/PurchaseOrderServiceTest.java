@@ -101,16 +101,18 @@ class PurchaseOrderServiceTest {
         Product a = Product.builder().id(3L).build();
         Product b = Product.builder().id(4L).build();
         PurchaseOrder order = PurchaseOrder.builder().id(9L).status(PurchaseOrderStatus.PLACED).build();
-        order.addItem(PurchaseOrderItem.builder().product(a).quantity(5).unitPrice(BigDecimal.ONE).build());
-        order.addItem(PurchaseOrderItem.builder().product(b).quantity(2).unitPrice(BigDecimal.ONE).build());
+        order.addItem(PurchaseOrderItem.builder().product(a).quantity(5).unitPrice(new BigDecimal("4.50")).build());
+        order.addItem(PurchaseOrderItem.builder().product(b).quantity(2).unitPrice(new BigDecimal("7.25")).build());
         when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PurchaseOrder result = purchaseOrderService.receive(9L);
 
         assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
-        verify(stockMovementService).record(3L, null, null, MovementType.IN, 5, "Purchase order #9 received");
-        verify(stockMovementService).record(4L, null, null, MovementType.IN, 2, "Purchase order #9 received");
+        verify(stockMovementService).record(3L, null, null, MovementType.IN, 5, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+        verify(stockMovementService).record(4L, null, null, MovementType.IN, 2, "Purchase order #9 received",
+                new BigDecimal("7.25"));
     }
 
     @Test

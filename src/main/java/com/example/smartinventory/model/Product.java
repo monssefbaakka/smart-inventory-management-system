@@ -76,6 +76,16 @@ public class Product {
     @Column(nullable = false)
     private Integer quantity;
 
+    /**
+     * Weighted average of what the units on hand cost to acquire. Never set from a request — it is
+     * rolled forward by the receipts, so a product that has never been received at a stated cost
+     * carries zero — and therefore never required of one either.
+     */
+    @DecimalMin(value = "0.0", inclusive = true)
+    @Column(name = "average_cost", nullable = false, precision = 12, scale = 4)
+    @Builder.Default
+    private BigDecimal averageCost = BigDecimal.ZERO;
+
     @PositiveOrZero
     @Column(name = "reorder_threshold", nullable = false)
     @Builder.Default
@@ -111,11 +121,17 @@ public class Product {
         if (reorderThreshold == null) {
             reorderThreshold = 10;
         }
+        if (averageCost == null) {
+            averageCost = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
     protected void onUpdate() {
         updatedAt = Instant.now();
+        if (averageCost == null) {
+            averageCost = BigDecimal.ZERO;
+        }
     }
 
 }
