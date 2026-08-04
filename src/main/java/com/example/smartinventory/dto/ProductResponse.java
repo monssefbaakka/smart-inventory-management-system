@@ -34,6 +34,10 @@ public record ProductResponse(
         @Schema(description = "Units currently in stock across all locations", example = "42")
         Integer quantity,
 
+        @Schema(description = "Weighted average of what the units on hand cost to acquire; rolled forward "
+                + "by the receipts, never set directly", example = "5.0000")
+        BigDecimal averageCost,
+
         @Schema(description = "Quantity at or below which the product counts as low stock", example = "10")
         Integer reorderThreshold,
 
@@ -75,6 +79,7 @@ public record ProductResponse(
                 product.getDescription(),
                 product.getPrice(),
                 product.getQuantity(),
+                product.getAverageCost(),
                 product.getReorderThreshold(),
                 product.getReorderQuantity(),
                 category == null ? null : category.getId(),

@@ -1,5 +1,6 @@
 package com.example.smartinventory.dto;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 import com.example.smartinventory.model.MovementType;
@@ -47,6 +48,14 @@ public record StockMovementResponse(
         @Schema(description = "Units moved, or the new absolute quantity for an ADJUSTMENT", example = "10")
         Integer quantity,
 
+        @Schema(description = "Cost one unit of the movement was valued at, when the stock was costed",
+                example = "4.5000")
+        BigDecimal unitCost,
+
+        @Schema(description = "Cost the whole movement was valued at; for an OUT movement, the cost of "
+                + "the goods sold", example = "45.0000")
+        BigDecimal totalCost,
+
         @Schema(description = "Free-text note recorded with the movement", example = "Delivery 42")
         String note,
 
@@ -73,6 +82,8 @@ public record StockMovementResponse(
                 batch == null ? null : batch.getLotCode(),
                 movement.getType(),
                 movement.getQuantity(),
+                movement.getUnitCost(),
+                movement.getTotalCost(),
                 movement.getNote(),
                 movement.getCreatedAt());
     }

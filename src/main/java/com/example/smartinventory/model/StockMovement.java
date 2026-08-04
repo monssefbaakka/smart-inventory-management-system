@@ -1,5 +1,6 @@
 package com.example.smartinventory.model;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 import org.hibernate.annotations.TenantId;
@@ -18,6 +19,7 @@ import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -68,6 +70,23 @@ public class StockMovement {
     @Positive
     @Column(nullable = false)
     private Integer quantity;
+
+    /**
+     * What one unit of this movement was valued at: the stated cost for a receipt that carried one,
+     * the product's average cost otherwise. Absent on the movements recorded before stock was
+     * costed at all.
+     */
+    @PositiveOrZero
+    @Column(name = "unit_cost", precision = 12, scale = 4)
+    private BigDecimal unitCost;
+
+    /**
+     * What the whole movement was valued at: {@code unitCost} multiplied by the quantity. For an
+     * outward movement that figure is the cost of the goods sold.
+     */
+    @PositiveOrZero
+    @Column(name = "total_cost", precision = 14, scale = 4)
+    private BigDecimal totalCost;
 
     @Size(max = 500)
     @Column(length = 500)
