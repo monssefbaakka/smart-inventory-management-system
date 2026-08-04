@@ -109,6 +109,9 @@ public class PurchaseOrderService {
      * movement for each line item so received goods increase product quantities through the
      * shared stock-movement audit trail.
      *
+     * <p>The goods are taken in at the line's unit price, so what was paid for them rolls into the
+     * product's weighted average cost without anyone entering the figure a second time.
+     *
      * @param id identifier of the order
      * @return the received order
      * @throws InvalidPurchaseOrderStateException if the order is not in {@code PLACED}
@@ -119,7 +122,7 @@ public class PurchaseOrderService {
 
         for (PurchaseOrderItem item : order.getItems()) {
             stockMovementService.record(item.getProduct().getId(), null, null, MovementType.IN, item.getQuantity(),
-                    "Purchase order #" + order.getId() + " received");
+                    "Purchase order #" + order.getId() + " received", item.getUnitPrice());
         }
 
         order.setStatus(PurchaseOrderStatus.RECEIVED);

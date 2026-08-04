@@ -1,5 +1,8 @@
 package com.example.smartinventory.service;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -23,6 +26,12 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class StockMovementService {
+
+    /**
+     * Decimal places kept on a cost. Four rather than two because an average is a quotient: rounding
+     * it to the penny at every receipt would drift away from what the stock actually cost.
+     */
+    static final int COST_SCALE = 4;
 
     private final StockMovementRepository stockMovementRepository;
     private final ProductRepository productRepository;
@@ -62,6 +71,38 @@ public class StockMovementService {
      */
     public StockMovement record(Long productId, Long warehouseId, Long batchId, MovementType type, Integer quantity,
             String note) {
+        return record(productId, warehouseId, batchId, type, quantity, note, null);
+    }
+
+    /**
+     * Records a stock movement as {@link #record(Long, Long, Long, MovementType, Integer, String)}
+     * does, valuing it at a stated cost per unit.
+     *
+     * <p>A receipt carrying a {@code unitCost} rolls the product's weighted average cost:
+     * {@code (onHand x average + received x unitCost) / (onHand + received)}. A receipt without one
+     * is taken in at the running average and leaves it where it was, and an outward movement is
+     * always valued at the average of the moment — that figure is the cost of the goods sold, fixed
+     * when the stock leaves and untouched by whatever is received afterwards.
+     *
+     * <p>An {@code ADJUSTMENT} ignores a stated cost: a recount settles how many units are on the
+     * shelf, not what they cost, so it is valued at the running average like any other outcome of a
+     * count.
+     *
+     * @param productId   identifier of the affected product
+     * @param warehouseId identifier of the location the stock moved through, or {@code null}
+     * @param batchId     identifier of the lot the stock belongs to, or {@code null}
+     * @param type        direction of the movement
+     * @param quantity    amount moved (or the new absolute quantity for {@code ADJUSTMENT})
+     * @param note        optional free-text note
+     * @param unitCost    cost of one received unit, or {@code null} to value the movement at the
+     *                    product's current average cost
+     * @return the persisted movement record
+     * @throws InvalidStockTransferException if {@code type} is one leg of a transfer
+     * @throws InvalidBatchException         if an {@code ADJUSTMENT} names a lot, or the named lot
+     *                                       cannot take part in the movement
+     */
+    public StockMovement record(Long productId, Long warehouseId, Long batchId, MovementType type, Integer quantity,
+            String note, BigDecimal unitCost) {
         if (type.isTransferLeg()) {
             throw new InvalidStockTransferException(
                     "Movement type " + type + " is recorded by a warehouse transfer, not as a plain movement");
@@ -75,6 +116,8 @@ public class StockMovementService {
         Product product = productService.findById(productId);
         Warehouse warehouse = warehouseId == null ? null : warehouseService.findById(warehouseId);
         ProductBatch batch = batchId == null ? null : productBatchService.findById(batchId);
+
+        BigDecimal valuedAt = applyCost(product, type, quantity, unitCost);
 
         if (warehouse == null) {
             applyToProduct(product, type, quantity);
@@ -97,6 +140,8 @@ public class StockMovementService {
                 .batch(batch)
                 .type(type)
                 .quantity(quantity)
+                .unitCost(valuedAt)
+                .totalCost(valuedAt.multiply(BigDecimal.valueOf(quantity)))
                 .note(note)
                 .build();
         StockMovement saved = stockMovementRepository.save(movement);
@@ -105,6 +150,34 @@ public class StockMovementService {
         autoReorderService.evaluate(product);
 
         return saved;
+    }
+
+    /**
+     * Values the movement and, for a receipt that states what the goods cost, rolls the product's
+     * weighted average cost forward before the quantity moves — the old average still has to be
+     * weighted by the stock it belonged to.
+     *
+     * <p>A receipt of goods the product has none of takes its stated cost as the average outright,
+     * which is also what the formula gives once the weight of nothing is nothing.
+     *
+     * @param product  the product being moved
+     * @param type     direction of the movement
+     * @param quantity amount moved
+     * @param unitCost stated cost of one received unit, or {@code null}
+     * @return the cost one unit of this movement is valued at
+     */
+    private BigDecimal applyCost(Product product, MovementType type, Integer quantity, BigDecimal unitCost) {
+        BigDecimal average = product.getAverageCost() == null ? BigDecimal.ZERO : product.getAverageCost();
+        if (type != MovementType.IN || unitCost == null) {
+            return average;
+        }
+
+        int onHand = Math.max(product.getQuantity(), 0);
+        BigDecimal received = BigDecimal.valueOf(quantity);
+        BigDecimal rolled = average.multiply(BigDecimal.valueOf(onHand)).add(unitCost.multiply(received))
+                .divide(BigDecimal.valueOf(onHand).add(received), COST_SCALE, RoundingMode.HALF_UP);
+        product.setAverageCost(rolled);
+        return unitCost;
     }
 
     /**
