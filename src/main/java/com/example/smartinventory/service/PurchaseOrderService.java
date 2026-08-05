@@ -1,10 +1,16 @@
 package com.example.smartinventory.service;
 
+import java.util.LinkedHashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
+
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.smartinventory.dto.GoodsReceiptLineRequest;
+import com.example.smartinventory.dto.GoodsReceiptRequest;
 import com.example.smartinventory.dto.PurchaseOrderItemRequest;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
 import com.example.smartinventory.dto.PurchaseOrderResponse;
@@ -105,33 +111,81 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Transitions a {@code PLACED} order to {@code RECEIVED}, recording an {@code IN} stock
-     * movement for each line item so received goods increase product quantities through the
-     * shared stock-movement audit trail.
+     * Receives everything still outstanding on an order, leaving it {@code RECEIVED}.
      *
-     * <p>The goods are taken in at the line's unit price, so what was paid for them rolls into the
-     * product's weighted average cost without anyone entering the figure a second time.
+     * <p>This is the whole-delivery shorthand for {@link #receive(Long, GoodsReceiptRequest)}: it
+     * books the outstanding quantity of every line, which for an order nothing has arrived against
+     * is the full quantity ordered. An order already part-delivered is closed out by the same call.
      *
      * @param id identifier of the order
      * @return the received order
-     * @throws InvalidPurchaseOrderStateException if the order is not in {@code PLACED}
+     * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery
      */
     public PurchaseOrder receive(Long id) {
         PurchaseOrder order = findById(id);
-        requireStatus(order, PurchaseOrderStatus.PLACED, "received");
+        requireAwaitingDelivery(order);
 
         for (PurchaseOrderItem item : order.getItems()) {
-            stockMovementService.record(item.getProduct().getId(), null, null, MovementType.IN, item.getQuantity(),
-                    "Purchase order #" + order.getId() + " received", item.getUnitPrice());
+            book(order, item, item.getOutstandingQuantity());
         }
 
-        order.setStatus(PurchaseOrderStatus.RECEIVED);
-        return purchaseOrderRepository.save(order);
+        return settle(order);
     }
 
     /**
-     * Cancels a {@code DRAFT} or {@code PLACED} order. A {@code RECEIVED} order cannot be
-     * cancelled because its stock effect has already been applied.
+     * Books one delivery against an order: each named line takes the stated quantity into stock as
+     * an {@code IN} movement at the line's unit price, so what was paid for the goods rolls into the
+     * product's weighted average cost without anyone entering the figure a second time.
+     *
+     * <p>Lines the request leaves out are not received and stay outstanding. The order ends up
+     * {@code RECEIVED} once every line is complete and {@code PARTIALLY_RECEIVED} while anything is
+     * still to come.
+     *
+     * <p>A delivery is one transaction: if any line asks for more than it has outstanding, nothing
+     * at all is booked.
+     *
+     * @param id      identifier of the order
+     * @param request the lines that arrived and how much of each
+     * @return the order as the delivery left it
+     * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery, or a line
+     *                                            would be received past the quantity ordered
+     * @throws ResourceNotFoundException          if a named line is not on this order
+     */
+    public PurchaseOrder receive(Long id, GoodsReceiptRequest request) {
+        PurchaseOrder order = findById(id);
+        requireAwaitingDelivery(order);
+
+        Map<Long, PurchaseOrderItem> itemsById = order.getItems().stream()
+                .collect(Collectors.toMap(PurchaseOrderItem::getId, item -> item));
+
+        Map<Long, Integer> delivered = new LinkedHashMap<>();
+        for (GoodsReceiptLineRequest line : request.lines()) {
+            if (!itemsById.containsKey(line.itemId())) {
+                throw new ResourceNotFoundException(
+                        "Line item " + line.itemId() + " is not on purchase order " + id);
+            }
+            delivered.merge(line.itemId(), line.quantity(), Integer::sum);
+        }
+
+        delivered.forEach((itemId, quantity) -> {
+            PurchaseOrderItem item = itemsById.get(itemId);
+            if (quantity > item.getOutstandingQuantity()) {
+                throw new InvalidPurchaseOrderStateException(
+                        "Cannot receive " + quantity + " units against line item " + itemId + " of purchase order "
+                                + id + ": only " + item.getOutstandingQuantity() + " outstanding of "
+                                + item.getQuantity() + " ordered");
+            }
+        });
+
+        delivered.forEach((itemId, quantity) -> book(order, itemsById.get(itemId), quantity));
+
+        return settle(order);
+    }
+
+    /**
+     * Cancels an order that has not been received in full, abandoning whatever is outstanding on it.
+     * Stock already received against a part-delivered order stays where it is; a {@code RECEIVED}
+     * order has nothing left to abandon and cannot be cancelled.
      *
      * @param id identifier of the order
      * @return the cancelled order
@@ -139,7 +193,8 @@ public class PurchaseOrderService {
      */
     public PurchaseOrder cancel(Long id) {
         PurchaseOrder order = findById(id);
-        if (order.getStatus() != PurchaseOrderStatus.DRAFT && order.getStatus() != PurchaseOrderStatus.PLACED) {
+        if (order.getStatus() == PurchaseOrderStatus.RECEIVED
+                || order.getStatus() == PurchaseOrderStatus.CANCELLED) {
             throw new InvalidPurchaseOrderStateException(
                     "Purchase order " + id + " cannot be cancelled from status " + order.getStatus());
         }
@@ -149,6 +204,53 @@ public class PurchaseOrderService {
 
     public void delete(Long id) {
         purchaseOrderRepository.delete(findById(id));
+    }
+
+    /**
+     * Takes a quantity of one line into stock and credits it to that line. Booking nothing is a
+     * no-op rather than an error: a whole-order receipt walks every line, including the ones an
+     * earlier delivery already completed.
+     *
+     * @param order    the order being delivered against
+     * @param item     the line the goods belong to
+     * @param quantity units that arrived
+     */
+    private void book(PurchaseOrder order, PurchaseOrderItem item, int quantity) {
+        if (quantity <= 0) {
+            return;
+        }
+        stockMovementService.record(item.getProduct().getId(), null, null, MovementType.IN, quantity,
+                "Purchase order #" + order.getId() + " received", item.getUnitPrice());
+        item.setReceivedQuantity(item.getReceivedQuantity() + quantity);
+    }
+
+    /**
+     * Moves the order to the status its lines now warrant and saves it.
+     *
+     * @param order the order a delivery was just booked against
+     * @return the saved order
+     */
+    private PurchaseOrder settle(PurchaseOrder order) {
+        order.setStatus(order.isFullyReceived()
+                ? PurchaseOrderStatus.RECEIVED
+                : PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        return purchaseOrderRepository.save(order);
+    }
+
+    /**
+     * Requires that the order is one a delivery may still be booked against.
+     *
+     * @param order the order to check
+     * @throws InvalidPurchaseOrderStateException if it is not placed or part-delivered
+     */
+    private void requireAwaitingDelivery(PurchaseOrder order) {
+        if (order.getStatus() != PurchaseOrderStatus.PLACED
+                && order.getStatus() != PurchaseOrderStatus.PARTIALLY_RECEIVED) {
+            throw new InvalidPurchaseOrderStateException(
+                    "Purchase order " + order.getId() + " cannot be received from status " + order.getStatus()
+                            + "; expected " + PurchaseOrderStatus.PLACED + " or "
+                            + PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        }
     }
 
     private void requireStatus(PurchaseOrder order, PurchaseOrderStatus expected, String action) {
