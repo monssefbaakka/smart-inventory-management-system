@@ -30,6 +30,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.smartinventory.dto.GoodsReceiptRequest;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
 import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.model.Product;
@@ -173,6 +174,52 @@ class PurchaseOrderControllerTest {
         mockMvc.perform(post("/api/purchase-orders/1/receive"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RECEIVED"));
+    }
+
+    @Test
+    void receiptBooksTheDeliveredLinesAndReportsWhatIsOutstanding() throws Exception {
+        PurchaseOrder partiallyReceived = order(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        partiallyReceived.getItems().get(0).setReceivedQuantity(1);
+        when(purchaseOrderService.receive(eq(1L), any(GoodsReceiptRequest.class))).thenReturn(partiallyReceived);
+
+        mockMvc.perform(post("/api/purchase-orders/1/receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lines":[{"itemId":11,"quantity":1}]}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("PARTIALLY_RECEIVED"))
+                .andExpect(jsonPath("$.items[0].receivedQuantity").value(1))
+                .andExpect(jsonPath("$.items[0].outstandingQuantity").value(3));
+
+        ArgumentCaptor<GoodsReceiptRequest> request = ArgumentCaptor.captor();
+        verify(purchaseOrderService).receive(eq(1L), request.capture());
+        assertThat(request.getValue().lines()).singleElement()
+                .satisfies(line -> assertThat(line.itemId()).isEqualTo(11L));
+    }
+
+    @Test
+    void receiptRejectsADeliveryWithNoLines() throws Exception {
+        mockMvc.perform(post("/api/purchase-orders/1/receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lines":[]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(purchaseOrderService);
+    }
+
+    @Test
+    void receiptRejectsANonPositiveQuantity() throws Exception {
+        mockMvc.perform(post("/api/purchase-orders/1/receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"lines":[{"itemId":11,"quantity":0}]}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(purchaseOrderService);
     }
 
     @Test

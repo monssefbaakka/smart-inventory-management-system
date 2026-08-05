@@ -30,9 +30,13 @@ public class AutoReorderService {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoReorderService.class);
 
-    /** Orders that have not yet been received, and therefore already cover the shortfall. */
-    private static final List<PurchaseOrderStatus> OPEN_STATUSES =
-            List.of(PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED);
+    /**
+     * Orders that have not yet been received in full, and therefore already cover the shortfall. A
+     * part-delivered order counts: the rest of it is still on its way, so a short delivery that
+     * leaves the product below its threshold must not raise a second order for the same goods.
+     */
+    private static final List<PurchaseOrderStatus> OPEN_STATUSES = List.of(
+            PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED, PurchaseOrderStatus.PARTIALLY_RECEIVED);
 
     /** Multiple of the reorder threshold a replenishment tops stock up to, absent an explicit quantity. */
     private static final int DEFAULT_TARGET_MULTIPLIER = 2;

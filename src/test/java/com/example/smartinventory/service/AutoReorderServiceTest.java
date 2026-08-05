@@ -26,8 +26,8 @@ import com.example.smartinventory.repository.PurchaseOrderRepository;
 @ExtendWith(MockitoExtension.class)
 class AutoReorderServiceTest {
 
-    private static final List<PurchaseOrderStatus> OPEN_STATUSES =
-            List.of(PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED);
+    private static final List<PurchaseOrderStatus> OPEN_STATUSES = List.of(
+            PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED, PurchaseOrderStatus.PARTIALLY_RECEIVED);
 
     @Mock
     private PurchaseOrderRepository purchaseOrderRepository;
@@ -164,7 +164,8 @@ class AutoReorderServiceTest {
         enabledService().evaluate(product);
 
         verify(purchaseOrderRepository).existsByStatusInAndItemsProductId(
-                eq(List.of(PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED)), anyLong());
+                eq(List.of(PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED,
+                        PurchaseOrderStatus.PARTIALLY_RECEIVED)), anyLong());
     }
 
 }

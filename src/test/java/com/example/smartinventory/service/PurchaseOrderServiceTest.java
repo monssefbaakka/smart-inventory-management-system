@@ -6,6 +6,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -20,10 +21,13 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 
+import com.example.smartinventory.dto.GoodsReceiptLineRequest;
+import com.example.smartinventory.dto.GoodsReceiptRequest;
 import com.example.smartinventory.dto.PurchaseOrderItemRequest;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
 import com.example.smartinventory.dto.PurchaseOrderResponse;
 import com.example.smartinventory.exception.InvalidPurchaseOrderStateException;
+import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.MovementType;
 import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.PurchaseOrder;
@@ -51,6 +55,16 @@ class PurchaseOrderServiceTest {
 
     @InjectMocks
     private PurchaseOrderService purchaseOrderService;
+
+    /** A placed order for five of product 3 on line 11 and two of product 4 on line 12. */
+    private PurchaseOrder placedOrder() {
+        PurchaseOrder order = PurchaseOrder.builder().id(9L).status(PurchaseOrderStatus.PLACED).build();
+        order.addItem(PurchaseOrderItem.builder().id(11L).product(Product.builder().id(3L).build())
+                .quantity(5).unitPrice(new BigDecimal("4.50")).build());
+        order.addItem(PurchaseOrderItem.builder().id(12L).product(Product.builder().id(4L).build())
+                .quantity(2).unitPrice(new BigDecimal("7.25")).build());
+        return order;
+    }
 
     @Test
     void createBuildsDraftOrderWithResolvedItems() {
@@ -122,6 +136,136 @@ class PurchaseOrderServiceTest {
 
         assertThatThrownBy(() -> purchaseOrderService.receive(1L))
                 .isInstanceOf(InvalidPurchaseOrderStateException.class);
+        verifyNoInteractions(stockMovementService);
+    }
+
+    @Test
+    void deliveryBooksOnlyWhatArrivedAndLeavesTheOrderPartiallyReceived() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L,
+                new GoodsReceiptRequest(List.of(new GoodsReceiptLineRequest(11L, 3))));
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        assertThat(result.getItems().get(0).getReceivedQuantity()).isEqualTo(3);
+        assertThat(result.getItems().get(0).getOutstandingQuantity()).isEqualTo(2);
+        assertThat(result.getItems().get(1).getReceivedQuantity()).isZero();
+        verify(stockMovementService).record(3L, null, null, MovementType.IN, 3, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+        verify(stockMovementService, never()).record(eq(4L), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void deliveryCompletingEveryLineMarksTheOrderReceived() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L, new GoodsReceiptRequest(
+                List.of(new GoodsReceiptLineRequest(11L, 5), new GoodsReceiptLineRequest(12L, 2))));
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
+        assertThat(result.getItems()).allSatisfy(item -> assertThat(item.isFullyReceived()).isTrue());
+    }
+
+    @Test
+    void aSecondDeliveryIsAcceptedAgainstAPartiallyReceivedOrder() {
+        PurchaseOrder order = placedOrder();
+        order.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        order.getItems().get(0).setReceivedQuantity(3);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L,
+                new GoodsReceiptRequest(List.of(new GoodsReceiptLineRequest(11L, 2))));
+
+        assertThat(result.getItems().get(0).getReceivedQuantity()).isEqualTo(5);
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        verify(stockMovementService).record(3L, null, null, MovementType.IN, 2, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+    }
+
+    @Test
+    void deliveryBeyondWhatIsOutstandingBooksNothing() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+
+        assertThatThrownBy(() -> purchaseOrderService.receive(9L, new GoodsReceiptRequest(
+                List.of(new GoodsReceiptLineRequest(11L, 5), new GoodsReceiptLineRequest(12L, 3)))))
+                .isInstanceOf(InvalidPurchaseOrderStateException.class)
+                .hasMessageContaining("only 2 outstanding");
+
+        verifyNoInteractions(stockMovementService);
+        verify(purchaseOrderRepository, never()).save(any());
+    }
+
+    @Test
+    void deliveryAgainstALineOfAnotherOrderIsRejected() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+
+        assertThatThrownBy(() -> purchaseOrderService.receive(9L,
+                new GoodsReceiptRequest(List.of(new GoodsReceiptLineRequest(99L, 1)))))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verifyNoInteractions(stockMovementService);
+    }
+
+    @Test
+    void repeatedLinesInOneDeliveryAreTakenTogether() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L, new GoodsReceiptRequest(
+                List.of(new GoodsReceiptLineRequest(11L, 2), new GoodsReceiptLineRequest(11L, 3))));
+
+        assertThat(result.getItems().get(0).getReceivedQuantity()).isEqualTo(5);
+        verify(stockMovementService).record(3L, null, null, MovementType.IN, 5, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+    }
+
+    @Test
+    void deliveryIsRejectedOnceTheOrderIsReceived() {
+        PurchaseOrder order = PurchaseOrder.builder().id(9L).status(PurchaseOrderStatus.RECEIVED).build();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+
+        assertThatThrownBy(() -> purchaseOrderService.receive(9L,
+                new GoodsReceiptRequest(List.of(new GoodsReceiptLineRequest(11L, 1)))))
+                .isInstanceOf(InvalidPurchaseOrderStateException.class);
+    }
+
+    @Test
+    void receiveClosesOutWhatIsStillOutstandingOnAPartiallyReceivedOrder() {
+        PurchaseOrder order = placedOrder();
+        order.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        order.getItems().get(0).setReceivedQuantity(5);
+        order.getItems().get(1).setReceivedQuantity(1);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L);
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
+        verify(stockMovementService).record(4L, null, null, MovementType.IN, 1, "Purchase order #9 received",
+                new BigDecimal("7.25"));
+        verify(stockMovementService, never()).record(eq(3L), any(), any(), any(), any(), any(), any());
+    }
+
+    @Test
+    void cancelAllowedFromAPartiallyReceivedOrder() {
+        PurchaseOrder order = placedOrder();
+        order.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        order.getItems().get(0).setReceivedQuantity(3);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.cancel(9L);
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.CANCELLED);
+        assertThat(result.getItems().get(0).getReceivedQuantity()).isEqualTo(3);
         verifyNoInteractions(stockMovementService);
     }
 

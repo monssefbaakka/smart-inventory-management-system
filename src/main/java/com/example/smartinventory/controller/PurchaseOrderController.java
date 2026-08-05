@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.GoodsReceiptRequest;
 import com.example.smartinventory.dto.PageRequests;
 import com.example.smartinventory.dto.PageResponse;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
@@ -121,9 +122,10 @@ public class PurchaseOrderController {
 
     @PostMapping("/{id}/receive")
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Receive a purchase order",
-            description = "Transitions a PLACED order to RECEIVED, recording an IN stock movement per "
-                    + "line item. Requires the ADMIN role.")
+    @Operation(summary = "Receive a purchase order in full",
+            description = "Receives everything still outstanding on a PLACED or PARTIALLY_RECEIVED order, "
+                    + "recording an IN stock movement per line and leaving the order RECEIVED. "
+                    + "Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Order received and stock updated"),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
@@ -135,11 +137,43 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.receive(id)));
     }
 
+    /**
+     * Books one delivery against an order, taking the stated quantity of each named line into stock.
+     *
+     * @param id      identifier of the purchase order
+     * @param request the lines that arrived and how much of each
+     * @return the order as the delivery left it
+     */
+    @PostMapping("/{id}/receipts")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Book a delivery against a purchase order",
+            description = "Receives the stated quantity of each named line item, recording an IN stock movement "
+                    + "at the line's unit price. Lines left out of the request stay outstanding. The order ends "
+                    + "up RECEIVED once every line is complete and PARTIALLY_RECEIVED while anything is still "
+                    + "to come. A line received past the quantity ordered is rejected and the whole delivery is "
+                    + "booked as one transaction. Requires the ADMIN role.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Delivery booked and stock updated"),
+        @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Purchase order or line item not found",
+                content = @Content),
+        @ApiResponse(responseCode = "409",
+                description = "Order is not in a receivable state, or a line would exceed the quantity ordered",
+                content = @Content)
+    })
+    public ResponseEntity<PurchaseOrderResponse> receiveDelivery(
+            @Parameter(description = "Identifier of the purchase order") @PathVariable Long id,
+            @Valid @RequestBody GoodsReceiptRequest request) {
+        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.receive(id, request)));
+    }
+
     @PostMapping("/{id}/cancel")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Cancel a purchase order",
-            description = "Cancels a DRAFT or PLACED order. A RECEIVED order cannot be cancelled. "
-                    + "Requires the ADMIN role.")
+            description = "Cancels an order that has not been received in full, abandoning whatever is still "
+                    + "outstanding. Stock already received against a part-delivered order stays. A RECEIVED "
+                    + "order cannot be cancelled. Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Order cancelled"),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),

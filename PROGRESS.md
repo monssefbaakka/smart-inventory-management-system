@@ -74,9 +74,10 @@ implemented in repo but GitHub issue not yet closed
 | 142 | Automatically raise purchase orders at the reorder threshold | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 144 | Track stock in batches with expiry dates | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 146 | Reserve stock for outbound orders | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 148 | Value stock at what it cost | ![working](https://img.shields.io/badge/status-working-blue) |
+| 148 | Value stock at what it cost | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 150 | Receive a purchase order in parts | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #148 — Value stock at what it cost (PR open)
+**Working:** #150 — Receive a purchase order in parts (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

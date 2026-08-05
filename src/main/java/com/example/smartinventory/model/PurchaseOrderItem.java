@@ -16,6 +16,7 @@ import jakarta.persistence.Table;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.PositiveOrZero;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -56,5 +57,30 @@ public class PurchaseOrderItem {
     @DecimalMin(value = "0.0", inclusive = true)
     @Column(name = "unit_price", nullable = false, precision = 12, scale = 2)
     private BigDecimal unitPrice;
+
+    /** How much of {@link #quantity} has arrived and been taken into stock so far. */
+    @NotNull
+    @PositiveOrZero
+    @Column(name = "received_quantity", nullable = false)
+    @Builder.Default
+    private Integer receivedQuantity = 0;
+
+    /**
+     * Returns how much of the ordered quantity has still to arrive.
+     *
+     * @return the quantity ordered less the quantity received, never negative
+     */
+    public int getOutstandingQuantity() {
+        return Math.max(quantity - (receivedQuantity == null ? 0 : receivedQuantity), 0);
+    }
+
+    /**
+     * Reports whether the whole ordered quantity has arrived.
+     *
+     * @return {@code true} when nothing on this line is outstanding
+     */
+    public boolean isFullyReceived() {
+        return getOutstandingQuantity() == 0;
+    }
 
 }
