@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Partial goods receipts** — `POST /api/purchase-orders/{id}/receipts` books one delivery against
+  an order, taking the stated quantity of each named line into stock at the line's unit price. Lines
+  left out stay outstanding, the order sits in the new `PARTIALLY_RECEIVED` status until every line
+  is complete, and each line reports `receivedQuantity` and `outstandingQuantity`. A line received
+  past the quantity ordered answers `409 Conflict` and the whole delivery is rolled back.
+  `POST /{id}/receive` still receives everything outstanding and now also closes out a part-delivered
+  order, cancelling is allowed from `PARTIALLY_RECEIVED`, and the automatic reorder counts a
+  part-delivered order as still open (#150).
 - **Inventory costing** — a product carries a weighted average of what its stock cost, rolled forward
   by every receipt that states a `unitCost`, and every movement records what it was valued at.
   `GET /api/reports/valuation` reports the inventory at cost and `GET /api/reports/cogs` totals what

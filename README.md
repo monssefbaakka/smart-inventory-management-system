@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), with received goods flowing through the stock-movement audit trail.
+- **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, with received goods flowing through the stock-movement audit trail.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, so a buyer only reviews and places it.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
@@ -186,9 +186,10 @@ PUT /api/products/1
 
 The rule deliberately raises at most one order per shortfall:
 
-- A product already sitting on an open (`DRAFT` or `PLACED`) purchase order is skipped, so a
-  shortfall that develops over several movements still produces a single order. Receiving that order
-  ends the skip.
+- A product already sitting on an open (`DRAFT`, `PLACED` or `PARTIALLY_RECEIVED`) purchase order is
+  skipped, so a shortfall that develops over several movements still produces a single order, and a
+  short delivery does not raise a second order for goods still on their way. Receiving that order in
+  full ends the skip.
 - A product with no supplier is skipped and logged — there is nobody to order from.
 
 ### Warehouses & Stock Levels
@@ -361,6 +362,47 @@ Reservations are a claim on stock, not a lock on it: an ordinary `OUT` movement 
 is physically there. When that leaves more reserved than is on hand, availability reads zero rather
 than a negative number.
 
+### Purchase Orders & Goods Receipts
+
+An order is raised as a `DRAFT`, sent to the supplier by placing it, and closed by receiving the
+goods. Deliveries rarely arrive in one piece, so a receipt says what actually turned up.
+
+| Endpoint | Purpose |
+| :--- | :--- |
+| `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items |
+| `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
+| `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
+| `POST /api/purchase-orders/{id}/receive` | Receive everything still outstanding at once |
+| `POST /api/purchase-orders/{id}/cancel` | Abandon whatever is still outstanding |
+
+A receipt names only the lines that arrived:
+
+```json
+POST /api/purchase-orders/4/receipts
+{
+  "lines": [
+    { "itemId": 11, "quantity": 20 }
+  ]
+}
+```
+
+Each booked quantity records an `IN` stock movement at the line's `unitPrice`, exactly as a full
+receipt does, so a partial delivery rolls the weighted average cost the same way. Lines left out of
+the request are not received and stay outstanding.
+
+Every line reports `receivedQuantity` and `outstandingQuantity`, so purchasing can see what to chase
+without recomputing it. The order lands in `PARTIALLY_RECEIVED` while anything is still to come and
+reaches `RECEIVED` only when every line is complete — both as a consequence of the receipt, not as a
+separate call. Further receipts are accepted against a `PLACED` or `PARTIALLY_RECEIVED` order.
+
+A delivery is one transaction: a line receiving more than it has outstanding answers `409 Conflict`
+and nothing at all is booked, and a line that is not on the order answers `404 Not Found`. There is
+no over-receipt tolerance — a genuine overage is booked as an ordinary stock movement.
+
+Cancelling is allowed from `PARTIALLY_RECEIVED` and means the supplier will not send the rest: the
+stock already received stays, only the outstanding quantity is abandoned. A `RECEIVED` order has
+nothing left to abandon and cannot be cancelled.
+
 ### Inventory Costing
 
 A product's `price` is what it sells for. What its stock cost is a second figure, `averageCost`: the
@@ -394,8 +436,9 @@ average of the moment — that figure is the cost of goods sold, fixed when the 
 undisturbed by whatever is received afterwards. An `ADJUSTMENT` ignores a stated cost: a recount
 settles how many units are on the shelf, not what they cost.
 
-Receiving a purchase order takes each line in at its `unitPrice`, so ordinary purchasing keeps the
-average honest without anyone entering the figure twice.
+Receiving a purchase order takes each line in at its `unitPrice`, whether the goods arrive all at
+once or over several deliveries, so ordinary purchasing keeps the average honest without anyone
+entering the figure twice.
 
 `GET /api/reports/cogs` defaults to the whole record; `from` is inclusive, `to` exclusive, and a
 window that ends before it starts is rejected with `400 Bad Request`. Movements recorded before the
