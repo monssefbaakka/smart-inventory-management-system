@@ -101,6 +101,15 @@ public class PurchaseOrder {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    /**
+     * Reports whether every line has arrived in full.
+     *
+     * @return {@code true} when no line has anything outstanding
+     */
+    public boolean isFullyReceived() {
+        return items.stream().allMatch(PurchaseOrderItem::isFullyReceived);
+    }
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now();
