@@ -28,6 +28,12 @@ public record PurchaseOrderItemResponse(
         @Schema(description = "Agreed price per unit", example = "9.50")
         BigDecimal unitPrice,
 
+        @Schema(description = "Units received so far", example = "20")
+        Integer receivedQuantity,
+
+        @Schema(description = "Units still to arrive", example = "5")
+        Integer outstandingQuantity,
+
         @Schema(description = "Quantity multiplied by unit price", example = "237.50")
         BigDecimal lineTotal) {
 
@@ -45,6 +51,8 @@ public record PurchaseOrderItemResponse(
                 item.getProduct().getName(),
                 item.getQuantity(),
                 item.getUnitPrice(),
+                item.getReceivedQuantity(),
+                item.getOutstandingQuantity(),
                 item.getUnitPrice().multiply(BigDecimal.valueOf(item.getQuantity())));
     }
 
