@@ -120,46 +120,65 @@ public class PurchaseOrderController {
         return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.place(id)));
     }
 
+    /**
+     * Receives everything still outstanding on an order, optionally into one warehouse.
+     *
+     * @param id          identifier of the purchase order
+     * @param warehouseId identifier of the location the goods landed in, or {@code null}
+     * @return the received order
+     */
     @PostMapping("/{id}/receive")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Receive a purchase order in full",
             description = "Receives everything still outstanding on a PLACED or PARTIALLY_RECEIVED order, "
-                    + "recording an IN stock movement per line and leaving the order RECEIVED. "
-                    + "Requires the ADMIN role.")
+                    + "recording an IN stock movement per line and leaving the order RECEIVED. The goods land "
+                    + "in warehouseId when one is given, and against the product total only when it is not; no "
+                    + "lot is named, which has to be said line by line through /receipts. Requires the ADMIN "
+                    + "role.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Order received and stock updated"),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Purchase order not found", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Purchase order or warehouse not found",
+                content = @Content),
         @ApiResponse(responseCode = "409", description = "Order is not in a receivable state", content = @Content)
     })
     public ResponseEntity<PurchaseOrderResponse> receive(
-            @Parameter(description = "Identifier of the purchase order") @PathVariable Long id) {
-        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.receive(id)));
+            @Parameter(description = "Identifier of the purchase order") @PathVariable Long id,
+            @Parameter(description = "Optional warehouse the goods landed in")
+            @RequestParam(required = false) Long warehouseId) {
+        return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.receive(id, warehouseId)));
     }
 
     /**
-     * Books one delivery against an order, taking the stated quantity of each named line into stock.
+     * Books one delivery against an order, taking the stated quantity of each named line into stock
+     * at the location and in the lot it says it landed in.
      *
      * @param id      identifier of the purchase order
-     * @param request the lines that arrived and how much of each
+     * @param request the lines that arrived, how much of each, and where it went
      * @return the order as the delivery left it
      */
     @PostMapping("/{id}/receipts")
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Book a delivery against a purchase order",
             description = "Receives the stated quantity of each named line item, recording an IN stock movement "
-                    + "at the line's unit price. Lines left out of the request stay outstanding. The order ends "
+                    + "at the line's unit price. The goods land in the receipt's warehouseId unless the line "
+                    + "names its own, and in the lot named by its lotCode, which is created against the product "
+                    + "if it does not exist yet. A line may be listed more than once to split a delivery across "
+                    + "lots or sites. Lines left out of the request stay outstanding. The order ends "
                     + "up RECEIVED once every line is complete and PARTIALLY_RECEIVED while anything is still "
                     + "to come. A line received past the quantity ordered is rejected and the whole delivery is "
                     + "booked as one transaction. Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Delivery booked and stock updated"),
-        @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
+        @ApiResponse(responseCode = "400",
+                description = "Validation failed, or a line states an expiry date but no lot code",
+                content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Purchase order or line item not found",
+        @ApiResponse(responseCode = "404", description = "Purchase order, line item or warehouse not found",
                 content = @Content),
         @ApiResponse(responseCode = "409",
-                description = "Order is not in a receivable state, or a line would exceed the quantity ordered",
+                description = "Order is not in a receivable state, a line would exceed the quantity ordered, or a "
+                        + "lot code is stated under a different expiry date",
                 content = @Content)
     })
     public ResponseEntity<PurchaseOrderResponse> receiveDelivery(
