@@ -76,7 +76,7 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 - Frontend client (web UI)
 - Barcode/QR scanning support (done — #121)
 - Supplier and purchase-order management (purchase-order management done — #87; partial goods
-  receipts done — #150)
+  receipts done — #150; receipts into a warehouse and a lot done — #153)
 - Notifications (email/webhook) for stock events
 - Multi-tenant support (done — #129)
 - Export to CSV/Excel/PDF (CSV product + stock-movement export done — #84; Excel/PDF still open)

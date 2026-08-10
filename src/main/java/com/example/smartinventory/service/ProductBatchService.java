@@ -4,6 +4,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -64,6 +65,34 @@ public class ProductBatchService {
                 .expiryDate(request.expiryDate())
                 .quantity(0)
                 .build());
+    }
+
+    /**
+     * Returns the lot a product carries under a code, starting to track it when the product carries
+     * no such lot yet. Goods turning up under a code nobody declared in advance are the ordinary
+     * case at a receiving dock: the lot code is printed on the carton, not held in the system.
+     *
+     * @param productId   identifier of the product the lot belongs to
+     * @param warehouseId identifier of the location a newly created lot is held in, or {@code null}
+     * @param lotCode     the lot code printed on the goods
+     * @param expiryDate  the day the lot stops being sellable, or {@code null}
+     * @return the lot the product carries under that code
+     * @throws ResourceNotFoundException  if the product or the named warehouse does not exist
+     * @throws InvalidBatchStateException if the product already carries that code under a different
+     *                                    expiry date
+     */
+    public ProductBatch findOrCreate(Long productId, Long warehouseId, String lotCode, LocalDate expiryDate) {
+        Optional<ProductBatch> existing = productBatchRepository.findByProductIdAndLotCode(productId, lotCode);
+        if (existing.isEmpty()) {
+            return create(productId, new ProductBatchRequest(lotCode, expiryDate, warehouseId));
+        }
+
+        ProductBatch batch = existing.get();
+        if (expiryDate != null && !expiryDate.equals(batch.getExpiryDate())) {
+            throw new InvalidBatchStateException("Product " + productId + " already carries lot code " + lotCode
+                    + " expiring " + batch.getExpiryDate() + ", so it cannot also expire " + expiryDate);
+        }
+        return batch;
     }
 
     @Transactional(readOnly = true)
