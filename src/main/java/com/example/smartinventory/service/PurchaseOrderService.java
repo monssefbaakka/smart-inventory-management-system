@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -14,6 +15,8 @@ import com.example.smartinventory.dto.GoodsReceiptRequest;
 import com.example.smartinventory.dto.PurchaseOrderItemRequest;
 import com.example.smartinventory.dto.PurchaseOrderRequest;
 import com.example.smartinventory.dto.PurchaseOrderResponse;
+import com.example.smartinventory.exception.InvalidBatchException;
+import com.example.smartinventory.exception.InvalidBatchStateException;
 import com.example.smartinventory.exception.InvalidPurchaseOrderStateException;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.MovementType;
@@ -36,6 +39,7 @@ public class PurchaseOrderService {
     private final SupplierService supplierService;
     private final ProductService productService;
     private final StockMovementService stockMovementService;
+    private final ProductBatchService productBatchService;
 
     /**
      * Creates a new purchase order in {@code DRAFT} status for the given supplier, resolving
@@ -111,22 +115,41 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Receives everything still outstanding on an order, leaving it {@code RECEIVED}.
-     *
-     * <p>This is the whole-delivery shorthand for {@link #receive(Long, GoodsReceiptRequest)}: it
-     * books the outstanding quantity of every line, which for an order nothing has arrived against
-     * is the full quantity ordered. An order already part-delivered is closed out by the same call.
+     * Receives everything still outstanding on an order into no particular location, as
+     * {@link #receive(Long, Long)} does.
      *
      * @param id identifier of the order
      * @return the received order
      * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery
      */
     public PurchaseOrder receive(Long id) {
+        return receive(id, (Long) null);
+    }
+
+    /**
+     * Receives everything still outstanding on an order, leaving it {@code RECEIVED}.
+     *
+     * <p>This is the whole-delivery shorthand for {@link #receive(Long, GoodsReceiptRequest)}: it
+     * books the outstanding quantity of every line, which for an order nothing has arrived against
+     * is the full quantity ordered. An order already part-delivered is closed out by the same call.
+     *
+     * <p>The goods land in one location, or in none at all. No lot is named: a shorthand that
+     * receives whatever is left cannot know which lot each line arrived as, and that has to be said
+     * line by line through {@link #receive(Long, GoodsReceiptRequest)}.
+     *
+     * @param id          identifier of the order
+     * @param warehouseId identifier of the location the goods landed in, or {@code null} to book
+     *                    against the product total only
+     * @return the received order
+     * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery
+     * @throws ResourceNotFoundException          if the named warehouse does not exist
+     */
+    public PurchaseOrder receive(Long id, Long warehouseId) {
         PurchaseOrder order = findById(id);
         requireAwaitingDelivery(order);
 
         for (PurchaseOrderItem item : order.getItems()) {
-            book(order, item, item.getOutstandingQuantity());
+            book(order, item, item.getOutstandingQuantity(), warehouseId, null);
         }
 
         return settle(order);
@@ -141,15 +164,26 @@ public class PurchaseOrderService {
      * {@code RECEIVED} once every line is complete and {@code PARTIALLY_RECEIVED} while anything is
      * still to come.
      *
-     * <p>A delivery is one transaction: if any line asks for more than it has outstanding, nothing
-     * at all is booked.
+     * <p>Each part of the delivery is put away where it says it was: the receipt's warehouse unless
+     * the line names one of its own, and the lot whose code is printed on the goods. A lot code the
+     * product does not carry yet starts being tracked here, held in the receiving warehouse, so the
+     * stock and the lot it arrived as are one record rather than two. A line may be listed more than
+     * once, which is how a delivery split across lots or across sites is expressed; the parts that
+     * agree on both are booked together.
+     *
+     * <p>A delivery is one transaction: if any line asks for more than it has outstanding, counting
+     * every part of the delivery that line was split into, nothing at all is booked.
      *
      * @param id      identifier of the order
-     * @param request the lines that arrived and how much of each
+     * @param request the lines that arrived, how much of each, and where it went
      * @return the order as the delivery left it
      * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery, or a line
      *                                            would be received past the quantity ordered
-     * @throws ResourceNotFoundException          if a named line is not on this order
+     * @throws ResourceNotFoundException          if a named line is not on this order, or a named
+     *                                            warehouse does not exist
+     * @throws InvalidBatchException              if a line states an expiry date but no lot code
+     * @throws InvalidBatchStateException         if a lot code the product carries is stated under a
+     *                                            different expiry date
      */
     public PurchaseOrder receive(Long id, GoodsReceiptRequest request) {
         PurchaseOrder order = findById(id);
@@ -158,16 +192,24 @@ public class PurchaseOrderService {
         Map<Long, PurchaseOrderItem> itemsById = order.getItems().stream()
                 .collect(Collectors.toMap(PurchaseOrderItem::getId, item -> item));
 
-        Map<Long, Integer> delivered = new LinkedHashMap<>();
+        Map<Destination, Integer> delivered = new LinkedHashMap<>();
         for (GoodsReceiptLineRequest line : request.lines()) {
             if (!itemsById.containsKey(line.itemId())) {
                 throw new ResourceNotFoundException(
                         "Line item " + line.itemId() + " is not on purchase order " + id);
             }
-            delivered.merge(line.itemId(), line.quantity(), Integer::sum);
+            if (line.lotCode() == null && line.expiryDate() != null) {
+                throw new InvalidBatchException("Line item " + line.itemId() + " of purchase order " + id
+                        + " states an expiry date but no lot code; an expiry date belongs to a lot");
+            }
+            delivered.merge(Destination.of(line, request.warehouseId()), line.quantity(), Integer::sum);
         }
 
-        delivered.forEach((itemId, quantity) -> {
+        Map<Long, Integer> deliveredPerLine = new LinkedHashMap<>();
+        delivered.forEach((destination, quantity) ->
+                deliveredPerLine.merge(destination.itemId(), quantity, Integer::sum));
+
+        deliveredPerLine.forEach((itemId, quantity) -> {
             PurchaseOrderItem item = itemsById.get(itemId);
             if (quantity > item.getOutstandingQuantity()) {
                 throw new InvalidPurchaseOrderStateException(
@@ -177,7 +219,10 @@ public class PurchaseOrderService {
             }
         });
 
-        delivered.forEach((itemId, quantity) -> book(order, itemsById.get(itemId), quantity));
+        delivered.forEach((destination, quantity) -> {
+            PurchaseOrderItem item = itemsById.get(destination.itemId());
+            book(order, item, quantity, destination.warehouseId(), batchIdFor(item, destination));
+        });
 
         return settle(order);
     }
@@ -211,17 +256,35 @@ public class PurchaseOrderService {
      * no-op rather than an error: a whole-order receipt walks every line, including the ones an
      * earlier delivery already completed.
      *
-     * @param order    the order being delivered against
-     * @param item     the line the goods belong to
-     * @param quantity units that arrived
+     * @param order       the order being delivered against
+     * @param item        the line the goods belong to
+     * @param quantity    units that arrived
+     * @param warehouseId identifier of the location they landed in, or {@code null}
+     * @param batchId     identifier of the lot they arrived as, or {@code null}
      */
-    private void book(PurchaseOrder order, PurchaseOrderItem item, int quantity) {
+    private void book(PurchaseOrder order, PurchaseOrderItem item, int quantity, Long warehouseId, Long batchId) {
         if (quantity <= 0) {
             return;
         }
-        stockMovementService.record(item.getProduct().getId(), null, null, MovementType.IN, quantity,
+        stockMovementService.record(item.getProduct().getId(), warehouseId, batchId, MovementType.IN, quantity,
                 "Purchase order #" + order.getId() + " received", item.getUnitPrice());
         item.setReceivedQuantity(item.getReceivedQuantity() + quantity);
+    }
+
+    /**
+     * Resolves the lot a part of a delivery arrived as, starting to track it when the product does
+     * not carry that code yet.
+     *
+     * @param item        the line the goods belong to
+     * @param destination where that part of the delivery was put away
+     * @return identifier of the lot, or {@code null} when the goods arrived under no lot code
+     */
+    private Long batchIdFor(PurchaseOrderItem item, Destination destination) {
+        if (destination.lotCode() == null) {
+            return null;
+        }
+        return productBatchService.findOrCreate(item.getProduct().getId(), destination.warehouseId(),
+                destination.lotCode(), destination.expiryDate()).getId();
     }
 
     /**
@@ -258,6 +321,36 @@ public class PurchaseOrderService {
             throw new InvalidPurchaseOrderStateException(
                     "Purchase order " + order.getId() + " cannot be " + action + " from status "
                             + order.getStatus() + "; expected " + expected);
+        }
+    }
+
+    /**
+     * Where one part of a delivery was put away: the line it belongs to, the location it landed in
+     * and the lot it arrived as. Two parts agreeing on all of it are the same goods in the same
+     * place and are booked as one movement, while parts differing anywhere are booked separately —
+     * that is what a mixed pallet is.
+     *
+     * @param itemId      identifier of the purchase-order line the goods belong to
+     * @param warehouseId identifier of the location they landed in, or {@code null}
+     * @param lotCode     the lot code printed on them, or {@code null}
+     * @param expiryDate  the lot's expiry date, or {@code null}
+     */
+    private record Destination(Long itemId, Long warehouseId, String lotCode, LocalDate expiryDate) {
+
+        /**
+         * Reads off where a requested line landed, falling back to the receipt's warehouse for a
+         * line that names none of its own.
+         *
+         * @param line               the requested line
+         * @param receiptWarehouseId identifier of the warehouse the whole delivery landed in, or
+         *                           {@code null}
+         * @return the destination that line is booked to
+         */
+        static Destination of(GoodsReceiptLineRequest line, Long receiptWarehouseId) {
+            return new Destination(line.itemId(),
+                    line.warehouseId() == null ? receiptWarehouseId : line.warehouseId(),
+                    line.lotCode(),
+                    line.expiryDate());
         }
     }
 
