@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Goods receipts land in a warehouse and a lot** — a receipt carries an optional `warehouseId`,
+  overridable per line, and each line an optional `lotCode` and `expiryDate`, so purchased stock
+  reaches the location and the lot it is physically in instead of only the product total. A lot code
+  the product does not carry yet is created against it, held in the receiving warehouse; one it
+  already carries is reused, and stating it under a different expiry date answers `409 Conflict`. An
+  `expiryDate` without a `lotCode` answers `400 Bad Request`. A line may be listed more than once to
+  split a delivery across lots or sites, and what it may receive in total is still what it has
+  outstanding. `POST /{id}/receive` takes an optional `warehouseId` query parameter. Saying none of
+  it books exactly as before (#153).
 - **Partial goods receipts** — `POST /api/purchase-orders/{id}/receipts` books one delivery against
   an order, taking the stated quantity of each named line into stock at the line's unit price. Lines
   left out stay outstanding, the order sits in the new `PARTIALLY_RECEIVED` status until every line

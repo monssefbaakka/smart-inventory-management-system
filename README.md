@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, with received goods flowing through the stock-movement audit trail.
+- **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, so a buyer only reviews and places it.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
@@ -287,7 +287,8 @@ the same stock as one received in July, so lots are tracked separately from the 
 | `DELETE /api/batches/{id}` | Stop tracking an empty lot (ADMIN) |
 
 A lot is declared empty and filled by movements, so what it holds is always explained by the movement
-history:
+history — or it is created by the goods receipt that brings the lot in, which amounts to the same
+thing (see [Purchase Orders & Goods Receipts](#purchase-orders--goods-receipts)):
 
 ```json
 POST /api/products/1/batches
@@ -372,16 +373,18 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
 | `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
-| `POST /api/purchase-orders/{id}/receive` | Receive everything still outstanding at once |
+| `POST /api/purchase-orders/{id}/receive` · `?warehouseId=` | Receive everything still outstanding at once |
 | `POST /api/purchase-orders/{id}/cancel` | Abandon whatever is still outstanding |
 
-A receipt names only the lines that arrived:
+A receipt names only the lines that arrived, and says where they landed:
 
 ```json
 POST /api/purchase-orders/4/receipts
 {
+  "warehouseId": 1,
   "lines": [
-    { "itemId": 11, "quantity": 20 }
+    { "itemId": 11, "quantity": 20, "lotCode": "A-2291", "expiryDate": "2026-12-31" },
+    { "itemId": 12, "quantity": 5, "warehouseId": 2 }
   ]
 }
 ```
@@ -389,6 +392,26 @@ POST /api/purchase-orders/4/receipts
 Each booked quantity records an `IN` stock movement at the line's `unitPrice`, exactly as a full
 receipt does, so a partial delivery rolls the weighted average cost the same way. Lines left out of
 the request are not received and stay outstanding.
+
+The goods are put away where the receipt says they went. The receipt's `warehouseId` applies to every
+line that does not name its own, and the movement lands on that location's stock level like any
+other. A `lotCode` books the goods into that lot of the product, starting to track it — held in the
+receiving warehouse, expiring on the stated `expiryDate` — when the product does not carry the code
+yet, so purchased stock and the lot it arrived as are one record rather than a lot declared by hand
+and filled with an invented second movement. A code the product already carries is reused, and
+stating it under a different expiry date is rejected with `409 Conflict`. An `expiryDate` without a
+`lotCode` answers `400 Bad Request`: an expiry date is a property of a lot, and there is no lot to
+hang it on.
+
+A line may be listed more than once, which is how a mixed pallet is expressed — part of it into one
+lot, part into another, part onto a second site. Parts agreeing on both the location and the lot are
+booked together. What the line may receive in total is still what it has outstanding, counted across
+every part it was split into.
+
+`POST /{id}/receive` takes an optional `warehouseId` and books everything outstanding into it. It
+names no lot: a shorthand that receives whatever is left cannot know which lot each line arrived as.
+Saying none of it keeps the earlier behaviour exactly — the receipt books against the product total,
+with no warehouse and no lot.
 
 Every line reports `receivedQuantity` and `outstandingQuantity`, so purchasing can see what to chase
 without recomputing it. The order lands in `PARTIALLY_RECEIVED` while anything is still to come and
