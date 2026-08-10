@@ -50,6 +50,17 @@ public interface ProductBatchRepository extends JpaRepository<ProductBatch, Long
     boolean existsByProductIdAndLotCode(Long productId, String lotCode);
 
     /**
+     * Returns the lot a product carries under a code, so goods arriving against a code already in
+     * use are put into the lot they belong to rather than into a second one.
+     *
+     * @param productId identifier of the product
+     * @param lotCode   the lot code to look for
+     * @return the matching lot, if the product carries one
+     */
+    @EntityGraph(attributePaths = {"product", "warehouse"})
+    Optional<ProductBatch> findByProductIdAndLotCode(Long productId, String lotCode);
+
+    /**
      * Returns the lots of a product that still hold stock, in the order they should be consumed.
      *
      * @param productId identifier of the product
