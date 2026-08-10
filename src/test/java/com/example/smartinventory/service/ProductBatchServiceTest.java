@@ -88,6 +88,55 @@ class ProductBatchServiceTest {
     }
 
     @Test
+    void findOrCreateStartsTrackingALotCodeTheProductDoesNotCarryYet() {
+        Warehouse warehouse = Warehouse.builder().id(7L).code("WH-1").build();
+        when(productBatchRepository.findByProductIdAndLotCode(1L, "A-2291")).thenReturn(Optional.empty());
+        when(productService.findById(1L)).thenReturn(PRODUCT);
+        when(productBatchRepository.existsByProductIdAndLotCode(1L, "A-2291")).thenReturn(false);
+        when(warehouseService.findById(7L)).thenReturn(warehouse);
+        when(productBatchRepository.save(any(ProductBatch.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        ProductBatch batch = productBatchService.findOrCreate(1L, 7L, "A-2291", LocalDate.of(2026, 12, 31));
+
+        assertThat(batch.getLotCode()).isEqualTo("A-2291");
+        assertThat(batch.getExpiryDate()).isEqualTo(LocalDate.of(2026, 12, 31));
+        assertThat(batch.getWarehouse()).isSameAs(warehouse);
+        assertThat(batch.getQuantity()).isZero();
+    }
+
+    @Test
+    void findOrCreateReusesTheLotTheProductAlreadyCarries() {
+        ProductBatch existing = batch("A-2291", LocalDate.of(2026, 12, 31), 5);
+        when(productBatchRepository.findByProductIdAndLotCode(1L, "A-2291")).thenReturn(Optional.of(existing));
+
+        ProductBatch batch = productBatchService.findOrCreate(1L, 7L, "A-2291", LocalDate.of(2026, 12, 31));
+
+        assertThat(batch).isSameAs(existing);
+        verify(productBatchRepository, never()).save(any(ProductBatch.class));
+        verifyNoInteractions(warehouseService);
+    }
+
+    @Test
+    void findOrCreateTakesTheLotAsItStandsWhenNoExpiryDateIsStated() {
+        ProductBatch existing = batch("A-2291", LocalDate.of(2026, 12, 31), 5);
+        when(productBatchRepository.findByProductIdAndLotCode(1L, "A-2291")).thenReturn(Optional.of(existing));
+
+        assertThat(productBatchService.findOrCreate(1L, null, "A-2291", null)).isSameAs(existing);
+    }
+
+    @Test
+    void findOrCreateRejectsALotCodeStatedUnderADifferentExpiryDate() {
+        ProductBatch existing = batch("A-2291", LocalDate.of(2026, 12, 31), 5);
+        when(productBatchRepository.findByProductIdAndLotCode(1L, "A-2291")).thenReturn(Optional.of(existing));
+
+        assertThatThrownBy(() -> productBatchService.findOrCreate(1L, null, "A-2291", LocalDate.of(2027, 1, 31)))
+                .isInstanceOf(InvalidBatchStateException.class)
+                .hasMessageContaining("A-2291");
+
+        verify(productBatchRepository, never()).save(any(ProductBatch.class));
+    }
+
+    @Test
     void findByIdReportsAMissingBatch() {
         when(productBatchRepository.findById(9L)).thenReturn(Optional.empty());
 

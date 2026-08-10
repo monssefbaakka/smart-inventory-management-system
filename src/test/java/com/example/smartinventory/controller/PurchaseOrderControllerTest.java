@@ -1,6 +1,7 @@
 package com.example.smartinventory.controller;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -169,11 +170,22 @@ class PurchaseOrderControllerTest {
 
     @Test
     void receiveReturnsReceivedOrder() throws Exception {
-        when(purchaseOrderService.receive(1L)).thenReturn(order(PurchaseOrderStatus.RECEIVED));
+        when(purchaseOrderService.receive(1L, (Long) null)).thenReturn(order(PurchaseOrderStatus.RECEIVED));
 
         mockMvc.perform(post("/api/purchase-orders/1/receive"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RECEIVED"));
+    }
+
+    @Test
+    void receivePassesOnTheWarehouseTheGoodsLandedIn() throws Exception {
+        when(purchaseOrderService.receive(1L, 2L)).thenReturn(order(PurchaseOrderStatus.RECEIVED));
+
+        mockMvc.perform(post("/api/purchase-orders/1/receive").param("warehouseId", "2"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.status").value("RECEIVED"));
+
+        verify(purchaseOrderService).receive(1L, 2L);
     }
 
     @Test
@@ -196,6 +208,33 @@ class PurchaseOrderControllerTest {
         verify(purchaseOrderService).receive(eq(1L), request.capture());
         assertThat(request.getValue().lines()).singleElement()
                 .satisfies(line -> assertThat(line.itemId()).isEqualTo(11L));
+    }
+
+    @Test
+    void receiptCarriesTheWarehouseAndTheLotThroughToTheService() throws Exception {
+        when(purchaseOrderService.receive(eq(1L), any(GoodsReceiptRequest.class)))
+                .thenReturn(order(PurchaseOrderStatus.RECEIVED));
+
+        mockMvc.perform(post("/api/purchase-orders/1/receipts")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"warehouseId":2,"lines":[
+                                  {"itemId":11,"quantity":3,"lotCode":"A-2291","expiryDate":"2026-12-31"},
+                                  {"itemId":11,"quantity":1,"warehouseId":3}
+                                ]}
+                                """))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<GoodsReceiptRequest> request = ArgumentCaptor.captor();
+        verify(purchaseOrderService).receive(eq(1L), request.capture());
+        assertThat(request.getValue().warehouseId()).isEqualTo(2L);
+        assertThat(request.getValue().lines()).satisfiesExactly(
+                lot -> {
+                    assertThat(lot.lotCode()).isEqualTo("A-2291");
+                    assertThat(lot.expiryDate()).isEqualTo(LocalDate.of(2026, 12, 31));
+                    assertThat(lot.warehouseId()).isNull();
+                },
+                elsewhere -> assertThat(elsewhere.warehouseId()).isEqualTo(3L));
     }
 
     @Test
