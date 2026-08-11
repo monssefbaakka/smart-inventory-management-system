@@ -32,6 +32,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A purchase order carries the warehouse it is to be delivered to** — `POST /api/purchase-orders`
+  takes an optional `warehouseId`, reported back as `warehouseId` and `warehouseCode`, and every
+  receipt against the order books into it without repeating it. The existing overrides keep their
+  precedence: a receipt line's `warehouseId` beats the receipt's, and the receipt's beats the
+  order's. `POST /{id}/receive` without a `warehouseId` now receives into the order's warehouse
+  rather than into no location at all. A `warehouseId` no site carries answers `404 Not Found` when
+  the order is raised. An order naming none behaves exactly as before (#155).
 - **Goods receipts land in a warehouse and a lot** — a receipt carries an optional `warehouseId`,
   overridable per line, and each line an optional `lotCode` and `expiryDate`, so purchased stock
   reaches the location and the lot it is physically in instead of only the product total. A lot code

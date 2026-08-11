@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
+- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, so a buyer only reviews and places it.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
@@ -370,11 +370,28 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 
 | Endpoint | Purpose |
 | :--- | :--- |
-| `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items |
+| `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
 | `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
 | `POST /api/purchase-orders/{id}/receive` · `?warehouseId=` | Receive everything still outstanding at once |
 | `POST /api/purchase-orders/{id}/cancel` | Abandon whatever is still outstanding |
+
+An order may name the warehouse it is to be delivered to, which is what the buyer already knows when
+the order goes out:
+
+```json
+POST /api/purchase-orders
+{
+  "supplierId": 7,
+  "warehouseId": 1,
+  "items": [{ "productId": 3, "quantity": 40, "unitPrice": 2.50 }]
+}
+```
+
+Every receipt against that order books into warehouse 1 without repeating it, and the order reports
+it back as `warehouseId` and `warehouseCode`. A `warehouseId` no site carries answers `404 Not
+Found` here, when the order is raised, rather than weeks later when the goods turn up. An order that
+names no warehouse behaves as before: a receipt that names none books against the product total only.
 
 A receipt names only the lines that arrived, and says where they landed:
 
@@ -394,8 +411,8 @@ receipt does, so a partial delivery rolls the weighted average cost the same way
 the request are not received and stay outstanding.
 
 The goods are put away where the receipt says they went. The receipt's `warehouseId` applies to every
-line that does not name its own, and the movement lands on that location's stock level like any
-other. A `lotCode` books the goods into that lot of the product, starting to track it — held in the
+line that does not name its own, the order's applies when neither says, and the movement lands on
+that location's stock level like any other. A `lotCode` books the goods into that lot of the product, starting to track it — held in the
 receiving warehouse, expiring on the stated `expiryDate` — when the product does not carry the code
 yet, so purchased stock and the lot it arrived as are one record rather than a lot declared by hand
 and filled with an invented second movement. A code the product already carries is reused, and
@@ -408,10 +425,11 @@ lot, part into another, part onto a second site. Parts agreeing on both the loca
 booked together. What the line may receive in total is still what it has outstanding, counted across
 every part it was split into.
 
-`POST /{id}/receive` takes an optional `warehouseId` and books everything outstanding into it. It
-names no lot: a shorthand that receives whatever is left cannot know which lot each line arrived as.
-Saying none of it keeps the earlier behaviour exactly — the receipt books against the product total,
-with no warehouse and no lot.
+`POST /{id}/receive` takes an optional `warehouseId` and books everything outstanding into it,
+falling back to the warehouse the order is to be delivered to. It names no lot: a shorthand that
+receives whatever is left cannot know which lot each line arrived as. An order naming no warehouse,
+received without one, keeps the earliest behaviour exactly — the receipt books against the product
+total, with no warehouse and no lot.
 
 Every line reports `receivedQuantity` and `outstandingQuantity`, so purchasing can see what to chase
 without recomputing it. The order lands in `PARTIALLY_RECEIVED` while anything is still to come and

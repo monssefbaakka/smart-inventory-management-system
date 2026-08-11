@@ -76,9 +76,10 @@ implemented in repo but GitHub issue not yet closed
 | 146 | Reserve stock for outbound orders | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 148 | Value stock at what it cost | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 150 | Receive a purchase order in parts | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 153 | Book a goods receipt into a warehouse and a lot | ![working](https://img.shields.io/badge/status-working-blue) |
+| 153 | Book a goods receipt into a warehouse and a lot | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 155 | Deliver a purchase order to the warehouse it was raised for | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #153 — Book a goods receipt into a warehouse and a lot (PR open)
+**Working:** #155 — Deliver a purchase order to the warehouse it was raised for (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
