@@ -16,6 +16,11 @@ public record PurchaseOrderRequest(
         @Schema(description = "Identifier of the supplier", example = "1")
         Long supplierId,
 
+        @Schema(description = "Warehouse the goods are to be delivered to, which a receipt against the order "
+                + "books into unless it names another; omit to book against the product total only",
+                example = "1")
+        Long warehouseId,
+
         @Size(max = 1000)
         @Schema(description = "Optional free-text note", example = "Q3 restock")
         String note,

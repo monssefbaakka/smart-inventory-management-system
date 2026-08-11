@@ -54,6 +54,14 @@ public class PurchaseOrder {
     @JoinColumn(name = "supplier_id", nullable = false)
     private Supplier supplier;
 
+    /**
+     * Where the order is to be delivered, or {@code null} when it is to be booked against the
+     * product total only. A receipt against the order lands here unless it names somewhere else.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "warehouse_id")
+    private Warehouse warehouse;
+
     @NotNull
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
