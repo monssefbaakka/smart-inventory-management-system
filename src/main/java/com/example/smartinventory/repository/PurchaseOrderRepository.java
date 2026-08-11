@@ -15,29 +15,30 @@ import com.example.smartinventory.model.PurchaseOrderStatus;
 /**
  * Repository for {@link PurchaseOrder} persistence operations.
  *
- * <p>The finders fetch the lazy {@code supplier} and {@code items} associations, because
- * responses are rendered from them after the transaction has closed.
+ * <p>The finders fetch the lazy {@code supplier}, {@code warehouse} and {@code items}
+ * associations, because responses are rendered from them after the transaction has closed.
  */
 public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Long> {
 
     @Override
-    @EntityGraph(attributePaths = {"supplier", "items", "items.product"})
+    @EntityGraph(attributePaths = {"supplier", "warehouse", "items", "items.product"})
     Optional<PurchaseOrder> findById(Long id);
 
     @Override
-    @EntityGraph(attributePaths = {"supplier", "items", "items.product"})
+    @EntityGraph(attributePaths = {"supplier", "warehouse", "items", "items.product"})
     List<PurchaseOrder> findAll();
 
     /**
      * Returns one page of every purchase order.
      *
-     * <p>Only the {@code supplier} is fetched: fetching the {@code items} collection alongside a
-     * page would make Hibernate apply the paging in memory, over every row the query matched.
+     * <p>Only the {@code supplier} and the delivery {@code warehouse} are fetched: fetching the
+     * {@code items} collection alongside a page would make Hibernate apply the paging in memory,
+     * over every row the query matched.
      *
      * @param pageable the page to return and the order to return it in
      * @return the requested page of orders
      */
-    @EntityGraph(attributePaths = {"supplier"})
+    @EntityGraph(attributePaths = {"supplier", "warehouse"})
     Page<PurchaseOrder> findAllBy(Pageable pageable);
 
     /**
@@ -47,7 +48,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      * @param pageable   the page to return and the order to return it in
      * @return the requested page of that supplier's orders
      */
-    @EntityGraph(attributePaths = {"supplier"})
+    @EntityGraph(attributePaths = {"supplier", "warehouse"})
     Page<PurchaseOrder> findBySupplierId(Long supplierId, Pageable pageable);
 
     /**
