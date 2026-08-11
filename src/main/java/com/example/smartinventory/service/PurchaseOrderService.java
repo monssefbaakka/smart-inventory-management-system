@@ -25,6 +25,7 @@ import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
+import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.repository.PurchaseOrderRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class PurchaseOrderService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierService supplierService;
+    private final WarehouseService warehouseService;
     private final ProductService productService;
     private final StockMovementService stockMovementService;
     private final ProductBatchService productBatchService;
@@ -45,14 +47,24 @@ public class PurchaseOrderService {
      * Creates a new purchase order in {@code DRAFT} status for the given supplier, resolving
      * each requested product into a line item.
      *
-     * @param request the supplier, optional note, and line items to order
+     * <p>The order may name the warehouse it is to be delivered to, which is what the buyer already
+     * knows and the receiving clerk would otherwise have to repeat on every delivery against it. A
+     * warehouse no site carries is refused here, when the order is raised, rather than weeks later
+     * when the goods turn up against it.
+     *
+     * @param request the supplier, optional delivery warehouse and note, and line items to order
      * @return the persisted draft order
+     * @throws ResourceNotFoundException if the supplier, a product or the warehouse does not exist
      */
     public PurchaseOrder create(PurchaseOrderRequest request) {
         Supplier supplier = supplierService.findById(request.supplierId());
+        Warehouse warehouse = request.warehouseId() == null
+                ? null
+                : warehouseService.findById(request.warehouseId());
 
         PurchaseOrder order = PurchaseOrder.builder()
                 .supplier(supplier)
+                .warehouse(warehouse)
                 .status(PurchaseOrderStatus.DRAFT)
                 .note(request.note())
                 .build();
@@ -115,8 +127,8 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Receives everything still outstanding on an order into no particular location, as
-     * {@link #receive(Long, Long)} does.
+     * Receives everything still outstanding on an order where the order says it was to be
+     * delivered, as {@link #receive(Long, Long)} does.
      *
      * @param id identifier of the order
      * @return the received order
@@ -133,13 +145,14 @@ public class PurchaseOrderService {
      * books the outstanding quantity of every line, which for an order nothing has arrived against
      * is the full quantity ordered. An order already part-delivered is closed out by the same call.
      *
-     * <p>The goods land in one location, or in none at all. No lot is named: a shorthand that
+     * <p>The goods land in one location: the one named here, or else the one the order is to be
+     * delivered to, or nowhere in particular when neither says. No lot is named: a shorthand that
      * receives whatever is left cannot know which lot each line arrived as, and that has to be said
      * line by line through {@link #receive(Long, GoodsReceiptRequest)}.
      *
      * @param id          identifier of the order
-     * @param warehouseId identifier of the location the goods landed in, or {@code null} to book
-     *                    against the product total only
+     * @param warehouseId identifier of the location the goods landed in, overriding the one the
+     *                    order is to be delivered to, or {@code null} to use that one
      * @return the received order
      * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery
      * @throws ResourceNotFoundException          if the named warehouse does not exist
@@ -148,8 +161,9 @@ public class PurchaseOrderService {
         PurchaseOrder order = findById(id);
         requireAwaitingDelivery(order);
 
+        Long destination = warehouseId == null ? deliveryWarehouseId(order) : warehouseId;
         for (PurchaseOrderItem item : order.getItems()) {
-            book(order, item, item.getOutstandingQuantity(), warehouseId, null);
+            book(order, item, item.getOutstandingQuantity(), destination, null);
         }
 
         return settle(order);
@@ -165,7 +179,8 @@ public class PurchaseOrderService {
      * still to come.
      *
      * <p>Each part of the delivery is put away where it says it was: the receipt's warehouse unless
-     * the line names one of its own, and the lot whose code is printed on the goods. A lot code the
+     * the line names one of its own, and failing both the warehouse the order is to be delivered
+     * to, together with the lot whose code is printed on the goods. A lot code the
      * product does not carry yet starts being tracked here, held in the receiving warehouse, so the
      * stock and the lot it arrived as are one record rather than two. A line may be listed more than
      * once, which is how a delivery split across lots or across sites is expressed; the parts that
@@ -192,6 +207,10 @@ public class PurchaseOrderService {
         Map<Long, PurchaseOrderItem> itemsById = order.getItems().stream()
                 .collect(Collectors.toMap(PurchaseOrderItem::getId, item -> item));
 
+        Long receiptWarehouseId = request.warehouseId() == null
+                ? deliveryWarehouseId(order)
+                : request.warehouseId();
+
         Map<Destination, Integer> delivered = new LinkedHashMap<>();
         for (GoodsReceiptLineRequest line : request.lines()) {
             if (!itemsById.containsKey(line.itemId())) {
@@ -202,7 +221,7 @@ public class PurchaseOrderService {
                 throw new InvalidBatchException("Line item " + line.itemId() + " of purchase order " + id
                         + " states an expiry date but no lot code; an expiry date belongs to a lot");
             }
-            delivered.merge(Destination.of(line, request.warehouseId()), line.quantity(), Integer::sum);
+            delivered.merge(Destination.of(line, receiptWarehouseId), line.quantity(), Integer::sum);
         }
 
         Map<Long, Integer> deliveredPerLine = new LinkedHashMap<>();
@@ -269,6 +288,17 @@ public class PurchaseOrderService {
         stockMovementService.record(item.getProduct().getId(), warehouseId, batchId, MovementType.IN, quantity,
                 "Purchase order #" + order.getId() + " received", item.getUnitPrice());
         item.setReceivedQuantity(item.getReceivedQuantity() + quantity);
+    }
+
+    /**
+     * Reads off where an order was to be delivered, which is where a receipt against it books
+     * unless the receipt or one of its lines says otherwise.
+     *
+     * @param order the order being delivered against
+     * @return identifier of the warehouse the order names, or {@code null} when it names none
+     */
+    private Long deliveryWarehouseId(PurchaseOrder order) {
+        return order.getWarehouse() == null ? null : order.getWarehouse().getId();
     }
 
     /**

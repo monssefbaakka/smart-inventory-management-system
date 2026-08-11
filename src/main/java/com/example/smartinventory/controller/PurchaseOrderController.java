@@ -49,13 +49,15 @@ public class PurchaseOrderController {
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
     @Operation(summary = "Create a purchase order",
-            description = "Creates a DRAFT purchase order for a supplier with one or more line items. "
-                    + "Requires the ADMIN role.")
+            description = "Creates a DRAFT purchase order for a supplier with one or more line items. The order "
+                    + "may name the warehouse the goods are to be delivered to, which a receipt against it books "
+                    + "into unless the receipt or one of its lines names another. Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Purchase order created in DRAFT state"),
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Supplier or product not found", content = @Content)
+        @ApiResponse(responseCode = "404", description = "Supplier, product or warehouse not found",
+                content = @Content)
     })
     public ResponseEntity<PurchaseOrderResponse> create(@Valid @RequestBody PurchaseOrderRequest request) {
         PurchaseOrder created = purchaseOrderService.create(request);
@@ -124,7 +126,8 @@ public class PurchaseOrderController {
      * Receives everything still outstanding on an order, optionally into one warehouse.
      *
      * @param id          identifier of the purchase order
-     * @param warehouseId identifier of the location the goods landed in, or {@code null}
+     * @param warehouseId identifier of the location the goods landed in, or {@code null} to deliver
+     *                    the order where it says it was to be delivered
      * @return the received order
      */
     @PostMapping("/{id}/receive")
@@ -132,9 +135,9 @@ public class PurchaseOrderController {
     @Operation(summary = "Receive a purchase order in full",
             description = "Receives everything still outstanding on a PLACED or PARTIALLY_RECEIVED order, "
                     + "recording an IN stock movement per line and leaving the order RECEIVED. The goods land "
-                    + "in warehouseId when one is given, and against the product total only when it is not; no "
-                    + "lot is named, which has to be said line by line through /receipts. Requires the ADMIN "
-                    + "role.")
+                    + "in warehouseId when one is given, and otherwise in the warehouse the order is to be "
+                    + "delivered to, or against the product total only when neither says; no lot is named, "
+                    + "which has to be said line by line through /receipts. Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Order received and stock updated"),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
@@ -144,7 +147,8 @@ public class PurchaseOrderController {
     })
     public ResponseEntity<PurchaseOrderResponse> receive(
             @Parameter(description = "Identifier of the purchase order") @PathVariable Long id,
-            @Parameter(description = "Optional warehouse the goods landed in")
+            @Parameter(description = "Optional warehouse the goods landed in, overriding the one the order is "
+                    + "to be delivered to")
             @RequestParam(required = false) Long warehouseId) {
         return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.receive(id, warehouseId)));
     }
@@ -162,7 +166,8 @@ public class PurchaseOrderController {
     @Operation(summary = "Book a delivery against a purchase order",
             description = "Receives the stated quantity of each named line item, recording an IN stock movement "
                     + "at the line's unit price. The goods land in the receipt's warehouseId unless the line "
-                    + "names its own, and in the lot named by its lotCode, which is created against the product "
+                    + "names its own, or in the warehouse the order is to be delivered to when neither does, "
+                    + "and in the lot named by its lotCode, which is created against the product "
                     + "if it does not exist yet. A line may be listed more than once to split a delivery across "
                     + "lots or sites. Lines left out of the request stay outstanding. The order ends "
                     + "up RECEIVED once every line is complete and PARTIALLY_RECEIVED while anything is still "

@@ -6,6 +6,7 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -39,6 +40,7 @@ import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
+import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.security.JwtService;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.PurchaseOrderService;
@@ -89,6 +91,8 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.status").value("DRAFT"))
                 .andExpect(jsonPath("$.supplierId").value(7))
                 .andExpect(jsonPath("$.supplierName").value("Acme Supplies"))
+                .andExpect(jsonPath("$.warehouseId").value(nullValue()))
+                .andExpect(jsonPath("$.warehouseCode").value(nullValue()))
                 .andExpect(jsonPath("$.total").value(10.00))
                 .andExpect(jsonPath("$.items[0].productId").value(3))
                 .andExpect(jsonPath("$.items[0].sku").value("SKU-3"))
@@ -96,6 +100,27 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.items[0].lineTotal").value(10.00))
                 .andExpect(jsonPath("$.supplier").doesNotExist())
                 .andExpect(jsonPath("$.items[0].product").doesNotExist());
+    }
+
+    @Test
+    void createCarriesTheDeliveryWarehouseThroughAndReportsIt() throws Exception {
+        PurchaseOrder order = order(PurchaseOrderStatus.DRAFT);
+        order.setWarehouse(Warehouse.builder().id(2L).code("WH-NORTH").build());
+        when(purchaseOrderService.create(any(PurchaseOrderRequest.class))).thenReturn(order);
+
+        mockMvc.perform(post("/api/purchase-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"supplierId":7,"warehouseId":2,
+                                 "items":[{"productId":3,"quantity":4,"unitPrice":2.50}]}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.warehouseId").value(2))
+                .andExpect(jsonPath("$.warehouseCode").value("WH-NORTH"));
+
+        ArgumentCaptor<PurchaseOrderRequest> request = ArgumentCaptor.captor();
+        verify(purchaseOrderService).create(request.capture());
+        assertThat(request.getValue().warehouseId()).isEqualTo(2L);
     }
 
     @Test
