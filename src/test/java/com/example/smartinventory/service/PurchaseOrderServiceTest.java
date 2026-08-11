@@ -37,6 +37,7 @@ import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
+import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.repository.PurchaseOrderRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -49,6 +50,9 @@ class PurchaseOrderServiceTest {
 
     @Mock
     private SupplierService supplierService;
+
+    @Mock
+    private WarehouseService warehouseService;
 
     @Mock
     private ProductService productService;
@@ -72,6 +76,13 @@ class PurchaseOrderServiceTest {
         return order;
     }
 
+    /** The same order, raised to be delivered to warehouse 1. */
+    private PurchaseOrder placedOrderDeliveredTo(Long warehouseId) {
+        PurchaseOrder order = placedOrder();
+        order.setWarehouse(Warehouse.builder().id(warehouseId).code("WH-NORTH").build());
+        return order;
+    }
+
     /** A received line that says nothing about where the goods went. */
     private static GoodsReceiptLineRequest line(Long itemId, int quantity) {
         return new GoodsReceiptLineRequest(itemId, quantity, null, null, null);
@@ -90,19 +101,48 @@ class PurchaseOrderServiceTest {
         when(productService.findById(3L)).thenReturn(product);
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PurchaseOrderRequest request = new PurchaseOrderRequest(7L, "urgent",
+        PurchaseOrderRequest request = new PurchaseOrderRequest(7L, null, "urgent",
                 List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50"))));
 
         PurchaseOrder order = purchaseOrderService.create(request);
 
         assertThat(order.getStatus()).isEqualTo(PurchaseOrderStatus.DRAFT);
         assertThat(order.getSupplier()).isSameAs(supplier);
+        assertThat(order.getWarehouse()).isNull();
         assertThat(order.getItems()).hasSize(1);
         PurchaseOrderItem item = order.getItems().get(0);
         assertThat(item.getProduct()).isSameAs(product);
         assertThat(item.getQuantity()).isEqualTo(4);
         assertThat(item.getPurchaseOrder()).isSameAs(order);
         assertThat(order.getTotal()).isEqualByComparingTo("10.00");
+        verifyNoInteractions(warehouseService);
+    }
+
+    @Test
+    void createRecordsTheWarehouseTheOrderIsToBeDeliveredTo() {
+        Warehouse warehouse = Warehouse.builder().id(1L).code("WH-NORTH").build();
+        when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L).build());
+        when(warehouseService.findById(1L)).thenReturn(warehouse);
+        when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, 1L, null,
+                List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
+
+        assertThat(order.getWarehouse()).isSameAs(warehouse);
+    }
+
+    @Test
+    void createRejectsAWarehouseThatDoesNotExist() {
+        when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L).build());
+        when(warehouseService.findById(99L)).thenThrow(new ResourceNotFoundException("Warehouse not found"));
+
+        assertThatThrownBy(() -> purchaseOrderService.create(new PurchaseOrderRequest(7L, 99L, null,
+                List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50"))))))
+                .isInstanceOf(ResourceNotFoundException.class);
+
+        verifyNoInteractions(productService);
+        verify(purchaseOrderRepository, never()).save(any());
     }
 
     @Test
@@ -339,6 +379,90 @@ class PurchaseOrderServiceTest {
                 .hasMessageContaining("expiry date belongs to a lot");
 
         verifyNoInteractions(stockMovementService, productBatchService);
+    }
+
+    @Test
+    void aDeliveryNamingNoWarehouseLandsWhereTheOrderWasToBeDeliveredTo() {
+        PurchaseOrder order = placedOrderDeliveredTo(1L);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        purchaseOrderService.receive(9L, receipt(line(11L, 3), line(12L, 2)));
+
+        verify(stockMovementService).record(3L, 1L, null, MovementType.IN, 3, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+        verify(stockMovementService).record(4L, 1L, null, MovementType.IN, 2, "Purchase order #9 received",
+                new BigDecimal("7.25"));
+    }
+
+    @Test
+    void theWarehouseOnTheReceiptBeatsTheOneTheOrderWasToBeDeliveredTo() {
+        PurchaseOrder order = placedOrderDeliveredTo(1L);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        purchaseOrderService.receive(9L, new GoodsReceiptRequest(2L, List.of(line(11L, 3),
+                new GoodsReceiptLineRequest(12L, 2, 3L, null, null))));
+
+        verify(stockMovementService).record(3L, 2L, null, MovementType.IN, 3, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+        verify(stockMovementService).record(4L, 3L, null, MovementType.IN, 2, "Purchase order #9 received",
+                new BigDecimal("7.25"));
+    }
+
+    @Test
+    void aLineNamingItsOwnWarehouseBeatsTheOneTheOrderWasToBeDeliveredTo() {
+        PurchaseOrder order = placedOrderDeliveredTo(1L);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        purchaseOrderService.receive(9L, receipt(new GoodsReceiptLineRequest(11L, 3, 2L, null, null)));
+
+        verify(stockMovementService).record(3L, 2L, null, MovementType.IN, 3, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+    }
+
+    @Test
+    void aLotOnADeliveryIsHeldWhereTheOrderWasToBeDeliveredTo() {
+        PurchaseOrder order = placedOrderDeliveredTo(1L);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(productBatchService.findOrCreate(3L, 1L, "A-2291", null))
+                .thenReturn(ProductBatch.builder().id(55L).build());
+
+        purchaseOrderService.receive(9L, receipt(new GoodsReceiptLineRequest(11L, 5, null, "A-2291", null)));
+
+        verify(stockMovementService).record(3L, 1L, 55L, MovementType.IN, 5, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+    }
+
+    @Test
+    void receiveInFullLandsWhereTheOrderWasToBeDeliveredTo() {
+        PurchaseOrder order = placedOrderDeliveredTo(1L);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L);
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
+        verify(stockMovementService).record(3L, 1L, null, MovementType.IN, 5, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+        verify(stockMovementService).record(4L, 1L, null, MovementType.IN, 2, "Purchase order #9 received",
+                new BigDecimal("7.25"));
+    }
+
+    @Test
+    void receiveIntoAWarehouseOverridesTheOneTheOrderWasToBeDeliveredTo() {
+        PurchaseOrder order = placedOrderDeliveredTo(1L);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        purchaseOrderService.receive(9L, 2L);
+
+        verify(stockMovementService).record(3L, 2L, null, MovementType.IN, 5, "Purchase order #9 received",
+                new BigDecimal("4.50"));
+        verify(stockMovementService).record(4L, 2L, null, MovementType.IN, 2, "Purchase order #9 received",
+                new BigDecimal("7.25"));
     }
 
     @Test
