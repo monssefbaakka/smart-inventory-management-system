@@ -38,11 +38,14 @@ public class SupplierController {
 
     @PostMapping
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Create a supplier", description = "Creates a new supplier. Requires the ADMIN role.")
+    @Operation(summary = "Create a supplier",
+            description = "Creates a new supplier, optionally naming the warehouse its goods are normally "
+                    + "delivered to. Requires the ADMIN role.")
     @ApiResponses({
         @ApiResponse(responseCode = "201", description = "Supplier created"),
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
-        @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content)
+        @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Named default warehouse not found", content = @Content)
     })
     public ResponseEntity<SupplierResponse> create(@Valid @RequestBody Supplier supplier) {
         Supplier created = supplierService.create(supplier);
@@ -74,7 +77,8 @@ public class SupplierController {
         @ApiResponse(responseCode = "200", description = "Supplier updated"),
         @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
         @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
-        @ApiResponse(responseCode = "404", description = "Supplier not found", content = @Content)
+        @ApiResponse(responseCode = "404", description = "Supplier or named default warehouse not found",
+                content = @Content)
     })
     public ResponseEntity<SupplierResponse> update(
             @Parameter(description = "Identifier of the supplier") @PathVariable Long id,
