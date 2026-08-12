@@ -52,6 +52,11 @@ public class PurchaseOrderService {
      * warehouse no site carries is refused here, when the order is raised, rather than weeks later
      * when the goods turn up against it.
      *
+     * <p>An order naming none goes where the supplier's goods normally go, which is a fact about
+     * the trading relationship rather than a decision taken order by order. It is read once, here:
+     * the order records the warehouse it was given, so moving a supplier's usual destination later
+     * does not move the deliveries of orders already out with it.
+     *
      * @param request the supplier, optional delivery warehouse and note, and line items to order
      * @return the persisted draft order
      * @throws ResourceNotFoundException if the supplier, a product or the warehouse does not exist
@@ -59,7 +64,7 @@ public class PurchaseOrderService {
     public PurchaseOrder create(PurchaseOrderRequest request) {
         Supplier supplier = supplierService.findById(request.supplierId());
         Warehouse warehouse = request.warehouseId() == null
-                ? null
+                ? supplier.getDefaultWarehouse()
                 : warehouseService.findById(request.warehouseId());
 
         PurchaseOrder order = PurchaseOrder.builder()
