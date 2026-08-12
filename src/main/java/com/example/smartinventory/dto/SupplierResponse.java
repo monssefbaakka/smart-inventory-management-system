@@ -3,6 +3,7 @@ package com.example.smartinventory.dto;
 import java.time.Instant;
 
 import com.example.smartinventory.model.Supplier;
+import com.example.smartinventory.model.Warehouse;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
@@ -28,6 +29,14 @@ public record SupplierResponse(
         @Schema(description = "Postal address", example = "1 Industrial Way, Springfield")
         String address,
 
+        @Schema(description = "Identifier of the warehouse this supplier's goods are normally delivered to, or "
+                + "null when it has no usual destination", example = "1")
+        Long defaultWarehouseId,
+
+        @Schema(description = "Code of the warehouse this supplier's goods are normally delivered to, or null "
+                + "when it has no usual destination", example = "WH-NORTH")
+        String defaultWarehouseCode,
+
         @Schema(description = "When the supplier was created")
         Instant createdAt,
 
@@ -39,10 +48,11 @@ public record SupplierResponse(
      * deliberately left out: they are a lazy association reachable through
      * {@code /api/products} instead.
      *
-     * @param supplier the supplier to convert
+     * @param supplier the supplier to convert; its default delivery warehouse must be loadable
      * @return the response payload
      */
     public static SupplierResponse from(Supplier supplier) {
+        Warehouse defaultWarehouse = supplier.getDefaultWarehouse();
         return new SupplierResponse(
                 supplier.getId(),
                 supplier.getName(),
@@ -50,6 +60,8 @@ public record SupplierResponse(
                 supplier.getEmail(),
                 supplier.getPhone(),
                 supplier.getAddress(),
+                defaultWarehouse == null ? null : defaultWarehouse.getId(),
+                defaultWarehouse == null ? null : defaultWarehouse.getCode(),
                 supplier.getCreatedAt(),
                 supplier.getUpdatedAt());
     }

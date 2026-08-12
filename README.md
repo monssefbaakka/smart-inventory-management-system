@@ -19,7 +19,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
 - **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
-- **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, so a buyer only reviews and places it.
+- **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
@@ -183,6 +183,10 @@ PUT /api/products/1
   "supplier": { "id": 2 }
 }
 ```
+
+The order is delivered to the supplier's `defaultWarehouse`. Nobody is present to name a destination
+when a stock movement raises an order, so without one on the supplier the replenishment arrives
+against the product total only — invisible to the location that ran short in the first place.
 
 The rule deliberately raises at most one order per shortfall:
 
@@ -390,8 +394,28 @@ POST /api/purchase-orders
 
 Every receipt against that order books into warehouse 1 without repeating it, and the order reports
 it back as `warehouseId` and `warehouseCode`. A `warehouseId` no site carries answers `404 Not
-Found` here, when the order is raised, rather than weeks later when the goods turn up. An order that
-names no warehouse behaves as before: a receipt that names none books against the product total only.
+Found` here, when the order is raised, rather than weeks later when the goods turn up.
+
+An order that names no warehouse is delivered where that supplier's goods normally go — the
+`defaultWarehouse` recorded on the supplier itself, which is a fact about the trading relationship
+rather than a decision taken order by order:
+
+```json
+PUT /api/suppliers/7
+{
+  "name": "Acme Supplies",
+  "email": "sales@acme.test",
+  "defaultWarehouse": { "id": 1 }
+}
+```
+
+The supplier reports it back as `defaultWarehouseId` and `defaultWarehouseCode`, and a warehouse no
+site carries answers `404 Not Found` when the supplier is saved rather than when an order against it
+is raised. The order reads it once, as it is raised, and records the warehouse it was given: moving
+a supplier's usual destination later leaves orders already out with it going where they were going.
+Naming a `warehouseId` on the order still wins, and remains the way to send one order somewhere
+else. A supplier with no default behaves as before: an order that names no warehouse names none, and
+a receipt against it books against the product total only.
 
 A receipt names only the lines that arrived, and says where they landed:
 

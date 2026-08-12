@@ -21,6 +21,7 @@ import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
+import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.repository.PurchaseOrderRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -68,6 +69,30 @@ class AutoReorderServiceTest {
         assertThat(item.getProduct()).isSameAs(product);
         assertThat(item.getUnitPrice()).isEqualByComparingTo("2.50");
         assertThat(item.getPurchaseOrder()).isSameAs(order);
+    }
+
+    @Test
+    void deliversTheRaisedOrderWhereTheSupplierDelivers() {
+        Warehouse defaultWarehouse = Warehouse.builder().id(2L).code("WH-SOUTH").build();
+        Product product = lowStockProduct();
+        product.getSupplier().setDefaultWarehouse(defaultWarehouse);
+        expectNothingOnOrder();
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getWarehouse()).isSameAs(defaultWarehouse);
+    }
+
+    @Test
+    void raisesAnOrderWithNoWarehouseWhenTheSupplierHasNoDefault() {
+        Product product = lowStockProduct();
+        expectNothingOnOrder();
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getWarehouse()).isNull();
     }
 
     @Test

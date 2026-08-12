@@ -8,9 +8,12 @@ import org.hibernate.annotations.TenantId;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
@@ -65,6 +68,14 @@ public class Supplier {
     @Size(max = 1000)
     @Column(length = 1000)
     private String address;
+
+    /**
+     * Where this supplier's goods are normally delivered, or {@code null} when it has no usual
+     * destination. An order raised against the supplier starts out going here.
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "default_warehouse_id")
+    private Warehouse defaultWarehouse;
 
     @OneToMany(mappedBy = "supplier")
     @Builder.Default
