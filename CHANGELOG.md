@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A supplier carries the warehouse its goods are normally delivered to** — a supplier takes an
+  optional `defaultWarehouse` (`{ "id": 1 }`, as a product names its category), reported back as
+  `defaultWarehouseId` and `defaultWarehouseCode`. An order raised without a `warehouseId` of its
+  own is delivered there, and so is one the automatic reorder rule raises from inside a stock
+  movement, where nobody is present to name a destination — replenishment now lands in a location
+  instead of against the product total only. The warehouse is read when the order is raised, so
+  changing a supplier's default leaves orders already raised going where they were going, and naming
+  a `warehouseId` on the order still wins. A `defaultWarehouse` no site carries answers `404 Not
+  Found` when the supplier is saved. A supplier naming no default is unchanged (#157).
 - **A purchase order carries the warehouse it is to be delivered to** — `POST /api/purchase-orders`
   takes an optional `warehouseId`, reported back as `warehouseId` and `warehouseCode`, and every
   receipt against the order books into it without repeating it. The existing overrides keep their
