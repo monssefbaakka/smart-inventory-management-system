@@ -2,6 +2,8 @@ package com.example.smartinventory.controller;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
@@ -13,6 +15,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
@@ -23,6 +26,7 @@ import org.springframework.test.web.servlet.MockMvc;
 
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.Supplier;
+import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.security.JwtService;
 import com.example.smartinventory.security.UserDetailsServiceImpl;
 import com.example.smartinventory.service.SupplierService;
@@ -59,6 +63,39 @@ class SupplierControllerTest {
     }
 
     @Test
+    void createCarriesTheDefaultDeliveryWarehouseThrough() throws Exception {
+        ArgumentCaptor<Supplier> captor = ArgumentCaptor.forClass(Supplier.class);
+        Supplier supplier = Supplier.builder().id(1L).name("Acme").email("acme@example.com")
+                .defaultWarehouse(Warehouse.builder().id(2L).code("WH-SOUTH").build()).build();
+        when(supplierService.create(any(Supplier.class))).thenReturn(supplier);
+
+        mockMvc.perform(post("/api/suppliers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Acme","email":"acme@example.com","defaultWarehouse":{"id":2}}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.defaultWarehouseId").value(2))
+                .andExpect(jsonPath("$.defaultWarehouseCode").value("WH-SOUTH"));
+
+        verify(supplierService).create(captor.capture());
+        assertThat(captor.getValue().getDefaultWarehouse().getId()).isEqualTo(2L);
+    }
+
+    @Test
+    void createReturnsNotFoundWhenTheDefaultWarehouseDoesNotExist() throws Exception {
+        when(supplierService.create(any(Supplier.class)))
+                .thenThrow(new ResourceNotFoundException("Warehouse not found with id: 99"));
+
+        mockMvc.perform(post("/api/suppliers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Acme","email":"acme@example.com","defaultWarehouse":{"id":99}}
+                                """))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
     void findByIdReturnsSupplier() throws Exception {
         Supplier supplier = Supplier.builder().id(1L).name("Acme").contactName("Jane Doe")
                 .email("acme@example.com").phone("+1-555-0100").address("1 Industrial Way").build();
@@ -70,7 +107,9 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$.contactName").value("Jane Doe"))
                 .andExpect(jsonPath("$.email").value("acme@example.com"))
                 .andExpect(jsonPath("$.phone").value("+1-555-0100"))
-                .andExpect(jsonPath("$.address").value("1 Industrial Way"));
+                .andExpect(jsonPath("$.address").value("1 Industrial Way"))
+                .andExpect(jsonPath("$.defaultWarehouseId").value(nullValue()))
+                .andExpect(jsonPath("$.defaultWarehouseCode").value(nullValue()));
     }
 
     @Test

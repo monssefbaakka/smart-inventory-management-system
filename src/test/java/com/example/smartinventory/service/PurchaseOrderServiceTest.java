@@ -133,6 +133,36 @@ class PurchaseOrderServiceTest {
     }
 
     @Test
+    void createDeliversToTheSupplierDefaultWarehouseWhenTheOrderNamesNone() {
+        Warehouse defaultWarehouse = Warehouse.builder().id(2L).code("WH-SOUTH").build();
+        when(supplierService.findById(7L))
+                .thenReturn(Supplier.builder().id(7L).defaultWarehouse(defaultWarehouse).build());
+        when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, null, null,
+                List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
+
+        assertThat(order.getWarehouse()).isSameAs(defaultWarehouse);
+        verifyNoInteractions(warehouseService);
+    }
+
+    @Test
+    void createPrefersTheWarehouseTheOrderNamesOverTheSupplierDefault() {
+        Warehouse named = Warehouse.builder().id(1L).code("WH-NORTH").build();
+        when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L)
+                .defaultWarehouse(Warehouse.builder().id(2L).code("WH-SOUTH").build()).build());
+        when(warehouseService.findById(1L)).thenReturn(named);
+        when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, 1L, null,
+                List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
+
+        assertThat(order.getWarehouse()).isSameAs(named);
+    }
+
+    @Test
     void createRejectsAWarehouseThatDoesNotExist() {
         when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L).build());
         when(warehouseService.findById(99L)).thenThrow(new ResourceNotFoundException("Warehouse not found"));
