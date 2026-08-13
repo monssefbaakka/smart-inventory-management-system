@@ -53,7 +53,9 @@ public class StockMovementService {
      *
      * <p>Once the movement is written the resulting stock level is evaluated: a level at or below the
      * product's reorder threshold notifies the configured channels and, when the automatic reorder is
-     * enabled, raises a draft purchase order for the product.
+     * enabled, raises a draft purchase order for the product. A movement through a warehouse that
+     * holds its own reorder point for the product is judged against that site instead, and orders
+     * for it.
      *
      * <p>The transfer legs are not accepted here: they always come in pairs and leave the product
      * total unchanged, so they are written by {@code StockTransferService} instead.
@@ -147,7 +149,7 @@ public class StockMovementService {
         StockMovement saved = stockMovementRepository.save(movement);
 
         stockEventNotificationService.evaluate(product);
-        autoReorderService.evaluate(product);
+        autoReorderService.evaluate(product, warehouse);
 
         return saved;
     }

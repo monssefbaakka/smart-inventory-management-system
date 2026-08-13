@@ -61,4 +61,21 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      */
     boolean existsByStatusInAndItemsProductId(Collection<PurchaseOrderStatus> statuses, Long productId);
 
+    /**
+     * Reports whether a product is already on order for one warehouse, so a site that measures its
+     * own stock is not replenished twice for the same shortfall.
+     *
+     * <p>An open order heading somewhere else does not count: goods delivered to another site do not
+     * fill this one's shelves, and a site short at the same time as its neighbour is short in its own
+     * right.
+     *
+     * @param statuses    the order statuses that count as still open
+     * @param warehouseId identifier of the warehouse the order must be delivered to
+     * @param productId   identifier of the product to look for among the line items
+     * @return {@code true} if some order in one of those statuses carries the product to that
+     *         warehouse
+     */
+    boolean existsByStatusInAndWarehouseIdAndItemsProductId(Collection<PurchaseOrderStatus> statuses,
+            Long warehouseId, Long productId);
+
 }
