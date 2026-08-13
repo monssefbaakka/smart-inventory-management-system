@@ -2,6 +2,7 @@ package com.example.smartinventory.service;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -20,9 +21,11 @@ import com.example.smartinventory.model.Product;
 import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
+import com.example.smartinventory.model.StockLevel;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.repository.PurchaseOrderRepository;
+import com.example.smartinventory.repository.StockLevelRepository;
 
 @ExtendWith(MockitoExtension.class)
 class AutoReorderServiceTest {
@@ -30,11 +33,16 @@ class AutoReorderServiceTest {
     private static final List<PurchaseOrderStatus> OPEN_STATUSES = List.of(
             PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED, PurchaseOrderStatus.PARTIALLY_RECEIVED);
 
+    private static final Warehouse NORTH = Warehouse.builder().id(3L).code("WH-NORTH").build();
+
     @Mock
     private PurchaseOrderRepository purchaseOrderRepository;
 
+    @Mock
+    private StockLevelRepository stockLevelRepository;
+
     private AutoReorderService enabledService() {
-        return new AutoReorderService(purchaseOrderRepository, true);
+        return new AutoReorderService(purchaseOrderRepository, stockLevelRepository, true);
     }
 
     private Product lowStockProduct() {
@@ -51,11 +59,34 @@ class AutoReorderServiceTest {
         when(purchaseOrderRepository.existsByStatusInAndItemsProductId(OPEN_STATUSES, 1L)).thenReturn(false);
     }
 
+    private void expectNothingOnOrderFor(Warehouse warehouse) {
+        when(purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(
+                OPEN_STATUSES, warehouse.getId(), 1L)).thenReturn(false);
+    }
+
+    private void expectSavedOrder() {
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+    }
+
+    /**
+     * Puts a level in the warehouse the movement went through, holding {@code quantity} units under
+     * a reorder point of its own.
+     */
+    private void expectLevel(Product product, Warehouse warehouse, int quantity, Integer threshold) {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(product.getId(), warehouse.getId()))
+                .thenReturn(Optional.of(StockLevel.builder()
+                        .product(product)
+                        .warehouse(warehouse)
+                        .quantity(quantity)
+                        .reorderThreshold(threshold)
+                        .build()));
+    }
+
     @Test
     void raisesADraftOrderForTheSupplierWhenStockIsAtOrBelowTheThreshold() {
         Product product = lowStockProduct();
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         PurchaseOrder order = enabledService().evaluate(product);
 
@@ -77,7 +108,7 @@ class AutoReorderServiceTest {
         Product product = lowStockProduct();
         product.getSupplier().setDefaultWarehouse(defaultWarehouse);
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         PurchaseOrder order = enabledService().evaluate(product);
 
@@ -88,7 +119,7 @@ class AutoReorderServiceTest {
     void raisesAnOrderWithNoWarehouseWhenTheSupplierHasNoDefault() {
         Product product = lowStockProduct();
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         PurchaseOrder order = enabledService().evaluate(product);
 
@@ -100,7 +131,7 @@ class AutoReorderServiceTest {
         Product product = lowStockProduct();
         product.setReorderQuantity(50);
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         PurchaseOrder order = enabledService().evaluate(product);
 
@@ -111,7 +142,7 @@ class AutoReorderServiceTest {
     void otherwiseOrdersEnoughToReachTwiceTheThreshold() {
         Product product = lowStockProduct();
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         PurchaseOrder order = enabledService().evaluate(product);
 
@@ -124,7 +155,7 @@ class AutoReorderServiceTest {
         product.setQuantity(0);
         product.setReorderThreshold(0);
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         PurchaseOrder order = enabledService().evaluate(product);
 
@@ -173,24 +204,108 @@ class AutoReorderServiceTest {
 
     @Test
     void raisesNothingWhenTheRuleIsDisabled() {
-        AutoReorderService disabled = new AutoReorderService(purchaseOrderRepository, false);
+        AutoReorderService disabled = new AutoReorderService(purchaseOrderRepository, stockLevelRepository, false);
 
         assertThat(disabled.evaluate(lowStockProduct())).isNull();
 
         verifyNoInteractions(purchaseOrderRepository);
+        verifyNoInteractions(stockLevelRepository);
     }
 
     @Test
     void onlyConsidersUnreceivedOrdersAsCoveringTheShortfall() {
         Product product = lowStockProduct();
         expectNothingOnOrder();
-        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+        expectSavedOrder();
 
         enabledService().evaluate(product);
 
         verify(purchaseOrderRepository).existsByStatusInAndItemsProductId(
                 eq(List.of(PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED,
                         PurchaseOrderStatus.PARTIALLY_RECEIVED)), anyLong());
+    }
+
+    @Test
+    void ordersForTheSiteThatIsShortWhenItHoldsAReorderPointOfItsOwn() {
+        Product product = lowStockProduct();
+        product.setQuantity(40);
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product, NORTH);
+
+        assertThat(order).isNotNull();
+        assertThat(order.getWarehouse()).isSameAs(NORTH);
+        assertThat(order.getNote()).contains("stock 2", "WH-NORTH", "reorder threshold 6");
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(10);
+    }
+
+    @Test
+    void deliversTheSitesOrderToItRatherThanWhereTheSupplierUsuallyDelivers() {
+        Product product = lowStockProduct();
+        product.getSupplier().setDefaultWarehouse(Warehouse.builder().id(2L).code("WH-SOUTH").build());
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product, NORTH).getWarehouse()).isSameAs(NORTH);
+    }
+
+    @Test
+    void ordersTheConfiguredQuantityForASiteThatSetsNoneOfItsOwn() {
+        Product product = lowStockProduct();
+        product.setReorderQuantity(50);
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product, NORTH).getItems().get(0).getQuantity()).isEqualTo(50);
+    }
+
+    @Test
+    void raisesNothingForASiteThatIsAboveItsOwnThresholdEvenWhenTheProductTotalIsBelowItsOwn() {
+        Product product = lowStockProduct();
+        expectLevel(product, NORTH, 3, 2);
+
+        assertThat(enabledService().evaluate(product, NORTH)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+    }
+
+    @Test
+    void raisesNothingWhenThatSiteIsAlreadyExpectingADelivery() {
+        Product product = lowStockProduct();
+        expectLevel(product, NORTH, 2, 6);
+        when(purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(OPEN_STATUSES, 3L, 1L))
+                .thenReturn(true);
+
+        assertThat(enabledService().evaluate(product, NORTH)).isNull();
+
+        verify(purchaseOrderRepository, never()).save(any(PurchaseOrder.class));
+    }
+
+    @Test
+    void measuresTheProductTotalWhenTheSiteHoldsNoReorderPoint() {
+        Product product = lowStockProduct();
+        expectLevel(product, NORTH, 40, null);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product, NORTH);
+
+        assertThat(order.getNote()).contains("stock 3").doesNotContain("WH-NORTH");
+        assertThat(order.getWarehouse()).isNull();
+    }
+
+    @Test
+    void measuresTheProductTotalWhenTheProductHasNeverBeenStockedThere() {
+        Product product = lowStockProduct();
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 3L)).thenReturn(Optional.empty());
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product, NORTH)).isNotNull();
     }
 
 }

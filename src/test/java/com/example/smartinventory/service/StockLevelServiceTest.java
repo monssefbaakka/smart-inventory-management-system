@@ -171,6 +171,41 @@ class StockLevelServiceTest {
         verify(productService).findById(1L);
     }
 
+    @Test
+    void setReorderThresholdRecordsItOnTheExistingLevel() {
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.of(level(12)));
+        when(stockLevelRepository.save(any(StockLevel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockLevelResponse result = stockLevelService.setReorderThreshold(1L, 7L, 5);
+
+        assertThat(result.reorderThreshold()).isEqualTo(5);
+        assertThat(result.quantity()).isEqualTo(12);
+        assertThat(captureSaved().getReorderThreshold()).isEqualTo(5);
+    }
+
+    @Test
+    void setReorderThresholdCreatesAnEmptyLevelForANeverStockedSite() {
+        when(productService.findById(1L)).thenReturn(PRODUCT);
+        when(warehouseService.findById(7L)).thenReturn(WAREHOUSE);
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.empty());
+        when(stockLevelRepository.save(any(StockLevel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        StockLevelResponse result = stockLevelService.setReorderThreshold(1L, 7L, 5);
+
+        assertThat(result.quantity()).isZero();
+        assertThat(result.reorderThreshold()).isEqualTo(5);
+    }
+
+    @Test
+    void setReorderThresholdClearsItWhenGivenNull() {
+        StockLevel existing = level(12);
+        existing.setReorderThreshold(5);
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 7L)).thenReturn(Optional.of(existing));
+        when(stockLevelRepository.save(any(StockLevel.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        assertThat(stockLevelService.setReorderThreshold(1L, 7L, null).reorderThreshold()).isNull();
+    }
+
     private static StockLevel level(int quantity) {
         return StockLevel.builder().id(99L).product(PRODUCT).warehouse(WAREHOUSE).quantity(quantity).build();
     }

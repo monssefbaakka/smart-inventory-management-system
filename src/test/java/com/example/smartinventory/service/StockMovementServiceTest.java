@@ -75,7 +75,7 @@ class StockMovementServiceTest {
         assertThat(result.getQuantity()).isEqualTo(3);
         verify(productRepository).save(product);
         verify(stockEventNotificationService).evaluate(product);
-        verify(autoReorderService).evaluate(product);
+        verify(autoReorderService).evaluate(product, null);
     }
 
     @Test
@@ -123,6 +123,7 @@ class StockMovementServiceTest {
         assertThat(product.getQuantity()).isEqualTo(8);
         assertThat(result.getWarehouse()).isSameAs(warehouse);
         verify(productRepository).save(product);
+        verify(autoReorderService).evaluate(product, warehouse);
     }
 
     @Test
