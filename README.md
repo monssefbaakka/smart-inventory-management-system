@@ -19,7 +19,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
 - **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
-- **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it.
+- **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
@@ -196,6 +196,38 @@ The rule deliberately raises at most one order per shortfall:
   full ends the skip.
 - A product with no supplier is skipped and logged — there is nobody to order from.
 
+#### Reordering for one warehouse
+
+A total spread across four sites says nothing about the one that has run out. A warehouse may
+therefore hold a reorder point of its own for a product, and a movement through that warehouse is
+measured against that site alone — its own quantity, against its own threshold — rather than against
+the product total.
+
+```json
+PUT /api/products/1/stock/2/reorder-threshold
+{
+  "reorderThreshold": 5
+}
+```
+
+The threshold is reported back on the level, alongside the quantity, by
+`GET /api/products/{id}/stock` and `GET /api/warehouses/{id}/stock`. A site the product has never
+been stocked in may still be given one: the level starts at zero units, which is how a new location
+is set up to reorder before its first delivery rather than after its first shortage. Sending
+`{"reorderThreshold": null}` clears it.
+
+An order a site raises for itself is delivered to that site, whatever the supplier's default says,
+and is sized for it — the product's `reorderQuantity` when it sets one, and otherwise enough to bring
+that site back to twice its own threshold. The one-order-per-shortfall rule is read per site: an open
+order already heading for that warehouse raises nothing, while one heading elsewhere, or to nowhere
+in particular, does not stop a short site from ordering for itself.
+
+A warehouse that names no threshold is not measured on its own, and neither is a movement recorded
+without one — both are judged against the product total, exactly as before. Stock transfers still
+raise nothing: a transfer leaves the product total unchanged and is written outside the movement
+path, so a site drained by one is not evaluated. The alert channels are unchanged too — low-stock and
+out-of-stock notifications still classify on the product total.
+
 ### Warehouses & Stock Levels
 
 Warehouses are stocking locations, each with a unique `code`. A stock movement may name a warehouse
@@ -209,6 +241,7 @@ Movements recorded without a warehouse change the overall quantity only.
 | `GET /api/warehouses` · `GET /api/warehouses/{id}` | Read warehouses |
 | `GET /api/warehouses/{id}/stock` | Everything stocked in one warehouse |
 | `GET /api/products/{id}/stock` | One product's stock, broken down by warehouse |
+| `PUT /api/products/{id}/stock/{warehouseId}/reorder-threshold` | What one warehouse may fall to before it reorders (ADMIN) |
 
 An `OUT` movement against a warehouse is rejected with `409 Conflict` when that location holds too
 little stock, even if the product has enough elsewhere.

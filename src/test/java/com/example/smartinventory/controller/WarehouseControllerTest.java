@@ -92,7 +92,7 @@ class WarehouseControllerTest {
 
     @Test
     void findStockReturnsLevelsHeldInWarehouse() throws Exception {
-        StockLevelResponse level = new StockLevelResponse(1L, "SKU-1", "Widget", 7L, "WH-1", "Main Depot", 12);
+        StockLevelResponse level = new StockLevelResponse(1L, "SKU-1", "Widget", 7L, "WH-1", "Main Depot", 12, null);
         when(stockLevelService.findByWarehouse(7L)).thenReturn(List.of(level));
 
         mockMvc.perform(get("/api/warehouses/7/stock"))

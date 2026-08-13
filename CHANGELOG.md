@@ -32,6 +32,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A warehouse carries its own reorder point for a product** — `PUT
+  /api/products/{id}/stock/{warehouseId}/reorder-threshold` records how low one site may get before
+  it orders for itself, reported back on the level as `reorderThreshold`. A movement through a
+  warehouse holding one is measured against that site alone rather than against the product total, so
+  a depot down to its last two units raises an order even while the group looks comfortable. The
+  order is delivered to that site, whatever the supplier's default says, and sized to bring it back
+  to twice its own threshold unless the product sets a `reorderQuantity`. The one-order-per-shortfall
+  rule is read per site: an open order already heading there raises nothing, one heading elsewhere
+  does not stop it. A site the product has never been stocked in may be given a threshold, creating
+  the level at zero units; `{"reorderThreshold": null}` clears it. A warehouse naming no threshold,
+  and a movement recorded without one, are judged against the product total exactly as before, and
+  the low-stock notification channels still classify on the product total (#159).
 - **A supplier carries the warehouse its goods are normally delivered to** — a supplier takes an
   optional `defaultWarehouse` (`{ "id": 1 }`, as a product names its category), reported back as
   `defaultWarehouseId` and `defaultWarehouseCode`. An order raised without a `warehouseId` of its
