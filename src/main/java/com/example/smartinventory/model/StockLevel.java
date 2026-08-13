@@ -61,6 +61,15 @@ public class StockLevel {
     @Builder.Default
     private Integer quantity = 0;
 
+    /**
+     * How low this warehouse is allowed to get on this product before it orders for itself.
+     * Optional: a level naming none is not measured on its own, and the product total answers for it
+     * as it always has.
+     */
+    @PositiveOrZero
+    @Column(name = "reorder_threshold")
+    private Integer reorderThreshold;
+
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 

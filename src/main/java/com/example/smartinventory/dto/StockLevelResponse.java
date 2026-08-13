@@ -27,7 +27,11 @@ public record StockLevelResponse(
         String warehouseName,
 
         @Schema(description = "Units held in this warehouse", example = "42")
-        Integer quantity) {
+        Integer quantity,
+
+        @Schema(description = "Reorder point this warehouse holds for this product, or null when it "
+                + "is not measured on its own", example = "5")
+        Integer reorderThreshold) {
 
     /**
      * Flattens a persisted level into its response form.
@@ -43,7 +47,8 @@ public record StockLevelResponse(
                 level.getWarehouse().getId(),
                 level.getWarehouse().getCode(),
                 level.getWarehouse().getName(),
-                level.getQuantity());
+                level.getQuantity(),
+                level.getReorderThreshold());
     }
 
 }

@@ -62,6 +62,33 @@ public class StockLevelService {
     }
 
     /**
+     * Sets how low one warehouse may get on one product before it raises an order for itself, or
+     * clears that figure with {@code null} so the site is measured as part of the product total
+     * again.
+     *
+     * <p>A site the product has never been stocked in may still be given a threshold: the level is
+     * created holding nothing, which is how a new location is set up to reorder before its first
+     * delivery rather than after its first shortage.
+     *
+     * @param productId   identifier of the product
+     * @param warehouseId identifier of the warehouse
+     * @param threshold   the site's reorder point, or {@code null} to stop measuring it on its own
+     * @return the level as the change left it
+     * @throws com.example.smartinventory.exception.ResourceNotFoundException if the product or the
+     *                                                                        warehouse does not exist
+     */
+    public StockLevelResponse setReorderThreshold(Long productId, Long warehouseId, Integer threshold) {
+        Product product = productService.findById(productId);
+        Warehouse warehouse = warehouseService.findById(warehouseId);
+
+        StockLevel level = stockLevelRepository.findByProductIdAndWarehouseId(productId, warehouseId)
+                .orElseGet(() -> StockLevel.builder().product(product).warehouse(warehouse).quantity(0).build());
+        level.setReorderThreshold(threshold);
+
+        return StockLevelResponse.from(stockLevelRepository.save(level));
+    }
+
+    /**
      * Reports how much of a product a warehouse is believed to hold right now.
      *
      * @param productId   identifier of the product
