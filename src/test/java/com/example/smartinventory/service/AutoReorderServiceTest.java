@@ -308,4 +308,72 @@ class AutoReorderServiceTest {
         assertThat(enabledService().evaluate(product, NORTH)).isNotNull();
     }
 
+    @Test
+    void ordersForASiteLeftShortByStockThatOnlyChangedLocation() {
+        Product product = lowStockProduct();
+        product.setQuantity(40);
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluateRelocation(product, NORTH);
+
+        assertThat(order).isNotNull();
+        assertThat(order.getWarehouse()).isSameAs(NORTH);
+        assertThat(order.getNote()).contains("stock 2", "WH-NORTH", "reorder threshold 6");
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(10);
+    }
+
+    @Test
+    void raisesNothingForRelocatedStockWhenTheSiteIsStillAboveItsOwnThreshold() {
+        Product product = lowStockProduct();
+        expectLevel(product, NORTH, 3, 2);
+
+        assertThat(enabledService().evaluateRelocation(product, NORTH)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+    }
+
+    @Test
+    void raisesNothingForRelocatedStockWhenThatSiteIsAlreadyExpectingADelivery() {
+        Product product = lowStockProduct();
+        expectLevel(product, NORTH, 2, 6);
+        when(purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(OPEN_STATUSES, 3L, 1L))
+                .thenReturn(true);
+
+        assertThat(enabledService().evaluateRelocation(product, NORTH)).isNull();
+
+        verify(purchaseOrderRepository, never()).save(any(PurchaseOrder.class));
+    }
+
+    @Test
+    void neverMeasuresTheProductTotalForStockThatOnlyChangedLocation() {
+        Product product = lowStockProduct();
+        expectLevel(product, NORTH, 40, null);
+
+        assertThat(enabledService().evaluateRelocation(product, NORTH)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+    }
+
+    @Test
+    void raisesNothingForRelocatedStockWhenTheProductHasNeverBeenStockedThere() {
+        Product product = lowStockProduct();
+        when(stockLevelRepository.findByProductIdAndWarehouseId(1L, 3L)).thenReturn(Optional.empty());
+
+        assertThat(enabledService().evaluateRelocation(product, NORTH)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+    }
+
+    @Test
+    void raisesNothingForRelocatedStockWhenTheRuleIsDisabled() {
+        AutoReorderService disabled = new AutoReorderService(purchaseOrderRepository, stockLevelRepository, false);
+
+        assertThat(disabled.evaluateRelocation(lowStockProduct(), NORTH)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+        verifyNoInteractions(stockLevelRepository);
+    }
+
 }
