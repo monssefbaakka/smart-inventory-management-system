@@ -32,6 +32,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A stock transfer reorders for the site it emptied** — a transfer that leaves the source warehouse
+  at or below the reorder point that warehouse holds for the product now raises a draft order for
+  that site, sized for it and delivered to it, on the same terms a stock movement does. Stock is
+  pulled to where it is selling, so a transfer is the common way for a site to run down, and the site
+  left behind was previously the one nobody was watching. Only the site rule applies: a source
+  warehouse naming no reorder point of its own raises nothing, because the only other figure to
+  measure is the product total and a transfer leaves it unchanged. The destination is never
+  evaluated, the one-order-per-shortfall rule is still read per site, and the rule still sits behind
+  `auto-reorder.enabled` (#161).
 - **A warehouse carries its own reorder point for a product** — `PUT
   /api/products/{id}/stock/{warehouseId}/reorder-threshold` records how low one site may get before
   it orders for itself, reported back on the level as `reorderThreshold`. A movement through a
