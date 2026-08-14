@@ -56,6 +56,9 @@ class StockTransferServiceTest {
     @Mock
     private StockLevelService stockLevelService;
 
+    @Mock
+    private AutoReorderService autoReorderService;
+
     @InjectMocks
     private StockTransferService stockTransferService;
 
@@ -116,12 +119,42 @@ class StockTransferServiceTest {
     }
 
     @Test
+    void transferMeasuresTheSourceAgainstItsOwnReorderPoint() {
+        Warehouse source = warehouse(1L, "WH-NORTH", true);
+        Warehouse destination = warehouse(2L, "WH-SOUTH", true);
+        stubLookups(source, destination);
+        when(stockTransferRepository.save(any(StockTransfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockTransferService.transfer(1L, 1L, 2L, 6, null);
+
+        verify(autoReorderService).evaluateRelocation(PRODUCT, source);
+        verify(autoReorderService, never()).evaluateRelocation(PRODUCT, destination);
+    }
+
+    @Test
+    void transferMeasuresTheSourceOnlyOnceTheStockHasActuallyMoved() {
+        Warehouse source = warehouse(1L, "WH-NORTH", true);
+        Warehouse destination = warehouse(2L, "WH-SOUTH", true);
+        when(productService.findById(1L)).thenReturn(PRODUCT);
+        when(warehouseService.findById(1L)).thenReturn(source);
+        when(warehouseService.findById(2L)).thenReturn(destination);
+        when(stockLevelService.apply(PRODUCT, source, MovementType.TRANSFER_OUT, 60))
+                .thenThrow(new InsufficientStockException("only 2 in stock"));
+
+        assertThatThrownBy(() -> stockTransferService.transfer(1L, 1L, 2L, 60, null))
+                .isInstanceOf(InsufficientStockException.class);
+
+        verifyNoInteractions(autoReorderService);
+    }
+
+    @Test
     void transferRejectsSameSourceAndDestination() {
         assertThatThrownBy(() -> stockTransferService.transfer(1L, 3L, 3L, 6, null))
                 .isInstanceOf(InvalidStockTransferException.class)
                 .hasMessageContaining("must differ");
 
-        verifyNoInteractions(productService, warehouseService, stockLevelService, stockTransferRepository);
+        verifyNoInteractions(productService, warehouseService, stockLevelService, stockTransferRepository,
+                autoReorderService);
     }
 
     @Test

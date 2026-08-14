@@ -19,7 +19,8 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
 - **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
-- **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name.
+- **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
+whether it was emptied by a sale or by a transfer to another site.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
@@ -223,10 +224,17 @@ order already heading for that warehouse raises nothing, while one heading elsew
 in particular, does not stop a short site from ordering for itself.
 
 A warehouse that names no threshold is not measured on its own, and neither is a movement recorded
-without one — both are judged against the product total, exactly as before. Stock transfers still
-raise nothing: a transfer leaves the product total unchanged and is written outside the movement
-path, so a site drained by one is not evaluated. The alert channels are unchanged too — low-stock and
-out-of-stock notifications still classify on the product total.
+without one — both are judged against the product total, exactly as before.
+
+A stock transfer measures the site the stock left in the same way: an empty shelf is an empty shelf
+whether the goods were sold or sent on to another branch, so a transfer that drops the source site to
+or below its own reorder point raises an order for that site, sized for it and delivered to it. Only
+the site rule applies there — a source warehouse holding no reorder point of its own raises nothing,
+because the only other figure to measure is the product total and a transfer leaves it exactly where
+it was. The destination is never evaluated: no site falls below its reorder point by receiving goods.
+
+The alert channels are unchanged — low-stock and out-of-stock notifications still classify on the
+product total.
 
 ### Warehouses & Stock Levels
 
@@ -277,6 +285,11 @@ destination is inactive, and with `409 Conflict` when the source location holds 
 stock *out of* an inactive warehouse stays allowed, so a site being wound down can be drained.
 `TRANSFER_IN` and `TRANSFER_OUT` are not accepted by the ordinary movement endpoint — they always
 come in pairs and are written only by a transfer.
+
+A transfer that leaves the source warehouse at or below the reorder point that warehouse holds for
+the product raises a draft order for it, exactly as a movement out of it would; see
+[Reordering for one warehouse](#reordering-for-one-warehouse). A source holding no reorder point of
+its own raises nothing, since a transfer cannot move the product total.
 
 ### Stocktake / Cycle Counting
 

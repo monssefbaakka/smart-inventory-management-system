@@ -113,6 +113,30 @@ public class AutoReorderService {
     }
 
     /**
+     * Raises a draft purchase order when one warehouse has reached the reorder point it holds for the
+     * product, without ever falling back to the product total.
+     *
+     * <p>For stock that only changed location. A transfer empties the site it leaves as surely as a
+     * sale does, and the site has already said what empty means for it, so the source of a transfer is
+     * measured against its own reorder point and orders for itself. What a transfer cannot do is move
+     * the product total: the units it took out of one site went into another, and the group holds
+     * exactly what it held before. So a warehouse naming no reorder point of its own raises nothing
+     * here, rather than being measured against a figure the transfer left where it was.
+     *
+     * @param product   the product that moved
+     * @param warehouse the location it moved out of
+     * @return the raised order, or {@code null} when the rule declined to raise one
+     */
+    public PurchaseOrder evaluateRelocation(Product product, Warehouse warehouse) {
+        if (!enabled) {
+            return null;
+        }
+
+        StockLevel level = siteMeasuringItself(product, warehouse);
+        return level == null ? null : evaluateSite(product, warehouse, level);
+    }
+
+    /**
      * Reads off the level of the warehouse the movement went through, when that warehouse holds a
      * reorder point of its own for the product and is therefore measured on its own.
      *

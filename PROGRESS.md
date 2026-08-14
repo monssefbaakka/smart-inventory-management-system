@@ -79,9 +79,10 @@ implemented in repo but GitHub issue not yet closed
 | 153 | Book a goods receipt into a warehouse and a lot | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 155 | Deliver a purchase order to the warehouse it was raised for | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 157 | Deliver a supplier's goods to the site they always go to | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 159 | Reorder for the site that ran short, not for a total that hides it | ![working](https://img.shields.io/badge/status-working-blue) |
+| 159 | Reorder for the site that ran short, not for a total that hides it | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 161 | Reorder for a site a transfer emptied, not only for one a sale emptied | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #159 — Reorder for the site that ran short, not for a total that hides it (PR open)
+**Working:** #161 — Reorder for a site a transfer emptied, not only for one a sale emptied (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
