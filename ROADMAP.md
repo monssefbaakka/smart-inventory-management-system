@@ -43,7 +43,7 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 ## Phase 6 — Reporting & Insights (complete)
 
 - [x] Low-stock alerts / reorder thresholds (per product, and per warehouse — #159, including a site
-      emptied by a transfer — #161)
+      emptied by a transfer — #161; alerts name the site that ran low — #163)
 - [x] Inventory reports (stock value at retail and at cost, cost of goods sold, movement history)
 - [x] Basic dashboard endpoints
 
@@ -79,7 +79,8 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 - Supplier and purchase-order management (purchase-order management done — #87; partial goods
   receipts done — #150; receipts into a warehouse and a lot done — #153; a delivery warehouse on the
   order done — #155; a default delivery warehouse on the supplier done — #157)
-- Notifications (email/webhook) for stock events
+- Notifications (email/webhook) for stock events (done — #109, #111; an alert names the site that ran
+  low — #163)
 - Multi-tenant support (done — #129)
 - Export to CSV/Excel/PDF (CSV product + stock-movement export done — #84; Excel/PDF still open)
 - API rate limiting and audit logging (audit logging done — #117; rate limiting done — #119)
