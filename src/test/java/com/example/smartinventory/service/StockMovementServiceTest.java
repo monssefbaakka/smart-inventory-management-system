@@ -74,7 +74,7 @@ class StockMovementServiceTest {
         assertThat(result.getType()).isEqualTo(MovementType.IN);
         assertThat(result.getQuantity()).isEqualTo(3);
         verify(productRepository).save(product);
-        verify(stockEventNotificationService).evaluate(product);
+        verify(stockEventNotificationService).evaluate(product, null);
         verify(autoReorderService).evaluate(product, null);
     }
 
@@ -123,6 +123,7 @@ class StockMovementServiceTest {
         assertThat(product.getQuantity()).isEqualTo(8);
         assertThat(result.getWarehouse()).isSameAs(warehouse);
         verify(productRepository).save(product);
+        verify(stockEventNotificationService).evaluate(product, warehouse);
         verify(autoReorderService).evaluate(product, warehouse);
     }
 

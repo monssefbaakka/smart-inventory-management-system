@@ -19,7 +19,7 @@ class WebhookStockEventNotifierTest {
 
     private StockEventNotification lowStock() {
         return new StockEventNotification(
-                1L, "SKU-1", "Widget", 3, 10, StockEventType.LOW_STOCK, Instant.now());
+                1L, "SKU-1", "Widget", null, null, 3, 10, StockEventType.LOW_STOCK, Instant.now());
     }
 
     @Test
@@ -34,6 +34,22 @@ class WebhookStockEventNotifierTest {
 
         WebhookStockEventNotifier notifier = new WebhookStockEventNotifier(builder, URL);
         notifier.send(lowStock());
+
+        server.verify();
+    }
+
+    @Test
+    void postsTheSiteTheEventBelongsTo() {
+        RestClient.Builder builder = RestClient.builder();
+        MockRestServiceServer server = MockRestServiceServer.bindTo(builder).build();
+        server.expect(requestTo(URL))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"warehouseId\":2")))
+                .andExpect(content().string(org.hamcrest.Matchers.containsString("\"warehouseCode\":\"WH-NORTH\"")))
+                .andRespond(withSuccess());
+
+        WebhookStockEventNotifier notifier = new WebhookStockEventNotifier(builder, URL);
+        notifier.send(new StockEventNotification(
+                1L, "SKU-1", "Widget", 2L, "WH-NORTH", 3, 5, StockEventType.LOW_STOCK, Instant.now()));
 
         server.verify();
     }
