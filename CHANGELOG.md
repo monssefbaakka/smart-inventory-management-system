@@ -32,6 +32,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Low-stock alerts name the site that ran low** — a movement through a warehouse that holds its own
+  reorder point for the product is now classified against that site: its own quantity, against its own
+  threshold. The notification carries `warehouseId` and `warehouseCode`, the log line and the email
+  subject and body name the location, and a transfer that drops the source site to or below its own
+  reorder point alerts for it as a sale does. Previously only the product total was measured, so a
+  branch down to its last two units was announced to nobody while the group still looked comfortable.
+  A movement through a warehouse holding no reorder point of its own, or through none at all, is
+  classified on the product total exactly as before and both new fields are `null` (#163).
 - **A stock transfer reorders for the site it emptied** — a transfer that leaves the source warehouse
   at or below the reorder point that warehouse holds for the product now raises a draft order for
   that site, sized for it and delivered to it, on the same terms a stock movement does. Stock is

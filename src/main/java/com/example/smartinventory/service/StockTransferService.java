@@ -27,8 +27,9 @@ import lombok.RequiredArgsConstructor;
  * explained by a movement row.
  *
  * <p>The site the stock left is then measured against the reorder point it holds for the product: an
- * empty shelf is an empty shelf whether the goods were sold or sent on to another branch. The site it
- * arrived at is not — no warehouse falls below its reorder point by receiving goods.
+ * empty shelf is an empty shelf whether the goods were sold or sent on to another branch, so it both
+ * alerts and orders for itself. The site it arrived at is not measured — no warehouse falls below its
+ * reorder point by receiving goods.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,15 +42,16 @@ public class StockTransferService {
     private final WarehouseService warehouseService;
     private final StockLevelService stockLevelService;
     private final AutoReorderService autoReorderService;
+    private final StockEventNotificationService stockEventNotificationService;
 
     /**
      * Moves stock from one warehouse to another and records the move.
      *
      * <p>A move that leaves the source warehouse at or below the reorder point it holds for the
-     * product raises a draft order for that warehouse, sized for it and delivered to it, on the same
-     * terms a stock movement does. A source warehouse holding no reorder point of its own raises
-     * nothing: the only other figure to measure is the product total, and a transfer leaves it exactly
-     * where it was.
+     * product notifies the configured channels for that warehouse and raises a draft order for it,
+     * sized for it and delivered to it, on the same terms a stock movement does. A source warehouse
+     * holding no reorder point of its own does neither: the only other figure to measure is the
+     * product total, and a transfer leaves it exactly where it was.
      *
      * @param productId              identifier of the product being moved
      * @param sourceWarehouseId      identifier of the warehouse the stock leaves
@@ -94,6 +96,7 @@ public class StockTransferService {
                 .build();
         StockTransferResponse saved = StockTransferResponse.from(stockTransferRepository.save(transfer));
 
+        stockEventNotificationService.evaluateRelocation(product, source);
         autoReorderService.evaluateRelocation(product, source);
 
         return saved;

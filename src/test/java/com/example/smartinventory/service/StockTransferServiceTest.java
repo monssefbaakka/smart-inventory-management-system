@@ -59,6 +59,9 @@ class StockTransferServiceTest {
     @Mock
     private AutoReorderService autoReorderService;
 
+    @Mock
+    private StockEventNotificationService stockEventNotificationService;
+
     @InjectMocks
     private StockTransferService stockTransferService;
 
@@ -132,6 +135,19 @@ class StockTransferServiceTest {
     }
 
     @Test
+    void transferAlertsTheSourceAgainstItsOwnReorderPoint() {
+        Warehouse source = warehouse(1L, "WH-NORTH", true);
+        Warehouse destination = warehouse(2L, "WH-SOUTH", true);
+        stubLookups(source, destination);
+        when(stockTransferRepository.save(any(StockTransfer.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockTransferService.transfer(1L, 1L, 2L, 6, null);
+
+        verify(stockEventNotificationService).evaluateRelocation(PRODUCT, source);
+        verify(stockEventNotificationService, never()).evaluateRelocation(PRODUCT, destination);
+    }
+
+    @Test
     void transferMeasuresTheSourceOnlyOnceTheStockHasActuallyMoved() {
         Warehouse source = warehouse(1L, "WH-NORTH", true);
         Warehouse destination = warehouse(2L, "WH-SOUTH", true);
@@ -144,7 +160,7 @@ class StockTransferServiceTest {
         assertThatThrownBy(() -> stockTransferService.transfer(1L, 1L, 2L, 60, null))
                 .isInstanceOf(InsufficientStockException.class);
 
-        verifyNoInteractions(autoReorderService);
+        verifyNoInteractions(autoReorderService, stockEventNotificationService);
     }
 
     @Test
@@ -154,7 +170,7 @@ class StockTransferServiceTest {
                 .hasMessageContaining("must differ");
 
         verifyNoInteractions(productService, warehouseService, stockLevelService, stockTransferRepository,
-                autoReorderService);
+                autoReorderService, stockEventNotificationService);
     }
 
     @Test

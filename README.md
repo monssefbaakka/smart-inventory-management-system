@@ -233,8 +233,29 @@ the site rule applies there — a source warehouse holding no reorder point of i
 because the only other figure to measure is the product total and a transfer leaves it exactly where
 it was. The destination is never evaluated: no site falls below its reorder point by receiving goods.
 
-The alert channels are unchanged — low-stock and out-of-stock notifications still classify on the
-product total.
+The alert channels follow the same rule. A movement or transfer measured against a site is announced
+for that site — the notification carries the location it is about, so the recipient is told which
+shelf to fill rather than being handed a group total and left to find the shortage:
+
+```json
+{
+  "productId": 1,
+  "sku": "SKU-1",
+  "name": "Widget",
+  "warehouseId": 2,
+  "warehouseCode": "WH-NORTH",
+  "quantity": 2,
+  "reorderThreshold": 5,
+  "eventType": "LOW_STOCK",
+  "occurredAt": "2026-05-04T09:15:00Z"
+}
+```
+
+A site is classified once, not twice: a warehouse measured against its own reorder point is not also
+measured against the product total, so one movement produces one alert. A movement through a
+warehouse holding no reorder point of its own, or through none at all, is classified on the product
+total exactly as before, and `warehouseId` and `warehouseCode` come back `null`. The log line and the
+email name the site when there is one, and the webhook payload gains the two fields.
 
 ### Warehouses & Stock Levels
 

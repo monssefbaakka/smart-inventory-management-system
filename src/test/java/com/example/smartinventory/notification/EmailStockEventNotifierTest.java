@@ -23,7 +23,7 @@ class EmailStockEventNotifierTest {
 
     private StockEventNotification lowStock() {
         return new StockEventNotification(
-                1L, "SKU-1", "Widget", 3, 10, StockEventType.LOW_STOCK, Instant.now());
+                1L, "SKU-1", "Widget", null, null, 3, 10, StockEventType.LOW_STOCK, Instant.now());
     }
 
     @Test
@@ -40,6 +40,32 @@ class EmailStockEventNotifierTest {
         assertThat(message.getTo()).containsExactly("a@example.com", "b@example.com");
         assertThat(message.getSubject()).contains("LOW_STOCK").contains("Widget").contains("SKU-1");
         assertThat(message.getText()).contains("Current quantity: 3").contains("Reorder threshold: 10");
+    }
+
+    @Test
+    void namesTheSiteTheEventBelongsTo() {
+        EmailStockEventNotifier notifier = new EmailStockEventNotifier(
+                mailSender, "alerts@example.com", new String[] {"a@example.com"});
+
+        notifier.send(new StockEventNotification(
+                1L, "SKU-1", "Widget", 2L, "WH-NORTH", 3, 5, StockEventType.LOW_STOCK, Instant.now()));
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getSubject()).contains("WH-NORTH");
+        assertThat(captor.getValue().getText()).contains("Warehouse: WH-NORTH (id=2)");
+    }
+
+    @Test
+    void omitsTheSiteFromAProductWideEvent() {
+        EmailStockEventNotifier notifier = new EmailStockEventNotifier(
+                mailSender, "alerts@example.com", new String[] {"a@example.com"});
+
+        notifier.send(lowStock());
+
+        ArgumentCaptor<SimpleMailMessage> captor = ArgumentCaptor.forClass(SimpleMailMessage.class);
+        verify(mailSender).send(captor.capture());
+        assertThat(captor.getValue().getText()).doesNotContain("Warehouse:");
     }
 
     @Test

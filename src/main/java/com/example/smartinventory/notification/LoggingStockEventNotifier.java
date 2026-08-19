@@ -12,12 +12,24 @@ public class LoggingStockEventNotifier implements StockEventNotifier {
 
     @Override
     public void send(StockEventNotification notification) {
-        LOGGER.warn("Stock event {} for product {} (sku={}): quantity {} at or below threshold {}",
+        LOGGER.warn("Stock event {} for product {} (sku={}){}: quantity {} at or below threshold {}",
                 notification.eventType(),
                 notification.productId(),
                 notification.sku(),
+                location(notification),
                 notification.quantity(),
                 notification.reorderThreshold());
+    }
+
+    /**
+     * Names the site the event belongs to, so the shelf that has to be filled is in the line itself
+     * rather than in whatever the reader can work out from the product.
+     *
+     * @param notification the event being logged
+     * @return the location clause, or an empty string for an event about the product as a whole
+     */
+    private String location(StockEventNotification notification) {
+        return notification.warehouseCode() == null ? "" : " in warehouse " + notification.warehouseCode();
     }
 
 }

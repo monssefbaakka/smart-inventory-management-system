@@ -59,14 +59,20 @@ public class EmailStockEventNotifier implements StockEventNotifier {
     }
 
     private String subject(StockEventNotification notification) {
+        String site = notification.warehouseCode() == null ? "" : " at " + notification.warehouseCode();
         return "[Inventory] " + notification.eventType() + ": " + notification.name()
-                + " (" + notification.sku() + ")";
+                + " (" + notification.sku() + ")" + site;
     }
 
     private String body(StockEventNotification notification) {
+        String location = notification.warehouseCode() == null
+                ? ""
+                : "Warehouse: " + notification.warehouseCode() + " (id=" + notification.warehouseId() + ")"
+                        + System.lineSeparator();
         return "Stock event: " + notification.eventType() + System.lineSeparator()
                 + "Product: " + notification.name() + " (id=" + notification.productId()
                 + ", sku=" + notification.sku() + ")" + System.lineSeparator()
+                + location
                 + "Current quantity: " + notification.quantity() + System.lineSeparator()
                 + "Reorder threshold: " + notification.reorderThreshold() + System.lineSeparator()
                 + "Detected at: " + notification.occurredAt();
