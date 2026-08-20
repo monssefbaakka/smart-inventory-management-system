@@ -13,19 +13,26 @@ import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.notification.StockEventNotification;
 import com.example.smartinventory.notification.StockEventNotifier;
 import com.example.smartinventory.notification.StockEventType;
+import com.example.smartinventory.repository.ProductRepository;
 import com.example.smartinventory.repository.StockLevelRepository;
 
 import lombok.RequiredArgsConstructor;
 
 /**
  * Evaluates the stock a movement touched and, when it has reached a low-stock or out-of-stock
- * condition, dispatches a {@link StockEventNotification} to every configured channel.
+ * condition worth announcing, dispatches a {@link StockEventNotification} to every configured
+ * channel.
  *
  * <p>Which stock is measured follows the reorder rule. A warehouse that holds its own reorder point
  * for the product is measured against it, on its own quantity, and the alert names that site;
  * anything else is measured against the product total, which is the only figure there was before
  * sites could name a reorder point of their own. A site is never measured both ways: one movement
  * says one thing about one shelf.
+ *
+ * <p>What is announced is the change, not the measurement. Each shelf remembers the condition it
+ * last announced, and a measurement that repeats it dispatches nothing. An alert on every sale for a
+ * shelf that has been low since Tuesday teaches its recipient to filter the folder, which is then
+ * where the alert that matters lands.
  */
 @Service
 @RequiredArgsConstructor
@@ -34,6 +41,7 @@ public class StockEventNotificationService {
     private static final Logger LOGGER = LoggerFactory.getLogger(StockEventNotificationService.class);
 
     private final List<StockEventNotifier> notifiers;
+    private final ProductRepository productRepository;
     private final StockLevelRepository stockLevelRepository;
 
     /**
@@ -63,9 +71,9 @@ public class StockEventNotificationService {
     public void evaluate(Product product, Warehouse warehouse) {
         StockLevel level = siteMeasuringItself(product, warehouse);
         if (level == null) {
-            dispatch(product, null, product.getQuantity(), product.getReorderThreshold());
+            measure(product, null, null, product.getQuantity(), product.getReorderThreshold());
         } else {
-            dispatch(product, warehouse, level.getQuantity(), level.getReorderThreshold());
+            measure(product, warehouse, level, level.getQuantity(), level.getReorderThreshold());
         }
     }
 
@@ -84,7 +92,7 @@ public class StockEventNotificationService {
     public void evaluateRelocation(Product product, Warehouse warehouse) {
         StockLevel level = siteMeasuringItself(product, warehouse);
         if (level != null) {
-            dispatch(product, warehouse, level.getQuantity(), level.getReorderThreshold());
+            measure(product, warehouse, level, level.getQuantity(), level.getReorderThreshold());
         }
     }
 
@@ -106,20 +114,53 @@ public class StockEventNotificationService {
     }
 
     /**
-     * Classifies one quantity against one threshold and, when that is a condition worth reporting,
-     * delivers it to every channel.
+     * Classifies one quantity against one threshold, announces the result when it is worse than what
+     * this shelf last announced, and records what now stands either way.
+     *
+     * <p>Four outcomes. A condition worse than the one standing — including the first one, which
+     * stands against nothing — is dispatched and remembered. A condition that repeats the one
+     * standing is neither dispatched nor written: it has already been said. A partial restock that
+     * leaves the shelf still low lowers what stands without dispatching, so that a fall back to zero
+     * is announced rather than swallowed. Stock back above the threshold clears what stands, arming
+     * the shelf for its next fall; nothing is dispatched, because there is no channel here for good
+     * news.
+     *
+     * @param product   the product whose stock was measured
+     * @param warehouse the location the measured stock sits in, or {@code null} for the product total
+     * @param level     that location's stock level, or {@code null} for the product total
+     * @param quantity  the measured quantity
+     * @param threshold the reorder point it was measured against
+     */
+    private void measure(Product product, Warehouse warehouse, StockLevel level, Integer quantity,
+            Integer threshold) {
+        if (quantity == null || threshold == null) {
+            return;
+        }
+
+        StockEventType condition = classify(quantity, threshold);
+        StockEventType standing = level == null ? product.getAnnouncedStockEvent() : level.getAnnouncedStockEvent();
+        if (condition == standing) {
+            return;
+        }
+
+        if (condition != null && condition.isWorseThan(standing)) {
+            dispatch(product, warehouse, quantity, threshold, condition);
+        }
+        remember(product, level, condition);
+    }
+
+    /**
+     * Delivers one condition to every channel. A channel that throws is logged and skipped so
+     * remaining channels still receive the event.
      *
      * @param product   the product whose stock was measured
      * @param warehouse the location the measured stock sits in, or {@code null} for the product total
      * @param quantity  the measured quantity
      * @param threshold the reorder point it was measured against
+     * @param eventType the condition to announce
      */
-    private void dispatch(Product product, Warehouse warehouse, Integer quantity, Integer threshold) {
-        StockEventType eventType = classify(quantity, threshold);
-        if (eventType == null) {
-            return;
-        }
-
+    private void dispatch(Product product, Warehouse warehouse, Integer quantity, Integer threshold,
+            StockEventType eventType) {
         StockEventNotification notification = new StockEventNotification(
                 product.getId(),
                 product.getSku(),
@@ -141,10 +182,27 @@ public class StockEventNotificationService {
         }
     }
 
-    private StockEventType classify(Integer quantity, Integer threshold) {
-        if (quantity == null || threshold == null) {
-            return null;
+    /**
+     * Records the condition that now stands for the shelf just measured, in the transaction that
+     * moved the stock: a rolled-back movement remembers nothing, and a restart does not re-announce a
+     * shortage that already stands. A channel that failed does not re-arm the shelf — a dead endpoint
+     * is a channel problem, not a reason to say it all again to the channels that are up.
+     *
+     * @param product   the product that was measured
+     * @param level     the location's stock level, or {@code null} when the product total was measured
+     * @param condition the condition that now stands, or {@code null} when none does
+     */
+    private void remember(Product product, StockLevel level, StockEventType condition) {
+        if (level == null) {
+            product.setAnnouncedStockEvent(condition);
+            productRepository.save(product);
+        } else {
+            level.setAnnouncedStockEvent(condition);
+            stockLevelRepository.save(level);
         }
+    }
+
+    private StockEventType classify(Integer quantity, Integer threshold) {
         if (quantity <= 0) {
             return StockEventType.OUT_OF_STOCK;
         }

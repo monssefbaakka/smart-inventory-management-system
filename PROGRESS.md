@@ -81,9 +81,10 @@ implemented in repo but GitHub issue not yet closed
 | 157 | Deliver a supplier's goods to the site they always go to | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 159 | Reorder for the site that ran short, not for a total that hides it | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 161 | Reorder for a site a transfer emptied, not only for one a sale emptied | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 163 | Alert the site that ran low, not only a total that hides it | ![working](https://img.shields.io/badge/status-working-blue) |
+| 163 | Alert the site that ran low, not only a total that hides it | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 165 | Say a shortage once, not on every movement that keeps it going | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #163 — Alert the site that ran low, not only a total that hides it (PR open)
+**Working:** #165 — Say a shortage once, not on every movement that keeps it going (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
