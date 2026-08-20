@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,6 +22,7 @@ import com.example.smartinventory.model.Warehouse;
 import com.example.smartinventory.notification.StockEventNotification;
 import com.example.smartinventory.notification.StockEventNotifier;
 import com.example.smartinventory.notification.StockEventType;
+import com.example.smartinventory.repository.ProductRepository;
 import com.example.smartinventory.repository.StockLevelRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,25 +35,40 @@ class StockEventNotificationServiceTest {
     private StockEventNotifier notifierB;
 
     @Mock
+    private ProductRepository productRepository;
+
+    @Mock
     private StockLevelRepository stockLevelRepository;
 
     private StockEventNotificationService service(StockEventNotifier... notifiers) {
-        return new StockEventNotificationService(List.of(notifiers), stockLevelRepository);
+        return new StockEventNotificationService(List.of(notifiers), productRepository, stockLevelRepository);
     }
 
     private Warehouse warehouse() {
         return Warehouse.builder().id(7L).code("WH-NORTH").build();
     }
 
-    /** Makes the north warehouse hold {@code quantity} units of the product against its own threshold. */
-    private void siteHolds(Product product, Warehouse warehouse, Integer quantity, Integer threshold) {
+    /**
+     * Makes the given warehouse hold {@code quantity} units of the product against its own threshold.
+     * The level is returned so a test can move its stock between measurements, as a second movement
+     * through the same site would.
+     */
+    private StockLevel siteHolds(Product product, Warehouse warehouse, Integer quantity, Integer threshold) {
+        StockLevel level = StockLevel.builder()
+                .product(product)
+                .warehouse(warehouse)
+                .quantity(quantity)
+                .reorderThreshold(threshold)
+                .build();
         lenient().when(stockLevelRepository.findByProductIdAndWarehouseId(product.getId(), warehouse.getId()))
-                .thenReturn(Optional.of(StockLevel.builder()
-                        .product(product)
-                        .warehouse(warehouse)
-                        .quantity(quantity)
-                        .reorderThreshold(threshold)
-                        .build()));
+                .thenReturn(Optional.of(level));
+        return level;
+    }
+
+    private List<StockEventNotification> captureAllFrom(StockEventNotifier notifier, int expected) {
+        ArgumentCaptor<StockEventNotification> captor = ArgumentCaptor.forClass(StockEventNotification.class);
+        verify(notifier, times(expected)).send(captor.capture());
+        return captor.getAllValues();
     }
 
     private StockEventNotification captureFrom(StockEventNotifier notifier) {
@@ -210,6 +227,188 @@ class StockEventNotificationServiceTest {
         service(notifierA).evaluateRelocation(product, warehouse);
 
         verify(notifierA, never()).send(any());
+    }
+
+    @Test
+    void saysNothingASecondTimeWhileTheProductStaysLow() {
+        Product product = Product.builder().id(20L).sku("SKU-20").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        product.setQuantity(4);
+        service.evaluate(product);
+
+        verify(notifierA, times(1)).send(any());
+        assertThat(product.getAnnouncedStockEvent()).isEqualTo(StockEventType.LOW_STOCK);
+    }
+
+    @Test
+    void announcesAStandingShortageAgainWhenItDeepens() {
+        Product product = Product.builder().id(21L).sku("SKU-21").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        product.setQuantity(0);
+        service.evaluate(product);
+
+        assertThat(captureAllFrom(notifierA, 2)).extracting(StockEventNotification::eventType)
+                .containsExactly(StockEventType.LOW_STOCK, StockEventType.OUT_OF_STOCK);
+    }
+
+    @Test
+    void staysQuietWhileAnEmptyShelfStaysEmpty() {
+        Product product = Product.builder().id(22L).sku("SKU-22").name("Widget")
+                .quantity(0).reorderThreshold(10).build();
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        service.evaluate(product);
+
+        verify(notifierA, times(1)).send(any());
+    }
+
+    @Test
+    void lowersWhatStandsWithoutAnnouncingAPartialRestock() {
+        Product product = Product.builder().id(23L).sku("SKU-23").name("Widget")
+                .quantity(0).reorderThreshold(10).build();
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        product.setQuantity(3);
+        service.evaluate(product);
+
+        assertThat(product.getAnnouncedStockEvent()).isEqualTo(StockEventType.LOW_STOCK);
+        verify(notifierA, times(1)).send(any());
+
+        product.setQuantity(0);
+        service.evaluate(product);
+
+        assertThat(captureAllFrom(notifierA, 2)).extracting(StockEventNotification::eventType)
+                .containsExactly(StockEventType.OUT_OF_STOCK, StockEventType.OUT_OF_STOCK);
+    }
+
+    @Test
+    void clearsWhatStandsWhenStockRecoversAboveTheThreshold() {
+        Product product = Product.builder().id(24L).sku("SKU-24").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        product.setQuantity(50);
+        service.evaluate(product);
+
+        assertThat(product.getAnnouncedStockEvent()).isNull();
+        verify(notifierA, times(1)).send(any());
+
+        product.setQuantity(5);
+        service.evaluate(product);
+
+        verify(notifierA, times(2)).send(any());
+    }
+
+    @Test
+    void writesWhatStandsOnTheProductWhenTheTotalWasMeasured() {
+        Product product = Product.builder().id(25L).sku("SKU-25").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+
+        service(notifierA).evaluate(product);
+
+        verify(productRepository).save(product);
+    }
+
+    @Test
+    void writesWhatStandsOnTheLevelOfTheSiteMeasured() {
+        Product product = Product.builder().id(26L).sku("SKU-26").name("Widget")
+                .quantity(40).reorderThreshold(10).build();
+        Warehouse warehouse = warehouse();
+        StockLevel level = siteHolds(product, warehouse, 2, 5);
+
+        service(notifierA).evaluate(product, warehouse);
+
+        verify(stockLevelRepository).save(level);
+        verify(productRepository, never()).save(any());
+        assertThat(level.getAnnouncedStockEvent()).isEqualTo(StockEventType.LOW_STOCK);
+        assertThat(product.getAnnouncedStockEvent()).isNull();
+    }
+
+    @Test
+    void saysNothingASecondTimeWhileTheSiteStaysLow() {
+        Product product = Product.builder().id(27L).sku("SKU-27").name("Widget")
+                .quantity(40).reorderThreshold(10).build();
+        Warehouse warehouse = warehouse();
+        StockLevel level = siteHolds(product, warehouse, 4, 5);
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product, warehouse);
+        level.setQuantity(3);
+        service.evaluate(product, warehouse);
+
+        verify(notifierA, times(1)).send(any());
+    }
+
+    @Test
+    void oneSiteFallingQuietDoesNotSilenceAnother() {
+        Product product = Product.builder().id(28L).sku("SKU-28").name("Widget")
+                .quantity(40).reorderThreshold(10).build();
+        Warehouse north = warehouse();
+        Warehouse south = Warehouse.builder().id(8L).code("WH-SOUTH").build();
+        siteHolds(product, north, 2, 5);
+        siteHolds(product, south, 1, 5);
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product, north);
+        service.evaluate(product, north);
+        service.evaluate(product, south);
+
+        assertThat(captureAllFrom(notifierA, 2)).extracting(StockEventNotification::warehouseCode)
+                .containsExactly("WH-NORTH", "WH-SOUTH");
+    }
+
+    @Test
+    void aShortageStandingOnTheTotalDoesNotSilenceASite() {
+        Product product = Product.builder().id(29L).sku("SKU-29").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+        Warehouse warehouse = warehouse();
+        siteHolds(product, warehouse, 2, 5);
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        service.evaluate(product, warehouse);
+
+        assertThat(captureAllFrom(notifierA, 2)).extracting(StockEventNotification::warehouseCode)
+                .containsExactly(null, "WH-NORTH");
+    }
+
+    @Test
+    void remembersWhatStandsEvenWhenAChannelThrows() {
+        Product product = Product.builder().id(30L).sku("SKU-30").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+        doThrow(new RuntimeException("boom")).when(notifierA).send(any());
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        service.evaluate(product);
+
+        verify(notifierA, times(1)).send(any());
+        assertThat(product.getAnnouncedStockEvent()).isEqualTo(StockEventType.LOW_STOCK);
+    }
+
+    @Test
+    void relocationSaysNothingASecondTimeWhileTheSiteStaysLow() {
+        Product product = Product.builder().id(31L).sku("SKU-31").name("Widget")
+                .quantity(40).reorderThreshold(10).build();
+        Warehouse warehouse = warehouse();
+        StockLevel level = siteHolds(product, warehouse, 4, 5);
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluateRelocation(product, warehouse);
+        level.setQuantity(2);
+        service.evaluateRelocation(product, warehouse);
+
+        verify(notifierA, times(1)).send(any());
+        assertThat(level.getAnnouncedStockEvent()).isEqualTo(StockEventType.LOW_STOCK);
     }
 
 }
