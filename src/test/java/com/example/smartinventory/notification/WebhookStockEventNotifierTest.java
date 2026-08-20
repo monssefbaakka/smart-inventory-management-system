@@ -19,7 +19,7 @@ class WebhookStockEventNotifierTest {
 
     private StockEventNotification lowStock() {
         return new StockEventNotification(
-                1L, "SKU-1", "Widget", null, null, 3, 10, StockEventType.LOW_STOCK, Instant.now());
+                1L, "SKU-1", "Widget", null, null, 3, 12, 10, StockEventType.LOW_STOCK, Instant.now());
     }
 
     @Test
@@ -49,7 +49,7 @@ class WebhookStockEventNotifierTest {
 
         WebhookStockEventNotifier notifier = new WebhookStockEventNotifier(builder, URL);
         notifier.send(new StockEventNotification(
-                1L, "SKU-1", "Widget", 2L, "WH-NORTH", 3, 5, StockEventType.LOW_STOCK, Instant.now()));
+                1L, "SKU-1", "Widget", 2L, "WH-NORTH", 3, 12, 5, StockEventType.LOW_STOCK, Instant.now()));
 
         server.verify();
     }
