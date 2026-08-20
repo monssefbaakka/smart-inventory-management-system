@@ -26,6 +26,12 @@ import lombok.RequiredArgsConstructor;
  * <p>A reservation changes no stock: the units stay on the shelf and in the movement history, they
  * simply stop counting as available. They leave only when the reservation is fulfilled, which
  * records the ordinary {@code OUT} movement for them.
+ *
+ * <p>Taking a hold and giving one back both change how much is left to sell without moving anything,
+ * so both are measured on the same terms a movement is: the alert channels and the reorder rule see
+ * the shortage a sales desk creates by promising the shelf away, rather than waiting for the goods to
+ * be collected. Fulfilment measures once, through the movement it records — the hold and the stock go
+ * at the same moment, and nothing free changes twice.
  */
 @Service
 @RequiredArgsConstructor
@@ -37,10 +43,16 @@ public class StockReservationService {
     private final WarehouseService warehouseService;
     private final StockLevelService stockLevelService;
     private final StockMovementService stockMovementService;
+    private final StockEventNotificationService stockEventNotificationService;
+    private final AutoReorderService autoReorderService;
 
     /**
      * Holds stock of a product against a commitment. Naming a warehouse holds the stock of that
      * location and is checked against what it holds; naming none holds against the product total.
+     *
+     * <p>What the hold left free is then measured, and a shelf it took to or below its reorder point
+     * notifies and orders exactly as a movement would. Reserving the last free units is the moment
+     * the shortage starts, whoever eventually walks out with the goods.
      *
      * @param productId identifier of the product to hold
      * @param request   what the stock is held for, how much, where, and until when
@@ -62,7 +74,7 @@ public class StockReservationService {
                     + " of the " + availability.onHand() + " on hand already reserved");
         }
 
-        return stockReservationRepository.save(StockReservation.builder()
+        StockReservation held = stockReservationRepository.save(StockReservation.builder()
                 .product(product)
                 .warehouse(warehouse)
                 .reference(request.reference())
@@ -70,6 +82,10 @@ public class StockReservationService {
                 .status(ReservationStatus.HELD)
                 .expiresAt(request.expiresAt())
                 .build());
+
+        measure(product, warehouse);
+
+        return held;
     }
 
     @Transactional(readOnly = true)
@@ -117,6 +133,9 @@ public class StockReservationService {
      * units count as available again. Releasing a hold that has already lapsed is allowed — it
      * settles the record of a reservation that stopped holding stock when it expired.
      *
+     * <p>The freed stock is measured too. A shelf that has recovered has to be able to fall quiet
+     * again, or the shortage standing against it would swallow the announcement of its next one.
+     *
      * @param id identifier of the reservation
      * @return the released reservation
      * @throws ResourceNotFoundException        if the reservation does not exist
@@ -126,7 +145,11 @@ public class StockReservationService {
         StockReservation reservation = findById(id);
         requireHeld(reservation, "released");
         reservation.setStatus(ReservationStatus.RELEASED);
-        return stockReservationRepository.save(reservation);
+        StockReservation released = stockReservationRepository.save(reservation);
+
+        measure(reservation.getProduct(), reservation.getWarehouse());
+
+        return released;
     }
 
     /**
@@ -158,6 +181,21 @@ public class StockReservationService {
 
         reservation.setStatus(ReservationStatus.FULFILLED);
         return stockReservationRepository.save(reservation);
+    }
+
+    /**
+     * Puts a change in what is free through the same two rules a stock movement goes through: tell
+     * whoever is configured to be told, and raise the draft order the shortfall calls for.
+     *
+     * <p>Inside the transaction that took or gave back the hold, so a hold that fails to be written
+     * announces nothing and orders nothing.
+     *
+     * @param product   the product whose free stock changed
+     * @param warehouse the location the hold names, or {@code null} when it names none
+     */
+    private void measure(Product product, Warehouse warehouse) {
+        stockEventNotificationService.evaluate(product, warehouse);
+        autoReorderService.evaluate(product, warehouse);
     }
 
     /**

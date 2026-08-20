@@ -24,9 +24,13 @@ import com.example.smartinventory.repository.StockLevelRepository;
  * buyer only has to review and place it.
  *
  * <p>Which stock is measured depends on where the movement went through. A warehouse holding its own
- * reorder point for the product is measured against it, on its own quantity, and orders for itself;
+ * reorder point for the product is measured against it, on its own stock, and orders for itself;
  * anything else is measured against the product total, which is the only figure there was before
  * sites could name a reorder point of their own.
+ *
+ * <p>What is measured is free stock — what is on hand, less what reservations are holding. Buying
+ * against the shelf rather than against what is left to sell starts the lead time after the last
+ * unsold unit is gone, which is the one moment a reorder point exists to avoid.
  *
  * <p>The rule is opt-in through {@code auto-reorder.enabled} and deliberately conservative. It
  * raises nothing for a product with no supplier, and nothing for a product that already sits on an
@@ -51,6 +55,7 @@ public class AutoReorderService {
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final StockLevelRepository stockLevelRepository;
+    private final AvailableStockService availableStockService;
     private final boolean enabled;
 
     /**
@@ -59,13 +64,16 @@ public class AutoReorderService {
      * @param purchaseOrderRepository store the raised orders are written to and checked against
      * @param stockLevelRepository    store the reorder point a warehouse holds for a product is read
      *                                from
+     * @param availableStockService   works out how much of the stock on hand is not already promised
      * @param enabled                 whether stock movements may raise orders at all
      */
     public AutoReorderService(PurchaseOrderRepository purchaseOrderRepository,
             StockLevelRepository stockLevelRepository,
+            AvailableStockService availableStockService,
             @Value("${auto-reorder.enabled:false}") boolean enabled) {
         this.purchaseOrderRepository = purchaseOrderRepository;
         this.stockLevelRepository = stockLevelRepository;
+        this.availableStockService = availableStockService;
         this.enabled = enabled;
     }
 
@@ -160,9 +168,13 @@ public class AutoReorderService {
      * @return the raised order, or {@code null} when the rule declined to raise one
      */
     private PurchaseOrder evaluateProduct(Product product) {
-        Integer quantity = product.getQuantity();
         Integer threshold = product.getReorderThreshold();
-        if (quantity == null || threshold == null || quantity > threshold) {
+        if (product.getQuantity() == null || threshold == null) {
+            return null;
+        }
+
+        int quantity = availableStockService.measure(product).available();
+        if (quantity > threshold) {
             return null;
         }
 
@@ -178,7 +190,7 @@ public class AutoReorderService {
 
         return raise(product, supplier, supplier.getDefaultWarehouse(),
                 replenishmentQuantity(product, quantity, threshold),
-                "Automatic reorder: stock " + quantity + " at or below reorder threshold " + threshold);
+                "Automatic reorder: " + quantity + " units free at or below reorder threshold " + threshold);
     }
 
     /**
@@ -191,7 +203,7 @@ public class AutoReorderService {
      * @return the raised order, or {@code null} when the rule declined to raise one
      */
     private PurchaseOrder evaluateSite(Product product, Warehouse warehouse, StockLevel level) {
-        int quantity = level.getQuantity() == null ? 0 : level.getQuantity();
+        int quantity = availableStockService.measure(product, level).available();
         int threshold = level.getReorderThreshold();
         if (quantity > threshold) {
             return null;
@@ -210,7 +222,7 @@ public class AutoReorderService {
         }
 
         return raise(product, supplier, warehouse, replenishmentQuantity(product, quantity, threshold),
-                "Automatic reorder: stock " + quantity + " in " + warehouse.getCode()
+                "Automatic reorder: " + quantity + " units free in " + warehouse.getCode()
                         + " at or below its reorder threshold " + threshold);
     }
 
