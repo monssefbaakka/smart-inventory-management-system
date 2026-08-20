@@ -12,13 +12,15 @@ public class LoggingStockEventNotifier implements StockEventNotifier {
 
     @Override
     public void send(StockEventNotification notification) {
-        LOGGER.warn("Stock event {} for product {} (sku={}){}: quantity {} at or below threshold {}",
+        LOGGER.warn("Stock event {} for product {} (sku={}){}: {} free at or below threshold {}, "
+                        + "with {} of the stock on hand reserved",
                 notification.eventType(),
                 notification.productId(),
                 notification.sku(),
                 location(notification),
                 notification.quantity(),
-                notification.reorderThreshold());
+                notification.reorderThreshold(),
+                notification.reserved());
     }
 
     /**

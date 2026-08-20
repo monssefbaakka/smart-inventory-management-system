@@ -52,6 +52,12 @@ class StockReservationServiceTest {
     @Mock
     private StockMovementService stockMovementService;
 
+    @Mock
+    private StockEventNotificationService stockEventNotificationService;
+
+    @Mock
+    private AutoReorderService autoReorderService;
+
     @InjectMocks
     private StockReservationService stockReservationService;
 
@@ -308,6 +314,73 @@ class StockReservationServiceTest {
                 .status(ReservationStatus.HELD)
                 .expiresAt(expiresAt)
                 .build();
+    }
+
+    @Test
+    void takingAHoldMeasuresWhatItLeftFree() {
+        when(productService.findById(1L)).thenReturn(PRODUCT);
+        when(stockReservationRepository.sumHeldForProduct(eq(1L), any(Instant.class))).thenReturn(0L);
+        when(stockReservationRepository.save(any(StockReservation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockReservationService.reserve(1L, new StockReservationRequest("SO-1042", 12, null, null));
+
+        verify(stockEventNotificationService).evaluate(PRODUCT, null);
+        verify(autoReorderService).evaluate(PRODUCT, null);
+    }
+
+    @Test
+    void takingAHoldAtASiteMeasuresThatSite() {
+        when(productService.findById(1L)).thenReturn(PRODUCT);
+        when(warehouseService.findById(7L)).thenReturn(WAREHOUSE);
+        when(stockLevelService.quantityOnHand(1L, 7L)).thenReturn(40);
+        when(stockReservationRepository.sumHeldForProductInWarehouse(eq(1L), eq(7L), any(Instant.class)))
+                .thenReturn(0L);
+        when(stockReservationRepository.save(any(StockReservation.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        stockReservationService.reserve(1L, new StockReservationRequest("SO-1042", 12, 7L, null));
+
+        verify(stockEventNotificationService).evaluate(PRODUCT, WAREHOUSE);
+        verify(autoReorderService).evaluate(PRODUCT, WAREHOUSE);
+    }
+
+    @Test
+    void givingAHoldBackMeasuresTheStockItFreed() {
+        StockReservation reservation = StockReservation.builder()
+                .id(5L)
+                .product(PRODUCT)
+                .warehouse(WAREHOUSE)
+                .reference("SO-1042")
+                .quantity(12)
+                .status(ReservationStatus.HELD)
+                .build();
+        when(stockReservationRepository.findById(5L)).thenReturn(Optional.of(reservation));
+        when(stockReservationRepository.save(reservation)).thenReturn(reservation);
+
+        stockReservationService.release(5L);
+
+        verify(stockEventNotificationService).evaluate(PRODUCT, WAREHOUSE);
+        verify(autoReorderService).evaluate(PRODUCT, WAREHOUSE);
+    }
+
+    @Test
+    void fulfillingAHoldMeasuresOnlyThroughTheMovementItRecords() {
+        StockReservation reservation = StockReservation.builder()
+                .id(6L)
+                .product(PRODUCT)
+                .warehouse(WAREHOUSE)
+                .reference("SO-1042")
+                .quantity(12)
+                .status(ReservationStatus.HELD)
+                .build();
+        when(stockReservationRepository.findById(6L)).thenReturn(Optional.of(reservation));
+        when(stockReservationRepository.save(reservation)).thenReturn(reservation);
+
+        stockReservationService.fulfil(6L);
+
+        verify(stockMovementService).record(1L, 7L, null, MovementType.OUT, 12,
+                "Fulfilled reservation SO-1042");
+        verify(stockEventNotificationService, never()).evaluate(any(), any());
+        verify(autoReorderService, never()).evaluate(any(), any());
     }
 
 }

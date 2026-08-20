@@ -5,6 +5,7 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
@@ -24,6 +25,7 @@ import com.example.smartinventory.notification.StockEventNotifier;
 import com.example.smartinventory.notification.StockEventType;
 import com.example.smartinventory.repository.ProductRepository;
 import com.example.smartinventory.repository.StockLevelRepository;
+import com.example.smartinventory.repository.StockReservationRepository;
 
 @ExtendWith(MockitoExtension.class)
 class StockEventNotificationServiceTest {
@@ -40,8 +42,30 @@ class StockEventNotificationServiceTest {
     @Mock
     private StockLevelRepository stockLevelRepository;
 
+    @Mock
+    private StockReservationRepository stockReservationRepository;
+
+    /**
+     * Builds the service over the real measurer and a mocked reservation store, which holds nothing
+     * until a test says otherwise -- so a case that is not about reservations measures the stock on
+     * the shelf.
+     */
     private StockEventNotificationService service(StockEventNotifier... notifiers) {
-        return new StockEventNotificationService(List.of(notifiers), productRepository, stockLevelRepository);
+        return new StockEventNotificationService(List.of(notifiers), productRepository, stockLevelRepository,
+                new AvailableStockService(stockReservationRepository));
+    }
+
+    /** Makes reservations hold {@code quantity} units of the product across every location. */
+    private void heldAcrossTheGroup(Product product, int quantity) {
+        lenient().when(stockReservationRepository.sumHeldForProduct(eq(product.getId()), any()))
+                .thenReturn((long) quantity);
+    }
+
+    /** Makes reservations hold {@code quantity} units of the product at one site. */
+    private void heldAtSite(Product product, Warehouse warehouse, int quantity) {
+        lenient().when(stockReservationRepository
+                        .sumHeldForProductInWarehouse(eq(product.getId()), eq(warehouse.getId()), any()))
+                .thenReturn((long) quantity);
     }
 
     private Warehouse warehouse() {
@@ -409,6 +433,89 @@ class StockEventNotificationServiceTest {
 
         verify(notifierA, times(1)).send(any());
         assertThat(level.getAnnouncedStockEvent()).isEqualTo(StockEventType.LOW_STOCK);
+    }
+
+    @Test
+    void measuresWhatIsFreeRatherThanWhatIsOnTheShelf() {
+        Product product = Product.builder().id(40L).sku("SKU-40").name("Widget")
+                .quantity(40).reorderThreshold(10).build();
+        heldAcrossTheGroup(product, 38);
+
+        service(notifierA).evaluate(product);
+
+        StockEventNotification sent = captureFrom(notifierA);
+        assertThat(sent.eventType()).isEqualTo(StockEventType.LOW_STOCK);
+        assertThat(sent.quantity()).isEqualTo(2);
+        assertThat(sent.reserved()).isEqualTo(38);
+    }
+
+    @Test
+    void aShelfPromisedAwayEntirelyIsOutOfStock() {
+        Product product = Product.builder().id(41L).sku("SKU-41").name("Widget")
+                .quantity(5).reorderThreshold(10).build();
+        heldAcrossTheGroup(product, 5);
+
+        service(notifierA).evaluate(product);
+
+        assertThat(captureFrom(notifierA).eventType()).isEqualTo(StockEventType.OUT_OF_STOCK);
+    }
+
+    @Test
+    void anOverPromisedShelfIsOutOfStockRatherThanNegativelyStocked() {
+        Product product = Product.builder().id(42L).sku("SKU-42").name("Widget")
+                .quantity(2).reorderThreshold(10).build();
+        heldAcrossTheGroup(product, 5);
+
+        service(notifierA).evaluate(product);
+
+        StockEventNotification sent = captureFrom(notifierA);
+        assertThat(sent.eventType()).isEqualTo(StockEventType.OUT_OF_STOCK);
+        assertThat(sent.quantity()).isZero();
+    }
+
+    @Test
+    void staysQuietWhenTheHoldsLeaveEnoughFree() {
+        Product product = Product.builder().id(43L).quantity(40).reorderThreshold(10).build();
+        heldAcrossTheGroup(product, 5);
+
+        service(notifierA).evaluate(product);
+
+        verify(notifierA, never()).send(any());
+    }
+
+    @Test
+    void aSiteIsMeasuredOnTheHoldsPlacedAgainstThatSite() {
+        Product product = Product.builder().id(44L).sku("SKU-44").name("Widget")
+                .quantity(400).reorderThreshold(10).build();
+        Warehouse warehouse = warehouse();
+        siteHolds(product, warehouse, 10, 5);
+        heldAtSite(product, warehouse, 8);
+        heldAcrossTheGroup(product, 300);
+
+        service(notifierA).evaluate(product, warehouse);
+
+        StockEventNotification sent = captureFrom(notifierA);
+        assertThat(sent.warehouseCode()).isEqualTo("WH-NORTH");
+        assertThat(sent.quantity()).isEqualTo(2);
+        assertThat(sent.reserved()).isEqualTo(8);
+    }
+
+    @Test
+    void freeingHeldStockClearsWhatStandsSoTheNextShortageIsAnnounced() {
+        Product product = Product.builder().id(45L).sku("SKU-45").name("Widget")
+                .quantity(40).reorderThreshold(10).build();
+        lenient().when(stockReservationRepository.sumHeldForProduct(eq(45L), any()))
+                .thenReturn(38L, 0L, 38L);
+        StockEventNotificationService service = service(notifierA);
+
+        service.evaluate(product);
+        service.evaluate(product);
+
+        assertThat(product.getAnnouncedStockEvent()).isNull();
+
+        service.evaluate(product);
+
+        verify(notifierA, times(2)).send(any());
     }
 
 }

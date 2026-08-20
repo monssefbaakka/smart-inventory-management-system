@@ -12,7 +12,7 @@ class LoggingStockEventNotifierTest {
     @Test
     void sendLogsWithoutThrowing() {
         StockEventNotification notification = new StockEventNotification(
-                1L, "SKU-1", "Widget", null, null, 3, 10, StockEventType.LOW_STOCK, Instant.now());
+                1L, "SKU-1", "Widget", null, null, 3, 12, 10, StockEventType.LOW_STOCK, Instant.now());
 
         assertThatCode(() -> notifier.send(notification)).doesNotThrowAnyException();
     }
@@ -20,7 +20,7 @@ class LoggingStockEventNotifierTest {
     @Test
     void sendLogsSiteEventWithoutThrowing() {
         StockEventNotification notification = new StockEventNotification(
-                1L, "SKU-1", "Widget", 2L, "WH-NORTH", 3, 10, StockEventType.LOW_STOCK, Instant.now());
+                1L, "SKU-1", "Widget", 2L, "WH-NORTH", 3, 12, 10, StockEventType.LOW_STOCK, Instant.now());
 
         assertThatCode(() -> notifier.send(notification)).doesNotThrowAnyException();
     }
