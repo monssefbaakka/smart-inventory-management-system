@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **A shortage is announced once, not on every movement that keeps it going** — the notification
+  channels now dispatch on a change of condition rather than on every measurement. Each measured
+  shelf remembers what it last announced (the product total on the product, a warehouse measured
+  against its own reorder point on its stock level), so a repeat is silent, a shortage that deepens
+  to `OUT_OF_STOCK` is announced again, a partial restock that leaves the shelf low lowers what
+  stands without announcing, and recovery above the threshold clears it so the next fall is announced
+  afresh. Recipients that relied on an alert per movement now receive one per state change (#165).
+
 ### Fixed
 
 - **REST responses no longer fail on lazy associations** — products, categories, suppliers, stock

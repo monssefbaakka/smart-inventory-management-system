@@ -257,6 +257,34 @@ warehouse holding no reorder point of its own, or through none at all, is classi
 total exactly as before, and `warehouseId` and `warehouseCode` come back `null`. The log line and the
 email name the site when there is one, and the webhook payload gains the two fields.
 
+#### Said once, not on every movement
+
+What is announced is the change, not the measurement. Each measured shelf remembers the condition it
+last announced — the product total on the product, a warehouse measured against its own reorder point
+on that stock level — and a movement that finds the same condition again dispatches nothing. A
+product that has been one unit short since Tuesday is one alert, not one alert per sale.
+
+| What the movement finds | What the channels get |
+| :--- | :--- |
+| A condition worse than the one standing, including the first | Announced, and it becomes what stands |
+| The same condition as the one standing | Nothing; it has already been said |
+| Still low, but no longer empty | Nothing, and `LOW_STOCK` becomes what stands |
+| Back above the threshold | Nothing; what stands is cleared and the next fall is announced afresh |
+
+So a shelf that empties after being low is announced again — `OUT_OF_STOCK` is worse than the
+`LOW_STOCK` that stands — and a shelf partly restocked and then emptied again is announced again too,
+because the partial restock lowered what stands. Recovery itself is silent: there is no channel here
+for good news.
+
+Each shelf remembers on its own. One site falling quiet says nothing about another site or about the
+product total, and a shortage standing on the total does not silence a site that has just reached its
+own reorder point.
+
+What stands is written in the transaction that moved the stock, so a rolled-back movement remembers
+nothing and a restart does not re-announce a shortage that already stands. A channel that throws is
+still logged and skipped, and the shelf still counts as announced — a dead endpoint is a channel
+problem, not a reason to say it all again to the channels that are up.
+
 ### Warehouses & Stock Levels
 
 Warehouses are stocking locations, each with a unique `code`. A stock movement may name a warehouse
