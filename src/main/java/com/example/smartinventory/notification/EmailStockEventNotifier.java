@@ -73,7 +73,8 @@ public class EmailStockEventNotifier implements StockEventNotifier {
                 + "Product: " + notification.name() + " (id=" + notification.productId()
                 + ", sku=" + notification.sku() + ")" + System.lineSeparator()
                 + location
-                + "Current quantity: " + notification.quantity() + System.lineSeparator()
+                + "Free to sell: " + notification.quantity() + System.lineSeparator()
+                + "Reserved: " + notification.reserved() + System.lineSeparator()
                 + "Reorder threshold: " + notification.reorderThreshold() + System.lineSeparator()
                 + "Detected at: " + notification.occurredAt();
     }

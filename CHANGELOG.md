@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Low stock is measured on what is free, not on what is on the shelf** — the automatic reorder and
+  the notification channels now measure stock on hand less what unlapsed reservations are holding,
+  floored at zero, counted in the scope being measured. A product holding forty with thirty-eight
+  promised is measured as two. Taking a hold and giving one back are measured on the same terms a
+  movement is, so a shelf promised away notifies and reorders when the promise is made rather than
+  when the goods are collected; fulfilment still measures once, through the `OUT` movement it
+  records. The notification payload gains `reserved`, and `quantity` is now the free figure — on hand
+  is the two added together (#167).
+
 - **A shortage is announced once, not on every movement that keeps it going** — the notification
   channels now dispatch on a change of condition rather than on every measurement. Each measured
   shelf remembers what it last announced (the product total on the product, a warehouse measured
