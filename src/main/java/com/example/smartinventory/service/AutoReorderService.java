@@ -32,9 +32,16 @@ import com.example.smartinventory.repository.StockLevelRepository;
  * against the shelf rather than against what is left to sell starts the lead time after the last
  * unsold unit is gone, which is the one moment a reorder point exists to avoid.
  *
+ * <p>What is on its way counts as cover. Stock bought and not yet delivered is added to the free
+ * figure before it is compared with the reorder point, and the order is sized on the difference, so
+ * an order for five against a shortfall of two hundred no longer silences the rule the way an order
+ * for two hundred does. A shortfall that takes several movements to develop still results in one
+ * order: the first order raised is outstanding, so the movement after it measures that cover and
+ * declines.
+ *
  * <p>The rule is opt-in through {@code auto-reorder.enabled} and deliberately conservative. It
- * raises nothing for a product with no supplier, and nothing for a product that already sits on an
- * open order, so a shortfall that takes several movements to develop still results in one order.
+ * raises nothing for a product with no supplier, and nothing for stock whose shortfall is already
+ * covered by what is on order.
  */
 @Service
 @Transactional
@@ -43,9 +50,9 @@ public class AutoReorderService {
     private static final Logger LOGGER = LoggerFactory.getLogger(AutoReorderService.class);
 
     /**
-     * Orders that have not yet been received in full, and therefore already cover the shortfall. A
-     * part-delivered order counts: the rest of it is still on its way, so a short delivery that
-     * leaves the product below its threshold must not raise a second order for the same goods.
+     * Orders that have not yet been received in full, and therefore still have goods to deliver. A
+     * part-delivered order counts for what is left on it: the received part is already on the shelf
+     * and counted there, and only the remainder is still on its way.
      */
     private static final List<PurchaseOrderStatus> OPEN_STATUSES = List.of(
             PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED, PurchaseOrderStatus.PARTIALLY_RECEIVED);
@@ -78,8 +85,8 @@ public class AutoReorderService {
     }
 
     /**
-     * Raises a draft purchase order for the product when its overall stock has reached the reorder
-     * threshold and nothing is on order for it yet.
+     * Raises a draft purchase order for the product when its overall free stock, plus whatever is
+     * already on its way, has reached the reorder threshold.
      *
      * @param product the product whose stock level was just changed
      * @return the raised order, or {@code null} when the rule declined to raise one
@@ -90,7 +97,7 @@ public class AutoReorderService {
 
     /**
      * Raises a draft purchase order for the product when the stock the movement touched has reached
-     * its reorder threshold and nothing is on order to cover it.
+     * its reorder threshold with too little on order to cover it.
      *
      * <p>Called from within the stock movement transaction, so a failure to raise the order rolls
      * the movement back with it rather than leaving an order for stock that never moved.
@@ -162,7 +169,8 @@ public class AutoReorderService {
     }
 
     /**
-     * Measures the product total against the threshold held on the product.
+     * Measures the product total against the threshold held on the product: what is free anywhere,
+     * plus what is outstanding on every open order for it, wherever that order is headed.
      *
      * @param product the product that moved
      * @return the raised order, or {@code null} when the rule declined to raise one
@@ -173,8 +181,8 @@ public class AutoReorderService {
             return null;
         }
 
-        int quantity = availableStockService.measure(product).available();
-        if (quantity > threshold) {
+        int free = availableStockService.measure(product).available();
+        if (free > threshold) {
             return null;
         }
 
@@ -183,19 +191,25 @@ public class AutoReorderService {
             return null;
         }
 
-        if (purchaseOrderRepository.existsByStatusInAndItemsProductId(OPEN_STATUSES, product.getId())) {
-            LOGGER.debug("Product {} is already on an open purchase order; not reordering", product.getId());
+        int incoming = (int) purchaseOrderRepository.sumOutstandingForProduct(OPEN_STATUSES, product.getId());
+        int covered = free + incoming;
+        if (covered > threshold) {
+            LOGGER.debug("Product {} has {} units free and {} on order, above reorder threshold {}; not reordering",
+                    product.getId(), free, incoming, threshold);
             return null;
         }
 
         return raise(product, supplier, supplier.getDefaultWarehouse(),
-                replenishmentQuantity(product, quantity, threshold),
-                "Automatic reorder: " + quantity + " units free at or below reorder threshold " + threshold);
+                replenishmentQuantity(product, covered, threshold),
+                "Automatic reorder: " + free + " units free" + onOrder(incoming)
+                        + " at or below reorder threshold " + threshold);
     }
 
     /**
      * Measures one warehouse's stock against the reorder point that warehouse holds for the product,
-     * and orders for that warehouse.
+     * and orders for that warehouse. What is free at that site counts, and so does what is on its way
+     * to it; an open order heading elsewhere fills another site's shelves and is not cover for this
+     * one.
      *
      * @param product   the product that moved
      * @param warehouse the location it moved through
@@ -203,9 +217,9 @@ public class AutoReorderService {
      * @return the raised order, or {@code null} when the rule declined to raise one
      */
     private PurchaseOrder evaluateSite(Product product, Warehouse warehouse, StockLevel level) {
-        int quantity = availableStockService.measure(product, level).available();
+        int free = availableStockService.measure(product, level).available();
         int threshold = level.getReorderThreshold();
-        if (quantity > threshold) {
+        if (free > threshold) {
             return null;
         }
 
@@ -214,16 +228,30 @@ public class AutoReorderService {
             return null;
         }
 
-        if (purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(
-                OPEN_STATUSES, warehouse.getId(), product.getId())) {
-            LOGGER.debug("Product {} is already on an open purchase order for warehouse {}; not reordering",
-                    product.getId(), warehouse.getCode());
+        int incoming = (int) purchaseOrderRepository.sumOutstandingForProductInWarehouse(
+                OPEN_STATUSES, warehouse.getId(), product.getId());
+        int covered = free + incoming;
+        if (covered > threshold) {
+            LOGGER.debug("Product {} has {} units free in warehouse {} and {} on order for it, above its reorder "
+                    + "threshold {}; not reordering", product.getId(), free, warehouse.getCode(), incoming, threshold);
             return null;
         }
 
-        return raise(product, supplier, warehouse, replenishmentQuantity(product, quantity, threshold),
-                "Automatic reorder: " + quantity + " units free in " + warehouse.getCode()
+        return raise(product, supplier, warehouse, replenishmentQuantity(product, covered, threshold),
+                "Automatic reorder: " + free + " units free in " + warehouse.getCode() + onOrder(incoming)
                         + " at or below its reorder threshold " + threshold);
+    }
+
+    /**
+     * Names what is already bought and still to arrive, for the note the order carries. A buyer
+     * reading "two units free and five on order" can see why thirteen were ordered rather than
+     * eighteen; a shortfall with nothing on its way says nothing about orders at all.
+     *
+     * @param incoming units outstanding on the open orders covering the measured stock
+     * @return the on-order clause, or an empty string when nothing is coming
+     */
+    private String onOrder(int incoming) {
+        return incoming == 0 ? "" : " and " + incoming + " on order";
     }
 
     /**
@@ -273,21 +301,25 @@ public class AutoReorderService {
 
     /**
      * Determines how much to order: the quantity configured on the product, or else enough to bring
-     * the stock that was measured back to twice the threshold it was measured against. A threshold of
-     * zero, or stock that somehow already exceeds that target, still orders a single unit rather than
-     * an empty line.
+     * the stock that was measured back to twice the threshold it was measured against, counting what
+     * is already on its way as arrived. A threshold of zero, or cover that somehow already exceeds
+     * that target, still orders a single unit rather than an empty line.
+     *
+     * <p>A configured {@code reorderQuantity} is ordered in full whatever is coming: it is a batch
+     * size the buyer has chosen rather than a shortfall to be closed, and the rule has already
+     * declined for anything the incoming stock covers.
      *
      * @param product   the product being replenished
-     * @param onHand    units the measured stock currently holds
+     * @param covered   units the measured stock holds free, plus the units on their way to it
      * @param threshold the reorder point it fell to
      * @return the number of units to put on the order, always at least one
      */
-    private int replenishmentQuantity(Product product, int onHand, int threshold) {
+    private int replenishmentQuantity(Product product, int covered, int threshold) {
         Integer configured = product.getReorderQuantity();
         if (configured != null) {
             return configured;
         }
-        return Math.max(threshold * DEFAULT_TARGET_MULTIPLIER - onHand, 1);
+        return Math.max(threshold * DEFAULT_TARGET_MULTIPLIER - covered, 1);
     }
 
 }
