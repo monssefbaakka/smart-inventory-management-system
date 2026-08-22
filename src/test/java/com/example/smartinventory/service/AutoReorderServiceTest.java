@@ -68,13 +68,23 @@ class AutoReorderServiceTest {
                 .build();
     }
 
+    /** Puts {@code outstanding} units of the product on open orders, wherever they are headed. */
+    private void expectOnOrder(int outstanding) {
+        when(purchaseOrderRepository.sumOutstandingForProduct(OPEN_STATUSES, 1L)).thenReturn((long) outstanding);
+    }
+
+    /** Puts {@code outstanding} units of the product on open orders headed for one warehouse. */
+    private void expectOnOrderFor(Warehouse warehouse, int outstanding) {
+        when(purchaseOrderRepository.sumOutstandingForProductInWarehouse(OPEN_STATUSES, warehouse.getId(), 1L))
+                .thenReturn((long) outstanding);
+    }
+
     private void expectNothingOnOrder() {
-        when(purchaseOrderRepository.existsByStatusInAndItemsProductId(OPEN_STATUSES, 1L)).thenReturn(false);
+        expectOnOrder(0);
     }
 
     private void expectNothingOnOrderFor(Warehouse warehouse) {
-        when(purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(
-                OPEN_STATUSES, warehouse.getId(), 1L)).thenReturn(false);
+        expectOnOrderFor(warehouse, 0);
     }
 
     private void expectSavedOrder() {
@@ -196,13 +206,36 @@ class AutoReorderServiceTest {
     }
 
     @Test
-    void raisesNothingWhenTheProductIsAlreadyOnAnOpenOrder() {
+    void raisesNothingWhenWhatIsOnOrderCoversTheShortfall() {
         Product product = lowStockProduct();
-        when(purchaseOrderRepository.existsByStatusInAndItemsProductId(OPEN_STATUSES, 1L)).thenReturn(true);
+        expectOnOrder(8);
 
         assertThat(enabledService().evaluate(product)).isNull();
 
         verify(purchaseOrderRepository, never()).save(any(PurchaseOrder.class));
+    }
+
+    @Test
+    void ordersTheDifferenceWhenWhatIsOnOrderDoesNotCoverTheShortfall() {
+        Product product = lowStockProduct();
+        expectOnOrder(5);
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order).isNotNull();
+        assertThat(order.getNote()).contains("3 units free", "5 on order", "reorder threshold 10");
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(12);
+    }
+
+    @Test
+    void ordersTheConfiguredQuantityInFullWhateverIsOnItsWay() {
+        Product product = lowStockProduct();
+        product.setReorderQuantity(50);
+        expectOnOrder(5);
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product).getItems().get(0).getQuantity()).isEqualTo(50);
     }
 
     @Test
@@ -234,7 +267,7 @@ class AutoReorderServiceTest {
 
         enabledService().evaluate(product);
 
-        verify(purchaseOrderRepository).existsByStatusInAndItemsProductId(
+        verify(purchaseOrderRepository).sumOutstandingForProduct(
                 eq(List.of(PurchaseOrderStatus.DRAFT, PurchaseOrderStatus.PLACED,
                         PurchaseOrderStatus.PARTIALLY_RECEIVED)), anyLong());
     }
@@ -288,15 +321,41 @@ class AutoReorderServiceTest {
     }
 
     @Test
-    void raisesNothingWhenThatSiteIsAlreadyExpectingADelivery() {
+    void raisesNothingWhenWhatIsOnItsWayToThatSiteCoversIt() {
         Product product = lowStockProduct();
         expectLevel(product, NORTH, 2, 6);
-        when(purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(OPEN_STATUSES, 3L, 1L))
-                .thenReturn(true);
+        expectOnOrderFor(NORTH, 5);
 
         assertThat(enabledService().evaluate(product, NORTH)).isNull();
 
         verify(purchaseOrderRepository, never()).save(any(PurchaseOrder.class));
+    }
+
+    @Test
+    void ordersTheDifferenceForASiteWhatIsOnItsWayDoesNotCover() {
+        Product product = lowStockProduct();
+        product.setQuantity(40);
+        expectLevel(product, NORTH, 2, 6);
+        expectOnOrderFor(NORTH, 1);
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product, NORTH);
+
+        assertThat(order.getNote()).contains("2 units free in WH-NORTH", "1 on order");
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(9);
+    }
+
+    @Test
+    void countsOnlyWhatIsHeadedForTheSiteAsCoverForIt() {
+        Product product = lowStockProduct();
+        product.setQuantity(40);
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product, NORTH)).isNotNull();
+
+        verify(purchaseOrderRepository, never()).sumOutstandingForProduct(any(), any());
     }
 
     @Test
@@ -349,11 +408,10 @@ class AutoReorderServiceTest {
     }
 
     @Test
-    void raisesNothingForRelocatedStockWhenThatSiteIsAlreadyExpectingADelivery() {
+    void raisesNothingForRelocatedStockWhenWhatIsOnItsWayToThatSiteCoversIt() {
         Product product = lowStockProduct();
         expectLevel(product, NORTH, 2, 6);
-        when(purchaseOrderRepository.existsByStatusInAndWarehouseIdAndItemsProductId(OPEN_STATUSES, 3L, 1L))
-                .thenReturn(true);
+        expectOnOrderFor(NORTH, 5);
 
         assertThat(enabledService().evaluateRelocation(product, NORTH)).isNull();
 
