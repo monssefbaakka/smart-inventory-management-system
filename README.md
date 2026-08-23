@@ -196,13 +196,32 @@ The order is delivered to the supplier's `defaultWarehouse`. Nobody is present t
 when a stock movement raises an order, so without one on the supplier the replenishment arrives
 against the product total only — invisible to the location that ran short in the first place.
 
-The rule deliberately raises at most one order per shortfall:
+Stock already bought counts as cover. What is outstanding on the product's open (`DRAFT`, `PLACED` or
+`PARTIALLY_RECEIVED`) orders — the quantity ordered less the quantity already received on each line —
+is added to the free figure before it is compared with the reorder point, and the order is raised for
+the difference:
 
-- A product already sitting on an open (`DRAFT`, `PLACED` or `PARTIALLY_RECEIVED`) purchase order is
-  skipped, so a shortfall that develops over several movements still produces a single order, and a
-  short delivery does not raise a second order for goods still on their way. Receiving that order in
-  full ends the skip.
-- A product with no supplier is skipped and logged — there is nobody to order from.
+| Free | On order | Reorder point | What the rule does |
+| ---: | ---: | ---: | :--- |
+| 2 | 0 | 10 | Orders 18, topping up to twice the reorder point |
+| 2 | 5 | 10 | Orders 13 — the five coming count as arrived |
+| 2 | 9 | 10 | Nothing; 11 is above the reorder point already |
+
+So one shortfall still produces one order: the order the first movement raised is outstanding, so the
+movement after it measures that cover and stands down. What no longer happens is a shortfall of two
+hundred being silenced by an order for five until somebody receives it. A part-delivered line counts
+only what is left on it — the received part is on the shelf and counted there — and a cancelled or
+fully received order counts nothing.
+
+A product naming a `reorderQuantity` orders that quantity in full whatever is on its way: it is a
+batch size the buyer has chosen rather than a shortfall to be closed, and the rule has already
+declined for anything the incoming stock covers. A product with no supplier is skipped and logged —
+there is nobody to order from.
+
+Delivery dates play no part. Two hundred units arriving in March do not help a shelf that empties in
+January, but an order carries no expected date, so what is on its way counts as cover whenever it was
+raised. The alert channels are untouched by any of this: an empty shelf is announced as empty whether
+or not goods are on their way to it.
 
 #### Reordering for one warehouse
 
@@ -226,9 +245,9 @@ is set up to reorder before its first delivery rather than after its first short
 
 An order a site raises for itself is delivered to that site, whatever the supplier's default says,
 and is sized for it — the product's `reorderQuantity` when it sets one, and otherwise enough to bring
-that site back to twice its own threshold. The one-order-per-shortfall rule is read per site: an open
-order already heading for that warehouse raises nothing, while one heading elsewhere, or to nowhere
-in particular, does not stop a short site from ordering for itself.
+that site back to twice its own threshold. What is on order is counted per site too: only the units
+outstanding on orders being delivered to that warehouse cover it, and an order heading elsewhere, or
+to nowhere in particular, fills another site's shelves rather than this one's.
 
 A warehouse that names no threshold is not measured on its own, and neither is a movement recorded
 without one — both are judged against the product total, exactly as before.
