@@ -8,6 +8,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.PurchaseOrderStatus;
@@ -52,18 +54,26 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     Page<PurchaseOrder> findBySupplierId(Long supplierId, Pageable pageable);
 
     /**
-     * Reports whether a product is already on order, so replenishment is not raised twice for
-     * the same shortfall.
+     * Sums how much of a product is bought but not yet delivered, so replenishment is measured
+     * against the cover that is genuinely on its way rather than against the bare fact of an order.
      *
-     * @param statuses the order statuses that count as still open
+     * <p>Each line counts what was ordered less what has already arrived: the received part is on the
+     * shelf and already counted there, and only the remainder is still coming. An order in a status
+     * outside {@code statuses} — cancelled, or received in full — has nothing left to deliver and
+     * counts nothing.
+     *
+     * @param statuses  the order statuses that count as still open
      * @param productId identifier of the product to look for among the line items
-     * @return {@code true} if some order in one of those statuses carries the product
+     * @return the units still to arrive, or zero when none are
      */
-    boolean existsByStatusInAndItemsProductId(Collection<PurchaseOrderStatus> statuses, Long productId);
+    @Query("select coalesce(sum(i.quantity - i.receivedQuantity), 0L) from PurchaseOrder o join o.items i "
+            + "where o.status in :statuses and i.product.id = :productId")
+    long sumOutstandingForProduct(@Param("statuses") Collection<PurchaseOrderStatus> statuses,
+            @Param("productId") Long productId);
 
     /**
-     * Reports whether a product is already on order for one warehouse, so a site that measures its
-     * own stock is not replenished twice for the same shortfall.
+     * Sums how much of a product is bought but not yet delivered to one warehouse, for a site that
+     * measures its own stock against a reorder point of its own.
      *
      * <p>An open order heading somewhere else does not count: goods delivered to another site do not
      * fill this one's shelves, and a site short at the same time as its neighbour is short in its own
@@ -72,10 +82,11 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      * @param statuses    the order statuses that count as still open
      * @param warehouseId identifier of the warehouse the order must be delivered to
      * @param productId   identifier of the product to look for among the line items
-     * @return {@code true} if some order in one of those statuses carries the product to that
-     *         warehouse
+     * @return the units still to arrive at that warehouse, or zero when none are
      */
-    boolean existsByStatusInAndWarehouseIdAndItemsProductId(Collection<PurchaseOrderStatus> statuses,
-            Long warehouseId, Long productId);
+    @Query("select coalesce(sum(i.quantity - i.receivedQuantity), 0L) from PurchaseOrder o join o.items i "
+            + "where o.status in :statuses and o.warehouse.id = :warehouseId and i.product.id = :productId")
+    long sumOutstandingForProductInWarehouse(@Param("statuses") Collection<PurchaseOrderStatus> statuses,
+            @Param("warehouseId") Long warehouseId, @Param("productId") Long productId);
 
 }
