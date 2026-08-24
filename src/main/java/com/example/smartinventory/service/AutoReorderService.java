@@ -39,6 +39,12 @@ import com.example.smartinventory.repository.StockLevelRepository;
  * order: the first order raised is outstanding, so the movement after it measures that cover and
  * declines.
  *
+ * <p>What is ordered is a quantity the supplier can ship. A product naming a {@code packSize} has
+ * the quantity the sizing arrived at rounded up to a whole number of packs, because an order for
+ * seventeen of something sold in trays of twelve is a document a buyer has to correct before it can
+ * be placed. Rounding decides how much, never whether: the comparison with the reorder point is made
+ * before it and is not affected by it.
+ *
  * <p>The rule is opt-in through {@code auto-reorder.enabled} and deliberately conservative. It
  * raises nothing for a product with no supplier, and nothing for stock whose shortfall is already
  * covered by what is on order.
@@ -199,10 +205,12 @@ public class AutoReorderService {
             return null;
         }
 
-        return raise(product, supplier, supplier.getDefaultWarehouse(),
-                replenishmentQuantity(product, covered, threshold),
+        int wanted = replenishmentQuantity(product, covered, threshold);
+        int quantity = inWholePacks(product, wanted);
+        return raise(product, supplier, supplier.getDefaultWarehouse(), quantity,
                 "Automatic reorder: " + free + " units free" + onOrder(incoming)
-                        + " at or below reorder threshold " + threshold);
+                        + " at or below reorder threshold " + threshold
+                        + roundedUp(product, wanted, quantity));
     }
 
     /**
@@ -237,9 +245,50 @@ public class AutoReorderService {
             return null;
         }
 
-        return raise(product, supplier, warehouse, replenishmentQuantity(product, covered, threshold),
+        int wanted = replenishmentQuantity(product, covered, threshold);
+        int quantity = inWholePacks(product, wanted);
+        return raise(product, supplier, warehouse, quantity,
                 "Automatic reorder: " + free + " units free in " + warehouse.getCode() + onOrder(incoming)
-                        + " at or below its reorder threshold " + threshold);
+                        + " at or below its reorder threshold " + threshold
+                        + roundedUp(product, wanted, quantity));
+    }
+
+    /**
+     * Rounds a quantity up to a whole number of the packs the supplier ships, when the product says
+     * what those are. Up rather than to nearest: rounding down would order less than the shortfall
+     * just measured, and the next movement would raise a second order for the remainder — the
+     * repetition the incoming-stock check exists to prevent.
+     *
+     * @param product  the product being replenished
+     * @param quantity the number of units the sizing arrived at
+     * @return that number rounded up to a whole pack, or unchanged when the product names no pack
+     */
+    private int inWholePacks(Product product, int quantity) {
+        Integer packSize = product.getPackSize();
+        if (packSize == null || packSize < 1) {
+            return quantity;
+        }
+        return ((quantity + packSize - 1) / packSize) * packSize;
+    }
+
+    /**
+     * Explains the rounding in the note the order carries, so a buyer reading a line for twenty-four
+     * against a shortfall of seventeen can see where the extra seven came from. A quantity that was
+     * already a whole number of packs, and a product that names no pack at all, say nothing.
+     *
+     * @param product  the product being replenished
+     * @param wanted   the number of units the sizing arrived at
+     * @param quantity the number actually being ordered
+     * @return the rounding clause, or an empty string when nothing was rounded
+     */
+    private String roundedUp(Product product, int wanted, int quantity) {
+        if (quantity == wanted) {
+            return "";
+        }
+        int packSize = product.getPackSize();
+        int packs = quantity / packSize;
+        return "; " + wanted + " units rounded up to " + (packs == 1 ? "a pack" : packs + " packs")
+                + " of " + packSize;
     }
 
     /**
@@ -308,6 +357,10 @@ public class AutoReorderService {
      * <p>A configured {@code reorderQuantity} is ordered in full whatever is coming: it is a batch
      * size the buyer has chosen rather than a shortfall to be closed, and the rule has already
      * declined for anything the incoming stock covers.
+     *
+     * <p>Whatever this arrives at is then rounded up to a whole pack by {@link #inWholePacks}, a
+     * configured batch included — a batch of fifty against a pack of twelve was never going to be
+     * shipped as fifty, and forty-eight would leave it short.
      *
      * @param product   the product being replenished
      * @param covered   units the measured stock holds free, plus the units on their way to it
