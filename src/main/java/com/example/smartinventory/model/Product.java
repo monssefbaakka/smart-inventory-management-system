@@ -113,6 +113,15 @@ public class Product {
     private Integer packSize;
 
     /**
+     * The fewest units the supplier will accept on an order, when they impose one. Optional: left
+     * unset the automatic reorder orders whatever the shortfall calls for, and set it lifts a smaller
+     * quantity up to this one before rounding it to a whole {@link #packSize}.
+     */
+    @Positive
+    @Column(name = "minimum_order_quantity")
+    private Integer minimumOrderQuantity;
+
+    /**
      * The low-stock condition last announced to the notification channels for the product total.
      * Null while nothing stands, which is what a comfortable product looks like and also what one
      * looks like before it has ever been announced.

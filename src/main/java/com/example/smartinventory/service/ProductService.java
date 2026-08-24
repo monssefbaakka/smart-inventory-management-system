@@ -127,6 +127,7 @@ public class ProductService {
         }
         existing.setReorderQuantity(updatedProduct.getReorderQuantity());
         existing.setPackSize(updatedProduct.getPackSize());
+        existing.setMinimumOrderQuantity(updatedProduct.getMinimumOrderQuantity());
         existing.setCategory(resolveCategory(updatedProduct.getCategory()));
         existing.setSupplier(resolveSupplier(updatedProduct.getSupplier()));
         Product saved = productRepository.save(existing);

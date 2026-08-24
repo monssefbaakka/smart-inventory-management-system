@@ -47,6 +47,10 @@ public record ProductResponse(
         @Schema(description = "Units the supplier ships together, when the product is sold in packs", example = "12")
         Integer packSize,
 
+        @Schema(description = "Fewest units the supplier will accept on an order, when they impose one",
+                example = "100")
+        Integer minimumOrderQuantity,
+
         @Schema(description = "Identifier of the owning category, when one is set", example = "3")
         Long categoryId,
 
@@ -86,6 +90,7 @@ public record ProductResponse(
                 product.getReorderThreshold(),
                 product.getReorderQuantity(),
                 product.getPackSize(),
+                product.getMinimumOrderQuantity(),
                 category == null ? null : category.getId(),
                 category == null ? null : category.getName(),
                 supplier == null ? null : supplier.getId(),
