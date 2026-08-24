@@ -239,6 +239,82 @@ class AutoReorderServiceTest {
     }
 
     @Test
+    void roundsTheOrderUpToAWholePackWhenTheProductIsSoldInPacks() {
+        Product product = lowStockProduct();
+        product.setPackSize(12);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(24);
+        assertThat(order.getNote()).contains("17 units rounded up to 2 packs of 12");
+    }
+
+    @Test
+    void leavesAQuantityThatIsAlreadyAWholePackAlone() {
+        Product product = lowStockProduct();
+        product.setPackSize(12);
+        product.setReorderQuantity(24);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(24);
+        assertThat(order.getNote()).doesNotContain("rounded up");
+    }
+
+    @Test
+    void roundsAConfiguredBatchUpToAWholePackToo() {
+        Product product = lowStockProduct();
+        product.setPackSize(12);
+        product.setReorderQuantity(50);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product).getItems().get(0).getQuantity()).isEqualTo(60);
+    }
+
+    @Test
+    void ordersAWholePackWhenTheShortfallIsSmallerThanOne() {
+        Product product = lowStockProduct();
+        product.setQuantity(0);
+        product.setReorderThreshold(0);
+        product.setPackSize(12);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product).getItems().get(0).getQuantity()).isEqualTo(12);
+    }
+
+    @Test
+    void roundsUpToAWholePackForASiteOrderingForItself() {
+        Product product = lowStockProduct();
+        product.setQuantity(40);
+        product.setPackSize(12);
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product, NORTH);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(12);
+        assertThat(order.getNote()).contains("10 units rounded up to a pack of 12");
+    }
+
+    @Test
+    void letsThePackSizeDecideHowMuchToOrderButNotWhether() {
+        Product product = lowStockProduct();
+        product.setQuantity(11);
+        product.setPackSize(12);
+
+        assertThat(enabledService().evaluate(product)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+    }
+
+    @Test
     void raisesNothingWhenTheProductHasNoThresholdToBreach() {
         Product product = lowStockProduct();
         product.setReorderThreshold(null);
