@@ -83,9 +83,11 @@ implemented in repo but GitHub issue not yet closed
 | 161 | Reorder for a site a transfer emptied, not only for one a sale emptied | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 163 | Alert the site that ran low, not only a total that hides it | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 165 | Say a shortage once, not on every movement that keeps it going | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 167 | Measure the stock that is free, not the stock that is merely present | ![working](https://img.shields.io/badge/status-working-blue) |
+| 167 | Measure the stock that is free, not the stock that is merely present | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 169 | Count the stock that is on its way, not the fact that something is | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 171 | Order in the packs the supplier ships, not a number they cannot fill | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #167 — Measure the stock that is free, not the stock that is merely present (PR open)
+**Working:** #171 — Order in the packs the supplier ships, not a number they cannot fill (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
