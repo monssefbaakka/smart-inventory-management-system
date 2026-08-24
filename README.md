@@ -20,7 +20,8 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
 - **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
-whether it was emptied by a sale or by a transfer to another site.
+whether it was emptied by a sale or by a transfer to another site. A product sold in packs is ordered
+in whole packs.
 - **Interactive API Docs:** Swagger UI and an OpenAPI 3 specification document every endpoint, with a built-in JWT **Authorize** button for trying protected routes.
 - **API Rate Limiting:** Per-caller request budget over `/api/**` that returns `429 Too Many Requests` once exhausted.
 - **Multi-Warehouse Stock:** Track how much of each product sits in each stocking location, with movements applied to a named warehouse.
@@ -188,6 +189,7 @@ PUT /api/products/1
   "quantity": 3,
   "reorderThreshold": 10,
   "reorderQuantity": 50,
+  "packSize": 12,
   "supplier": { "id": 2 }
 }
 ```
@@ -218,6 +220,28 @@ batch size the buyer has chosen rather than a shortfall to be closed, and the ru
 declined for anything the incoming stock covers. A product with no supplier is skipped and logged —
 there is nobody to order from.
 
+Whatever quantity the rule arrives at is then rounded up to a whole pack, when the product names a
+`packSize`. A supplier selling in trays of twelve cannot fill an order for seventeen, and an
+automatic order exists so a buyer can review and place it rather than correct it first:
+
+| Pack size | Quantity the sizing arrived at | What is ordered |
+| ---: | ---: | ---: |
+| unset | 17 | 17 |
+| 12 | 17 | 24 |
+| 12 | 24 | 24 |
+| 12 | 50 (a configured `reorderQuantity`) | 60 |
+
+Up, never to nearest: rounding down would order less than the shortfall just measured, and the next
+movement would raise a second order for the remainder. A configured `reorderQuantity` is rounded too
+— the supplier was never going to ship fifty, and forty-eight would leave the batch short. The note
+records the rounding, so a line for twenty-four against a shortfall of seventeen explains itself.
+
+Pack size decides how much, never whether. The comparison of free stock plus incoming against the
+reorder point happens before any rounding: a comfortable shelf does not become low because a pack is
+large, and one that has fallen is not spared because a whole pack is more than it needs. Purchase
+orders entered by hand are not rounded — a buyer typing a quantity can see the pack size and has
+reasons the rule does not know about.
+
 Delivery dates play no part. Two hundred units arriving in March do not help a shelf that empties in
 January, but an order carries no expected date, so what is on its way counts as cover whenever it was
 raised. The alert channels are untouched by any of this: an empty shelf is announced as empty whether
@@ -245,7 +269,7 @@ is set up to reorder before its first delivery rather than after its first short
 
 An order a site raises for itself is delivered to that site, whatever the supplier's default says,
 and is sized for it — the product's `reorderQuantity` when it sets one, and otherwise enough to bring
-that site back to twice its own threshold. What is on order is counted per site too: only the units
+that site back to twice its own threshold, rounded up to a whole pack on the same terms. What is on order is counted per site too: only the units
 outstanding on orders being delivered to that warehouse cover it, and an order heading elsewhere, or
 to nowhere in particular, fills another site's shelves rather than this one's.
 

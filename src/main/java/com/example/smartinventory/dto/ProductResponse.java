@@ -44,6 +44,9 @@ public record ProductResponse(
         @Schema(description = "Units to order when the product is replenished, when one is set", example = "50")
         Integer reorderQuantity,
 
+        @Schema(description = "Units the supplier ships together, when the product is sold in packs", example = "12")
+        Integer packSize,
+
         @Schema(description = "Identifier of the owning category, when one is set", example = "3")
         Long categoryId,
 
@@ -82,6 +85,7 @@ public record ProductResponse(
                 product.getAverageCost(),
                 product.getReorderThreshold(),
                 product.getReorderQuantity(),
+                product.getPackSize(),
                 category == null ? null : category.getId(),
                 category == null ? null : category.getName(),
                 supplier == null ? null : supplier.getId(),

@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Products can be ordered in whole packs** — a product may name a `packSize`, the number of units
+  its supplier ships together, and the automatic reorder rounds the quantity it arrives at up to a
+  whole multiple of it. A shortfall of seventeen against a pack of twelve is ordered as twenty-four,
+  and a configured `reorderQuantity` of fifty is ordered as sixty; the note on the order records the
+  rounding. Up, never to nearest, so the rounded order still covers the shortfall that raised it.
+  Pack size decides how much, never whether — the comparison of free stock plus incoming against the
+  reorder point is made before any rounding. Left unset the rule orders exactly what it did before,
+  and purchase orders entered by hand are never rounded (#171).
+
 ### Changed
 
 - **Low stock is measured on what is free, not on what is on the shelf** — the automatic reorder and

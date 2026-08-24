@@ -104,6 +104,15 @@ public class Product {
     private Integer reorderQuantity;
 
     /**
+     * Units the supplier ships together, when the product is sold in packs. Optional: left unset the
+     * automatic reorder puts the number it arrives at on the order, and set it rounds that number up
+     * to a whole multiple of this one.
+     */
+    @Positive
+    @Column(name = "pack_size")
+    private Integer packSize;
+
+    /**
      * The low-stock condition last announced to the notification channels for the product total.
      * Null while nothing stands, which is what a comfortable product looks like and also what one
      * looks like before it has ever been announced.
