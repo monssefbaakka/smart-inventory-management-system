@@ -39,11 +39,13 @@ import com.example.smartinventory.repository.StockLevelRepository;
  * order: the first order raised is outstanding, so the movement after it measures that cover and
  * declines.
  *
- * <p>What is ordered is a quantity the supplier can ship. A product naming a {@code packSize} has
- * the quantity the sizing arrived at rounded up to a whole number of packs, because an order for
- * seventeen of something sold in trays of twelve is a document a buyer has to correct before it can
- * be placed. Rounding decides how much, never whether: the comparison with the reorder point is made
- * before it and is not affected by it.
+ * <p>What is ordered is a quantity the supplier will accept. A product naming a
+ * {@code minimumOrderQuantity} has a smaller quantity lifted to it, and one naming a
+ * {@code packSize} has the result rounded up to a whole number of packs — in that order, because a
+ * whole number of packs below the supplier's minimum is still an order they refuse. An order for
+ * seventeen of something sold in trays of twelve, by a supplier who opens nothing for less than a
+ * hundred, is a document a buyer has to correct before it can be placed. Both decide how much, never
+ * whether: the comparison with the reorder point is made before them and is not affected by them.
  *
  * <p>The rule is opt-in through {@code auto-reorder.enabled} and deliberately conservative. It
  * raises nothing for a product with no supplier, and nothing for stock whose shortfall is already
@@ -205,12 +207,10 @@ public class AutoReorderService {
             return null;
         }
 
-        int wanted = replenishmentQuantity(product, covered, threshold);
-        int quantity = inWholePacks(product, wanted);
-        return raise(product, supplier, supplier.getDefaultWarehouse(), quantity,
+        SizedOrder sized = sizeForSupplier(product, replenishmentQuantity(product, covered, threshold));
+        return raise(product, supplier, supplier.getDefaultWarehouse(), sized.quantity(),
                 "Automatic reorder: " + free + " units free" + onOrder(incoming)
-                        + " at or below reorder threshold " + threshold
-                        + roundedUp(product, wanted, quantity));
+                        + " at or below reorder threshold " + threshold + sized.explanation());
     }
 
     /**
@@ -245,12 +245,64 @@ public class AutoReorderService {
             return null;
         }
 
-        int wanted = replenishmentQuantity(product, covered, threshold);
-        int quantity = inWholePacks(product, wanted);
-        return raise(product, supplier, warehouse, quantity,
+        SizedOrder sized = sizeForSupplier(product, replenishmentQuantity(product, covered, threshold));
+        return raise(product, supplier, warehouse, sized.quantity(),
                 "Automatic reorder: " + free + " units free in " + warehouse.getCode() + onOrder(incoming)
-                        + " at or below its reorder threshold " + threshold
-                        + roundedUp(product, wanted, quantity));
+                        + " at or below its reorder threshold " + threshold + sized.explanation());
+    }
+
+    /**
+     * A quantity the supplier will accept, and what the sizing had to do to the shortfall to reach
+     * it.
+     *
+     * @param quantity    units to put on the order
+     * @param explanation what the order's note says about the adjustment, empty when there was none
+     */
+    private record SizedOrder(int quantity, String explanation) {
+    }
+
+    /**
+     * Turns the quantity the shortfall calls for into one the supplier will take: never below the
+     * minimum they accept, and a whole number of the packs they ship.
+     *
+     * <p>The minimum is applied first and the pack rounding second, because the reverse produces a
+     * whole number of packs the supplier still refuses — satisfying the constraint that is easy to
+     * see and breaking the one that costs money. A minimum of a hundred against a pack of twelve is
+     * a hundred and eight.
+     *
+     * @param product the product being replenished
+     * @param wanted  the number of units the sizing arrived at
+     * @return what to order, and how it came to differ from what was wanted
+     */
+    private SizedOrder sizeForSupplier(Product product, int wanted) {
+        int lifted = atLeastTheMinimum(product, wanted);
+        int quantity = inWholePacks(product, lifted);
+        if (quantity == wanted) {
+            return new SizedOrder(quantity, "");
+        }
+
+        StringBuilder explanation = new StringBuilder("; ").append(wanted).append(" units");
+        if (lifted != wanted) {
+            explanation.append(" lifted to the supplier's minimum of ").append(product.getMinimumOrderQuantity());
+        }
+        if (quantity != lifted) {
+            explanation.append(lifted == wanted ? " rounded up to " : ", then rounded up to ")
+                    .append(inPacks(quantity, product.getPackSize()));
+        }
+        return new SizedOrder(quantity, explanation.toString());
+    }
+
+    /**
+     * Lifts a quantity to the fewest units the supplier will accept, when they impose a floor. An
+     * order below it is one they reject, or accept with a small-order fee nobody budgeted for.
+     *
+     * @param product  the product being replenished
+     * @param quantity the number of units wanted
+     * @return that number or the minimum, whichever is larger, and unchanged when there is no minimum
+     */
+    private int atLeastTheMinimum(Product product, int quantity) {
+        Integer minimum = product.getMinimumOrderQuantity();
+        return minimum == null ? quantity : Math.max(quantity, minimum);
     }
 
     /**
@@ -272,23 +324,15 @@ public class AutoReorderService {
     }
 
     /**
-     * Explains the rounding in the note the order carries, so a buyer reading a line for twenty-four
-     * against a shortfall of seventeen can see where the extra seven came from. A quantity that was
-     * already a whole number of packs, and a product that names no pack at all, say nothing.
+     * Names a quantity as the packs it comes to, for the note the order carries.
      *
-     * @param product  the product being replenished
-     * @param wanted   the number of units the sizing arrived at
-     * @param quantity the number actually being ordered
-     * @return the rounding clause, or an empty string when nothing was rounded
+     * @param quantity a whole number of packs
+     * @param packSize units in each of them
+     * @return how many packs of what size that is
      */
-    private String roundedUp(Product product, int wanted, int quantity) {
-        if (quantity == wanted) {
-            return "";
-        }
-        int packSize = product.getPackSize();
+    private String inPacks(int quantity, int packSize) {
         int packs = quantity / packSize;
-        return "; " + wanted + " units rounded up to " + (packs == 1 ? "a pack" : packs + " packs")
-                + " of " + packSize;
+        return (packs == 1 ? "a pack" : packs + " packs") + " of " + packSize;
     }
 
     /**
@@ -358,9 +402,9 @@ public class AutoReorderService {
      * size the buyer has chosen rather than a shortfall to be closed, and the rule has already
      * declined for anything the incoming stock covers.
      *
-     * <p>Whatever this arrives at is then rounded up to a whole pack by {@link #inWholePacks}, a
-     * configured batch included — a batch of fifty against a pack of twelve was never going to be
-     * shipped as fifty, and forty-eight would leave it short.
+     * <p>Whatever this arrives at is then put through {@link #sizeForSupplier}, a configured batch
+     * included — a batch of fifty the supplier will not accept, or cannot ship as fifty, is not a
+     * batch but a rejected order.
      *
      * @param product   the product being replenished
      * @param covered   units the measured stock holds free, plus the units on their way to it
