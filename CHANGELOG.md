@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Orders are never raised below the supplier's minimum** — a product may name a
+  `minimumOrderQuantity`, the fewest units its supplier will accept, and the automatic reorder lifts
+  a smaller quantity up to it. A shortfall of seventeen against a minimum of a hundred is ordered as
+  a hundred, and a configured `reorderQuantity` of fifty is lifted the same way. The minimum is
+  applied before the `packSize` rounding added in #171, so a minimum of a hundred against a pack of
+  twelve is ordered as a hundred and eight rather than as a whole number of packs the supplier still
+  refuses; the note on the order records both adjustments in the order they were made. Like pack
+  size, the minimum decides how much, never whether — the comparison of free stock plus incoming
+  against the reorder point is made before it. Left unset the rule orders exactly what it did before,
+  and purchase orders entered by hand are never adjusted (#173).
+
 - **Products can be ordered in whole packs** — a product may name a `packSize`, the number of units
   its supplier ships together, and the automatic reorder rounds the quantity it arrives at up to a
   whole multiple of it. A shortfall of seventeen against a pack of twelve is ordered as twenty-four,

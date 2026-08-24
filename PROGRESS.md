@@ -85,9 +85,10 @@ implemented in repo but GitHub issue not yet closed
 | 165 | Say a shortage once, not on every movement that keeps it going | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 167 | Measure the stock that is free, not the stock that is merely present | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 169 | Count the stock that is on its way, not the fact that something is | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 171 | Order in the packs the supplier ships, not a number they cannot fill | ![working](https://img.shields.io/badge/status-working-blue) |
+| 171 | Order in the packs the supplier ships, not a number they cannot fill | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 173 | Order a quantity the supplier will accept, not one below their minimum | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #171 — Order in the packs the supplier ships, not a number they cannot fill (PR open)
+**Working:** #173 — Order a quantity the supplier will accept, not one below their minimum (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
