@@ -304,6 +304,84 @@ class AutoReorderServiceTest {
     }
 
     @Test
+    void liftsTheOrderToTheSuppliersMinimumWhenTheShortfallFallsShortOfIt() {
+        Product product = lowStockProduct();
+        product.setMinimumOrderQuantity(100);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(100);
+        assertThat(order.getNote()).contains("17 units lifted to the supplier's minimum of 100");
+    }
+
+    @Test
+    void leavesAShortfallThatAlreadyMeetsTheMinimumAlone() {
+        Product product = lowStockProduct();
+        product.setMinimumOrderQuantity(10);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(17);
+        assertThat(order.getNote()).doesNotContain("minimum");
+    }
+
+    @Test
+    void liftsAConfiguredBatchToTheMinimumToo() {
+        Product product = lowStockProduct();
+        product.setReorderQuantity(50);
+        product.setMinimumOrderQuantity(100);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        assertThat(enabledService().evaluate(product).getItems().get(0).getQuantity()).isEqualTo(100);
+    }
+
+    @Test
+    void liftsToTheMinimumBeforeRoundingUpToAWholePack() {
+        Product product = lowStockProduct();
+        product.setMinimumOrderQuantity(100);
+        product.setPackSize(12);
+        expectNothingOnOrder();
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(108);
+        assertThat(order.getNote())
+                .contains("17 units lifted to the supplier's minimum of 100, then rounded up to 9 packs of 12");
+    }
+
+    @Test
+    void liftsASiteOrderToTheMinimumToo() {
+        Product product = lowStockProduct();
+        product.setQuantity(40);
+        product.setMinimumOrderQuantity(100);
+        expectLevel(product, NORTH, 2, 6);
+        expectNothingOnOrderFor(NORTH);
+        expectSavedOrder();
+
+        PurchaseOrder order = enabledService().evaluate(product, NORTH);
+
+        assertThat(order.getItems().get(0).getQuantity()).isEqualTo(100);
+        assertThat(order.getNote()).contains("10 units lifted to the supplier's minimum of 100");
+    }
+
+    @Test
+    void letsTheMinimumDecideHowMuchToOrderButNotWhether() {
+        Product product = lowStockProduct();
+        product.setQuantity(11);
+        product.setMinimumOrderQuantity(100);
+
+        assertThat(enabledService().evaluate(product)).isNull();
+
+        verifyNoInteractions(purchaseOrderRepository);
+    }
+
+    @Test
     void letsThePackSizeDecideHowMuchToOrderButNotWhether() {
         Product product = lowStockProduct();
         product.setQuantity(11);
