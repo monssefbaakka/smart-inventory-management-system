@@ -57,7 +57,13 @@ public class PurchaseOrderService {
      * the order records the warehouse it was given, so moving a supplier's usual destination later
      * does not move the deliveries of orders already out with it.
      *
-     * @param request the supplier, optional delivery warehouse and note, and line items to order
+     * <p>The order may also name when its goods are due, which a buyer who has spoken to the supplier
+     * knows better than any average does. An order naming no date is given one from the supplier's
+     * lead time when it is {@link #place(Long) placed}, not here: a draft is a document nobody has
+     * sent yet, and the days a supplier takes are counted from the day the order reaches them.
+     *
+     * @param request the supplier, optional delivery warehouse, expected delivery date and note, and
+     *                line items to order
      * @return the persisted draft order
      * @throws ResourceNotFoundException if the supplier, a product or the warehouse does not exist
      */
@@ -71,6 +77,7 @@ public class PurchaseOrderService {
                 .supplier(supplier)
                 .warehouse(warehouse)
                 .status(PurchaseOrderStatus.DRAFT)
+                .expectedDeliveryDate(request.expectedDeliveryDate())
                 .note(request.note())
                 .build();
 
@@ -118,7 +125,16 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Transitions a {@code DRAFT} order to {@code PLACED}.
+     * Transitions a {@code DRAFT} order to {@code PLACED}, recording when its goods are due.
+     *
+     * <p>The date is worked out here rather than when the order was drafted, because a supplier's
+     * lead time is counted from the day the order reaches them. A draft raised by the automatic
+     * reorder on a Monday and reviewed on the Friday is due four days later than a date stamped at
+     * drafting would have promised, and nothing about the supplier changed in between.
+     *
+     * <p>An order that already names a date keeps it: somebody who has spoken to the supplier about
+     * this delivery knows more about it than their usual turnaround does. An order naming none whose
+     * supplier names no lead time either is placed without a date, rather than with a guessed one.
      *
      * @param id identifier of the order
      * @return the placed order
@@ -128,7 +144,27 @@ public class PurchaseOrderService {
         PurchaseOrder order = findById(id);
         requireStatus(order, PurchaseOrderStatus.DRAFT, "placed");
         order.setStatus(PurchaseOrderStatus.PLACED);
+        order.setExpectedDeliveryDate(deliveryDateOf(order));
         return purchaseOrderRepository.save(order);
+    }
+
+    /**
+     * Works out when an order being placed is due: the date it already names, or today plus the lead
+     * time of the supplier it is going to.
+     *
+     * <p>Read once, at placing. The date the order is stamped with is the date it keeps, and a
+     * supplier whose lead time is revised afterwards moves the orders raised from then on rather
+     * than the ones already out with them.
+     *
+     * @param order the order being placed
+     * @return the date its goods are expected, or {@code null} when nothing is known about it
+     */
+    private LocalDate deliveryDateOf(PurchaseOrder order) {
+        if (order.getExpectedDeliveryDate() != null) {
+            return order.getExpectedDeliveryDate();
+        }
+        Integer leadTimeDays = order.getSupplier().getLeadTimeDays();
+        return leadTimeDays == null ? null : LocalDate.now().plusDays(leadTimeDays);
     }
 
     /**

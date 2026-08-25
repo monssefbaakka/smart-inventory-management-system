@@ -1,5 +1,6 @@
 package com.example.smartinventory.dto;
 
+import java.time.LocalDate;
 import java.util.List;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -20,6 +21,10 @@ public record PurchaseOrderRequest(
                 + "books into unless it names another; omit to book against the product total only",
                 example = "1")
         Long warehouseId,
+
+        @Schema(description = "When the goods are expected to arrive; omit to have the date worked out from "
+                + "the supplier's lead time when the order is placed", example = "2026-09-08")
+        LocalDate expectedDeliveryDate,
 
         @Size(max = 1000)
         @Schema(description = "Optional free-text note", example = "Q3 restock")

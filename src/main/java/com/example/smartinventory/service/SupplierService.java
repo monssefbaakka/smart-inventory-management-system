@@ -47,9 +47,10 @@ public class SupplierService {
     /**
      * Updates the mutable fields of an existing supplier identified by {@code id}.
      *
-     * <p>Changing where the supplier's goods are normally delivered applies to the orders raised
-     * from here on. Orders already raised recorded the warehouse they were given and keep it: where
-     * a delivery is going was settled when the order went out to the supplier.
+     * <p>Changing where the supplier's goods are normally delivered, or how long they take to arrive,
+     * applies to the orders raised from here on. Orders already raised recorded the warehouse they
+     * were given, and orders already placed recorded the date they were due: where a delivery is
+     * going and when it is expected were both settled when the order went out to the supplier.
      *
      * @param id              identifier of the supplier to update
      * @param updatedSupplier supplier carrying the new field values
@@ -64,6 +65,7 @@ public class SupplierService {
         existing.setPhone(updatedSupplier.getPhone());
         existing.setAddress(updatedSupplier.getAddress());
         existing.setDefaultWarehouse(resolveDefaultWarehouse(updatedSupplier.getDefaultWarehouse()));
+        existing.setLeadTimeDays(updatedSupplier.getLeadTimeDays());
         return supplierRepository.save(existing);
     }
 
