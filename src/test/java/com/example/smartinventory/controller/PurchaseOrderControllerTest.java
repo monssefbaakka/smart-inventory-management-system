@@ -93,6 +93,7 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.supplierName").value("Acme Supplies"))
                 .andExpect(jsonPath("$.warehouseId").value(nullValue()))
                 .andExpect(jsonPath("$.warehouseCode").value(nullValue()))
+                .andExpect(jsonPath("$.expectedDeliveryDate").value(nullValue()))
                 .andExpect(jsonPath("$.total").value(10.00))
                 .andExpect(jsonPath("$.items[0].productId").value(3))
                 .andExpect(jsonPath("$.items[0].sku").value("SKU-3"))
@@ -100,6 +101,26 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.items[0].lineTotal").value(10.00))
                 .andExpect(jsonPath("$.supplier").doesNotExist())
                 .andExpect(jsonPath("$.items[0].product").doesNotExist());
+    }
+
+    @Test
+    void createCarriesTheExpectedDeliveryDateThroughAndReportsIt() throws Exception {
+        PurchaseOrder order = order(PurchaseOrderStatus.DRAFT);
+        order.setExpectedDeliveryDate(LocalDate.of(2026, 9, 8));
+        when(purchaseOrderService.create(any(PurchaseOrderRequest.class))).thenReturn(order);
+
+        mockMvc.perform(post("/api/purchase-orders")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"supplierId":7,"expectedDeliveryDate":"2026-09-08",
+                                 "items":[{"productId":3,"quantity":4,"unitPrice":2.50}]}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.expectedDeliveryDate").value("2026-09-08"));
+
+        ArgumentCaptor<PurchaseOrderRequest> request = ArgumentCaptor.captor();
+        verify(purchaseOrderService).create(request.capture());
+        assertThat(request.getValue().expectedDeliveryDate()).isEqualTo(LocalDate.of(2026, 9, 8));
     }
 
     @Test

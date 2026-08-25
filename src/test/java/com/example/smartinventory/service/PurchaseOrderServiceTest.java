@@ -83,6 +83,11 @@ class PurchaseOrderServiceTest {
         return order;
     }
 
+    /** A draft order 1 raised against the given supplier, with nothing on it. */
+    private PurchaseOrder draftFrom(Supplier supplier) {
+        return PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.DRAFT).supplier(supplier).build();
+    }
+
     /** A received line that says nothing about where the goods went. */
     private static GoodsReceiptLineRequest line(Long itemId, int quantity) {
         return new GoodsReceiptLineRequest(itemId, quantity, null, null, null);
@@ -101,7 +106,7 @@ class PurchaseOrderServiceTest {
         when(productService.findById(3L)).thenReturn(product);
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PurchaseOrderRequest request = new PurchaseOrderRequest(7L, null, "urgent",
+        PurchaseOrderRequest request = new PurchaseOrderRequest(7L, null, null, "urgent",
                 List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50"))));
 
         PurchaseOrder order = purchaseOrderService.create(request);
@@ -126,7 +131,7 @@ class PurchaseOrderServiceTest {
         when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, 1L, null,
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, 1L, null, null,
                 List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
 
         assertThat(order.getWarehouse()).isSameAs(warehouse);
@@ -140,7 +145,7 @@ class PurchaseOrderServiceTest {
         when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, null, null,
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, null, null, null,
                 List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
 
         assertThat(order.getWarehouse()).isSameAs(defaultWarehouse);
@@ -156,7 +161,7 @@ class PurchaseOrderServiceTest {
         when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, 1L, null,
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, 1L, null, null,
                 List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
 
         assertThat(order.getWarehouse()).isSameAs(named);
@@ -167,7 +172,7 @@ class PurchaseOrderServiceTest {
         when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L).build());
         when(warehouseService.findById(99L)).thenThrow(new ResourceNotFoundException("Warehouse not found"));
 
-        assertThatThrownBy(() -> purchaseOrderService.create(new PurchaseOrderRequest(7L, 99L, null,
+        assertThatThrownBy(() -> purchaseOrderService.create(new PurchaseOrderRequest(7L, 99L, null, null,
                 List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50"))))))
                 .isInstanceOf(ResourceNotFoundException.class);
 
@@ -176,14 +181,74 @@ class PurchaseOrderServiceTest {
     }
 
     @Test
+    void createRecordsTheDeliveryDateTheBuyerNamed() {
+        LocalDate promised = LocalDate.now().plusDays(5);
+        when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L).leadTimeDays(14).build());
+        when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, null, promised, null,
+                List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
+
+        assertThat(order.getExpectedDeliveryDate()).isEqualTo(promised);
+    }
+
+    @Test
+    void createLeavesADraftOrderExpectingNothingUntilItIsPlaced() {
+        when(supplierService.findById(7L)).thenReturn(Supplier.builder().id(7L).leadTimeDays(14).build());
+        when(productService.findById(3L)).thenReturn(Product.builder().id(3L).build());
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder order = purchaseOrderService.create(new PurchaseOrderRequest(7L, null, null, null,
+                List.of(new PurchaseOrderItemRequest(3L, 4, new BigDecimal("2.50")))));
+
+        assertThat(order.getExpectedDeliveryDate()).isNull();
+    }
+
+    @Test
     void placeMovesDraftToPlaced() {
-        PurchaseOrder order = PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.DRAFT).build();
+        PurchaseOrder order = draftFrom(SUPPLIER);
         when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
         when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
 
         PurchaseOrder result = purchaseOrderService.place(1L);
 
         assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.PLACED);
+    }
+
+    @Test
+    void placeExpectsTheGoodsAfterTheSupplierLeadTime() {
+        PurchaseOrder order = draftFrom(Supplier.builder().id(7L).leadTimeDays(14).build());
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.place(1L);
+
+        assertThat(result.getExpectedDeliveryDate()).isEqualTo(LocalDate.now().plusDays(14));
+    }
+
+    @Test
+    void placeKeepsTheDeliveryDateTheBuyerNamed() {
+        LocalDate promised = LocalDate.now().plusDays(3);
+        PurchaseOrder order = draftFrom(Supplier.builder().id(7L).leadTimeDays(14).build());
+        order.setExpectedDeliveryDate(promised);
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.place(1L);
+
+        assertThat(result.getExpectedDeliveryDate()).isEqualTo(promised);
+    }
+
+    @Test
+    void placeExpectsNothingInParticularWhenTheSupplierNamesNoLeadTime() {
+        PurchaseOrder order = draftFrom(SUPPLIER);
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.place(1L);
+
+        assertThat(result.getExpectedDeliveryDate()).isNull();
     }
 
     @Test
