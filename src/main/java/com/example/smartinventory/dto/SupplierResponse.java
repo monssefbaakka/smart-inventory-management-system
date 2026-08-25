@@ -37,6 +37,10 @@ public record SupplierResponse(
                 + "when it has no usual destination", example = "WH-NORTH")
         String defaultWarehouseCode,
 
+        @Schema(description = "How many days pass between an order being placed with this supplier and the "
+                + "goods arriving, or null when it is not known", example = "14")
+        Integer leadTimeDays,
+
         @Schema(description = "When the supplier was created")
         Instant createdAt,
 
@@ -62,6 +66,7 @@ public record SupplierResponse(
                 supplier.getAddress(),
                 defaultWarehouse == null ? null : defaultWarehouse.getId(),
                 defaultWarehouse == null ? null : defaultWarehouse.getCode(),
+                supplier.getLeadTimeDays(),
                 supplier.getCreatedAt(),
                 supplier.getUpdatedAt());
     }

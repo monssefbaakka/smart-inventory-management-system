@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail.
+- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
 whether it was emptied by a sale or by a transfer to another site. A product sold in packs is ordered
 in whole packs, and never below the minimum its supplier will accept.
@@ -253,10 +253,10 @@ needs — a buyer who thinks a hundred units of a slow mover is the wrong call h
 front of them to reject. Purchase orders entered by hand are not adjusted at all; a buyer typing a
 quantity can see both figures on the product and has reasons the rule does not know about.
 
-Delivery dates play no part. Two hundred units arriving in March do not help a shelf that empties in
-January, but an order carries no expected date, so what is on its way counts as cover whenever it was
-raised. The alert channels are untouched by any of this: an empty shelf is announced as empty whether
-or not goods are on their way to it.
+Delivery dates play no part in any of it. Two hundred units arriving in March do not help a shelf
+that empties in January, but an order outstanding is cover whether its `expectedDeliveryDate` is
+tomorrow, next quarter or unknown. The alert channels are untouched too: an empty shelf is announced
+as empty whether or not goods are on their way to it.
 
 #### Reordering for one warehouse
 
@@ -588,6 +588,44 @@ a supplier's usual destination later leaves orders already out with it going whe
 Naming a `warehouseId` on the order still wins, and remains the way to send one order somewhere
 else. A supplier with no default behaves as before: an order that names no warehouse names none, and
 a receipt against it books against the product total only.
+
+An order also says when its goods are due. How long a supplier takes is a fact about the trading
+relationship in the same way their delivery address is, so it is stated once, on the supplier, as a
+`leadTimeDays`:
+
+```json
+PUT /api/suppliers/7
+{
+  "name": "Acme Supplies",
+  "email": "sales@acme.test",
+  "defaultWarehouse": { "id": 1 },
+  "leadTimeDays": 14
+}
+```
+
+Placing an order stamps it with today plus that lead time, and the order reports it as
+`expectedDeliveryDate`. The date is worked out at placing rather than at drafting because a
+supplier counts from the day the order reaches them: an automatic reorder may raise a draft on the
+Monday that a buyer reviews on the Friday, and a date counted from the Monday would already be four
+days wrong. It is read once, there — revising a supplier's lead time later moves the orders placed
+from then on rather than the ones already out with them.
+
+A buyer who has spoken to the supplier about this particular delivery may name the date on the order
+instead, and what they named is kept when it is placed:
+
+```json
+POST /api/purchase-orders
+{
+  "supplierId": 7,
+  "expectedDeliveryDate": "2026-09-08",
+  "items": [{ "productId": 3, "quantity": 40, "unitPrice": 2.50 }]
+}
+```
+
+An order that names no date, raised against a supplier that names no lead time, is placed without
+one: `expectedDeliveryDate` is `null` rather than a guess. Lead times are in calendar days — a
+supplier who does not ship on Sundays has that in their usual turnaround already — and they do not
+vary by product or by destination.
 
 A receipt names only the lines that arrived, and says where they landed:
 

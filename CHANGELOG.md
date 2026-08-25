@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An order says when its goods are due** — a supplier may name a `leadTimeDays`, how long they take
+  between an order reaching them and the goods arriving, and a purchase order carries an
+  `expectedDeliveryDate`. The date is stamped when the order is placed rather than when it is
+  drafted: a lead time is counted from the day the order reaches the supplier, and a draft raised
+  automatically may sit for days before a buyer sends it. A date the buyer named when raising the
+  order is kept as given, and an order whose supplier names no lead time is placed without a date
+  rather than with a guessed one. Read once, at placing, so revising a supplier's lead time later
+  moves the orders placed from then on and not the ones already out with them. Both fields are set
+  and read through the ordinary supplier and purchase-order endpoints and reported on their
+  responses. Nothing about reordering changes: an order outstanding is cover whether it is due
+  tomorrow or next quarter (#175).
+
 - **Orders are never raised below the supplier's minimum** — a product may name a
   `minimumOrderQuantity`, the fewest units its supplier will accept, and the automatic reorder lifts
   a smaller quantity up to it. A shortfall of seventeen against a minimum of a hundred is ordered as

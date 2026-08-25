@@ -7,6 +7,7 @@ import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -83,6 +84,37 @@ class SupplierControllerTest {
     }
 
     @Test
+    void createCarriesTheLeadTimeThroughAndReportsIt() throws Exception {
+        ArgumentCaptor<Supplier> captor = ArgumentCaptor.forClass(Supplier.class);
+        Supplier supplier = Supplier.builder().id(1L).name("Acme").email("acme@example.com")
+                .leadTimeDays(14).build();
+        when(supplierService.create(any(Supplier.class))).thenReturn(supplier);
+
+        mockMvc.perform(post("/api/suppliers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Acme","email":"acme@example.com","leadTimeDays":14}
+                                """))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.leadTimeDays").value(14));
+
+        verify(supplierService).create(captor.capture());
+        assertThat(captor.getValue().getLeadTimeDays()).isEqualTo(14);
+    }
+
+    @Test
+    void createRejectsALeadTimeThatIsNotPositive() throws Exception {
+        mockMvc.perform(post("/api/suppliers")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"name":"Acme","email":"acme@example.com","leadTimeDays":0}
+                                """))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(supplierService);
+    }
+
+    @Test
     void createReturnsNotFoundWhenTheDefaultWarehouseDoesNotExist() throws Exception {
         when(supplierService.create(any(Supplier.class)))
                 .thenThrow(new ResourceNotFoundException("Warehouse not found with id: 99"));
@@ -109,7 +141,8 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$.phone").value("+1-555-0100"))
                 .andExpect(jsonPath("$.address").value("1 Industrial Way"))
                 .andExpect(jsonPath("$.defaultWarehouseId").value(nullValue()))
-                .andExpect(jsonPath("$.defaultWarehouseCode").value(nullValue()));
+                .andExpect(jsonPath("$.defaultWarehouseCode").value(nullValue()))
+                .andExpect(jsonPath("$.leadTimeDays").value(nullValue()));
     }
 
     @Test

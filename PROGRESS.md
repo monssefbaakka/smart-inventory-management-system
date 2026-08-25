@@ -86,9 +86,10 @@ implemented in repo but GitHub issue not yet closed
 | 167 | Measure the stock that is free, not the stock that is merely present | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 169 | Count the stock that is on its way, not the fact that something is | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 171 | Order in the packs the supplier ships, not a number they cannot fill | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 173 | Order a quantity the supplier will accept, not one below their minimum | ![working](https://img.shields.io/badge/status-working-blue) |
+| 173 | Order a quantity the supplier will accept, not one below their minimum | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 175 | Say when the goods are due, not only that an order went out | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #173 — Order a quantity the supplier will accept, not one below their minimum (PR open)
+**Working:** #175 — Say when the goods are due, not only that an order went out (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

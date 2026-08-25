@@ -20,6 +20,7 @@ import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -76,6 +77,16 @@ public class Supplier {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "default_warehouse_id")
     private Warehouse defaultWarehouse;
+
+    /**
+     * How many days pass between an order being placed with this supplier and the goods arriving, or
+     * {@code null} when it is not known. Optional: an order placed with a supplier naming one is due
+     * that many days after it goes out, and an order placed with a supplier naming none carries no
+     * expected delivery date unless the buyer gave it one.
+     */
+    @Positive
+    @Column(name = "lead_time_days")
+    private Integer leadTimeDays;
 
     @OneToMany(mappedBy = "supplier")
     @Builder.Default

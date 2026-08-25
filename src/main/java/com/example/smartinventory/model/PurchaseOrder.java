@@ -2,6 +2,7 @@ package com.example.smartinventory.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -67,6 +68,14 @@ public class PurchaseOrder {
     @Column(nullable = false, length = 20)
     @Builder.Default
     private PurchaseOrderStatus status = PurchaseOrderStatus.DRAFT;
+
+    /**
+     * When the goods are expected to arrive, or {@code null} when nothing is known about it. Named
+     * by the buyer when the order is raised, or worked out from the supplier's lead time when the
+     * order is placed; an order placed with a supplier who names no lead time keeps none.
+     */
+    @Column(name = "expected_delivery_date")
+    private LocalDate expectedDeliveryDate;
 
     @Size(max = 1000)
     @Column(length = 1000)

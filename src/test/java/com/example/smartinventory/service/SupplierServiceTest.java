@@ -50,6 +50,7 @@ class SupplierServiceTest {
         Warehouse persisted = Warehouse.builder().id(2L).code("WH-SOUTH").build();
         Supplier supplier = Supplier.builder().name("Acme").email("acme@example.com")
                 .defaultWarehouse(Warehouse.builder().id(2L).build())
+                .leadTimeDays(14)
                 .build();
         when(warehouseService.findById(2L)).thenReturn(persisted);
         when(supplierRepository.save(supplier)).thenReturn(supplier);
@@ -57,6 +58,7 @@ class SupplierServiceTest {
         Supplier result = supplierService.create(supplier);
 
         assertThat(result.getDefaultWarehouse()).isSameAs(persisted);
+        assertThat(result.getLeadTimeDays()).isEqualTo(14);
     }
 
     @Test
@@ -135,6 +137,18 @@ class SupplierServiceTest {
 
         assertThat(result.getDefaultWarehouse()).isNull();
         verifyNoInteractions(warehouseService);
+    }
+
+    @Test
+    void updateForgetsTheLeadTimeWhenThePayloadNamesNone() {
+        Supplier existing = Supplier.builder().id(1L).name("Old").email("old@example.com").leadTimeDays(14).build();
+        when(supplierRepository.findById(1L)).thenReturn(Optional.of(existing));
+        when(supplierRepository.save(any(Supplier.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        Supplier result = supplierService.update(1L,
+                Supplier.builder().name("Old").email("old@example.com").build());
+
+        assertThat(result.getLeadTimeDays()).isNull();
     }
 
     @Test
