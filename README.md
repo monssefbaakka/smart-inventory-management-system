@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named.
+- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, and the listing answers which orders are past it.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
 whether it was emptied by a sale or by a transfer to another site. A product sold in packs is ordered
 in whole packs, and never below the minimum its supplier will accept.
@@ -547,6 +547,7 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | Endpoint | Purpose |
 | :--- | :--- |
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
+| `GET /api/purchase-orders` · `?overdue=true&supplierId=` | List orders, narrowed to the ones running late |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
 | `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
 | `POST /api/purchase-orders/{id}/receive` · `?warehouseId=` | Receive everything still outstanding at once |
@@ -626,6 +627,24 @@ An order that names no date, raised against a supplier that names no lead time, 
 one: `expectedDeliveryDate` is `null` rather than a guess. Lead times are in calendar days — a
 supplier who does not ship on Sundays has that in their usual turnaround already — and they do not
 vary by product or by destination.
+
+Every order reports whether it is late, and the listing answers the Monday-morning question directly:
+
+```
+GET /api/purchase-orders?overdue=true
+GET /api/purchase-orders?overdue=true&supplierId=7
+```
+
+An order is `overdue` when it is still being waited on — `PLACED`, or `PARTIALLY_RECEIVED`, since
+what has not arrived is late whatever else has — and its expected delivery date is in the past.
+Nothing else is: a `DRAFT` is a document nobody has sent, a `RECEIVED` order arrived, a `CANCELLED`
+one is not coming, and an order carrying no date cannot be behind a promise nobody made. An order due
+today is not late on it either — a delivery has the whole of the day it was promised for.
+
+The flag is worked out as the order is read and never stored, in the way a lot's expiry is. An order
+due on the eighth is fine on the seventh and late on the ninth, having done nothing in between; what
+changed is the day, not the order. Nothing is raised, notified or escalated on the strength of it —
+the question is answered when it is asked.
 
 A receipt names only the lines that arrived, and says where they landed:
 

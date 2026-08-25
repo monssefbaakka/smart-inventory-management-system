@@ -81,7 +81,7 @@ Smart Inventory Management System is a Spring Boot 4 (Java 17) backend for track
 - Supplier and purchase-order management (purchase-order management done — #87; partial goods
   receipts done — #150; receipts into a warehouse and a lot done — #153; a delivery warehouse on the
   order done — #155; a default delivery warehouse on the supplier done — #157; a supplier lead time
-  and an expected delivery date on the order done — #175)
+  and an expected delivery date on the order done — #175; the orders running late listed — #177)
 - Notifications (email/webhook) for stock events (done — #109, #111; an alert names the site that ran
   low — #163)
 - Multi-tenant support (done — #129)

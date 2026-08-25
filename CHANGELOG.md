@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Which orders are running late** — a purchase order reports `overdue`, and the listing takes
+  `overdue=true` to keep only the orders that are, on its own or alongside `supplierId` and the
+  paging and sorting it already had. Late means still being waited on — `PLACED` or
+  `PARTIALLY_RECEIVED` — with an expected delivery date in the past; a draft nobody has sent, an
+  order received or cancelled, and one carrying no date are none of them late, and an order due
+  today has the whole of the day it was promised for. The flag is worked out as the order is read
+  and never stored, the way a lot's expiry is: an order due on the eighth is fine on the seventh and
+  late on the ninth without anybody touching it. Nothing is notified or escalated on the strength of
+  it (#177).
+
 - **An order says when its goods are due** — a supplier may name a `leadTimeDays`, how long they take
   between an order reaching them and the goods arriving, and a purchase order carries an
   `expectedDeliveryDate`. The date is stamped when the order is placed rather than when it is

@@ -1,7 +1,9 @@
 package com.example.smartinventory.service;
 
 import java.time.LocalDate;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -35,6 +37,14 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class PurchaseOrderService {
+
+    /**
+     * The statuses an order is still waiting on the supplier in, taken from the states themselves so
+     * that what counts as waiting is stated once.
+     */
+    private static final List<PurchaseOrderStatus> AWAITING_DELIVERY = Arrays.stream(PurchaseOrderStatus.values())
+            .filter(PurchaseOrderStatus::isAwaitingDelivery)
+            .toList();
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierService supplierService;
@@ -100,28 +110,53 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Returns one page of purchase orders, optionally narrowed to a single supplier.
+     * Returns one page of purchase orders, optionally narrowed to a single supplier and to the ones
+     * running late.
      *
      * <p>The orders are mapped to their responses inside this transaction: the paged query fetches
      * the supplier but deliberately not the line items, because fetching a collection alongside a
      * page would force the page to be assembled in memory. The items of the orders on the page are
      * loaded here instead, while the session is still open.
      *
+     * <p>Late is judged against today, in the database, on the same terms the order judges itself by
+     * when it is read: still awaiting delivery, and due before today. A draft nobody has sent, an
+     * order already received or cancelled, and one carrying no expected delivery date are all left
+     * out.
+     *
      * @param supplierId identifier of a supplier to filter by, or {@code null}
+     * @param overdue    when true, keeps only the orders whose goods were due before today
      * @param pageable   the page to return and the order to return it in
      * @return the requested page of matching orders
      * @throws ResourceNotFoundException if the named supplier does not exist
      */
     @Transactional(readOnly = true)
-    public Page<PurchaseOrderResponse> find(Long supplierId, Pageable pageable) {
-        Page<PurchaseOrder> orders;
-        if (supplierId == null) {
-            orders = purchaseOrderRepository.findAllBy(pageable);
-        } else {
+    public Page<PurchaseOrderResponse> find(Long supplierId, boolean overdue, Pageable pageable) {
+        if (supplierId != null) {
             supplierService.findById(supplierId);
-            orders = purchaseOrderRepository.findBySupplierId(supplierId, pageable);
         }
-        return orders.map(PurchaseOrderResponse::from);
+        return findOrders(supplierId, overdue, pageable).map(PurchaseOrderResponse::from);
+    }
+
+    /**
+     * Reads the page the filters ask for, each combination having its own finder.
+     *
+     * @param supplierId identifier of a supplier to filter by, or {@code null}
+     * @param overdue    whether to keep only the orders running late
+     * @param pageable   the page to return and the order to return it in
+     * @return the requested page of orders
+     */
+    private Page<PurchaseOrder> findOrders(Long supplierId, boolean overdue, Pageable pageable) {
+        LocalDate today = LocalDate.now();
+        if (supplierId == null) {
+            return overdue
+                    ? purchaseOrderRepository.findByStatusInAndExpectedDeliveryDateBefore(
+                            AWAITING_DELIVERY, today, pageable)
+                    : purchaseOrderRepository.findAllBy(pageable);
+        }
+        return overdue
+                ? purchaseOrderRepository.findBySupplierIdAndStatusInAndExpectedDeliveryDateBefore(
+                        supplierId, AWAITING_DELIVERY, today, pageable)
+                : purchaseOrderRepository.findBySupplierId(supplierId, pageable);
     }
 
     /**

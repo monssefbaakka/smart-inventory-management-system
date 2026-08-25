@@ -119,6 +119,25 @@ public class PurchaseOrder {
     }
 
     /**
+     * Reports whether the goods were due before the given day and are still being waited on.
+     *
+     * <p>Lateness is a fact about the day it is asked on rather than about the order: an order due
+     * on the eighth is fine on the seventh and late on the ninth, having done nothing in between.
+     * So it is worked out when the order is read and never stored.
+     *
+     * <p>An order due on the given day is not late on it — a delivery has the whole of the day it
+     * was promised for — and one carrying no expected delivery date is never late, because nobody
+     * promised a day for it to miss.
+     *
+     * @param on the day to judge the order against
+     * @return {@code true} when goods are still expected against it and were due before that day
+     */
+    public boolean isOverdueOn(LocalDate on) {
+        return expectedDeliveryDate != null && status != null && status.isAwaitingDelivery()
+                && expectedDeliveryDate.isBefore(on);
+    }
+
+    /**
      * Reports whether every line has arrived in full.
      *
      * @return {@code true} when no line has anything outstanding

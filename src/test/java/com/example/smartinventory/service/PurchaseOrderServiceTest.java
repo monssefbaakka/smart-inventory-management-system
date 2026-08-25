@@ -7,6 +7,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -14,6 +15,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -634,7 +636,7 @@ class PurchaseOrderServiceTest {
         when(purchaseOrderRepository.findBySupplierId(7L, pageable))
                 .thenReturn(new PageImpl<>(List.of(order), pageable, 1));
 
-        Page<PurchaseOrderResponse> result = purchaseOrderService.find(7L, pageable);
+        Page<PurchaseOrderResponse> result = purchaseOrderService.find(7L, false, pageable);
 
         assertThat(result.getContent()).singleElement()
                 .satisfies(response -> assertThat(response.id()).isEqualTo(1L));
@@ -647,10 +649,44 @@ class PurchaseOrderServiceTest {
         PurchaseOrder order = PurchaseOrder.builder().id(1L).supplier(SUPPLIER).build();
         when(purchaseOrderRepository.findAllBy(pageable)).thenReturn(new PageImpl<>(List.of(order), pageable, 1));
 
-        Page<PurchaseOrderResponse> result = purchaseOrderService.find(null, pageable);
+        Page<PurchaseOrderResponse> result = purchaseOrderService.find(null, false, pageable);
 
         assertThat(result.getTotalElements()).isEqualTo(1);
         verifyNoInteractions(supplierService);
+    }
+
+    @Test
+    void findKeepsOnlyTheOrdersDueBeforeTodayWhenAskedForTheLateOnes() {
+        Pageable pageable = PageRequest.of(0, 20);
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).supplier(SUPPLIER)
+                .status(PurchaseOrderStatus.PLACED).expectedDeliveryDate(LocalDate.now().minusDays(1)).build();
+        when(purchaseOrderRepository.findByStatusInAndExpectedDeliveryDateBefore(
+                anyList(), eq(LocalDate.now()), eq(pageable)))
+                .thenReturn(new PageImpl<>(List.of(order), pageable, 1));
+
+        Page<PurchaseOrderResponse> result = purchaseOrderService.find(null, true, pageable);
+
+        assertThat(result.getContent()).singleElement()
+                .satisfies(response -> assertThat(response.overdue()).isTrue());
+
+        ArgumentCaptor<List<PurchaseOrderStatus>> statuses = ArgumentCaptor.captor();
+        verify(purchaseOrderRepository).findByStatusInAndExpectedDeliveryDateBefore(
+                statuses.capture(), eq(LocalDate.now()), eq(pageable));
+        assertThat(statuses.getValue())
+                .containsExactlyInAnyOrder(PurchaseOrderStatus.PLACED, PurchaseOrderStatus.PARTIALLY_RECEIVED);
+    }
+
+    @Test
+    void findAsksOneSupplierForItsLateOrders() {
+        Pageable pageable = PageRequest.of(0, 20);
+        when(purchaseOrderRepository.findBySupplierIdAndStatusInAndExpectedDeliveryDateBefore(
+                eq(7L), anyList(), eq(LocalDate.now()), eq(pageable))).thenReturn(Page.empty(pageable));
+
+        Page<PurchaseOrderResponse> result = purchaseOrderService.find(7L, true, pageable);
+
+        assertThat(result).isEmpty();
+        verify(supplierService).findById(7L);
+        verify(purchaseOrderRepository, never()).findBySupplierId(any(), any());
     }
 
 }

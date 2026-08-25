@@ -80,6 +80,7 @@ public class PurchaseOrderController {
      * single supplier.
      *
      * @param supplierId optional supplier filter
+     * @param overdue    keeps only the orders whose goods were due before today
      * @param page       zero-based index of the page to return
      * @param size       maximum number of orders on the page
      * @param sort       {@code field} or {@code field,direction} to order by
@@ -88,7 +89,8 @@ public class PurchaseOrderController {
     @GetMapping
     @Operation(summary = "List purchase orders",
             description = "Returns one page of purchase orders, most recent first unless another ordering is "
-                    + "asked for, and only those for a supplier when supplierId is given. Sortable fields: "
+                    + "asked for, only those for a supplier when supplierId is given, and only those running "
+                    + "late when overdue is true. Sortable fields: "
                     + SORTABLE_FIELDS_DESCRIPTION + ". Page size is capped at " + PageRequests.MAX_PAGE_SIZE + ".")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Page of purchase orders returned"),
@@ -98,13 +100,15 @@ public class PurchaseOrderController {
     public ResponseEntity<PageResponse<PurchaseOrderResponse>> findAll(
             @Parameter(description = "Optional supplier id to filter by")
             @RequestParam(required = false) Long supplierId,
+            @Parameter(description = "Keep only orders awaiting delivery whose expected delivery date has passed")
+            @RequestParam(defaultValue = "false") boolean overdue,
             @Parameter(description = "Zero-based page index") @RequestParam(defaultValue = "0") int page,
             @Parameter(description = "Page size, at most " + PageRequests.MAX_PAGE_SIZE)
             @RequestParam(defaultValue = "" + PageRequests.DEFAULT_PAGE_SIZE) int size,
             @Parameter(description = "Ordering as 'field' or 'field,asc|desc'")
             @RequestParam(defaultValue = PageRequests.NEWEST_FIRST) String sort) {
         return ResponseEntity.ok(PageResponse.from(
-                purchaseOrderService.find(supplierId, PageRequests.of(page, size, sort, SORTABLE_FIELDS))));
+                purchaseOrderService.find(supplierId, overdue, PageRequests.of(page, size, sort, SORTABLE_FIELDS))));
     }
 
     @PostMapping("/{id}/place")

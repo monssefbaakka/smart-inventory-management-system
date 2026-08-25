@@ -94,6 +94,7 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.warehouseId").value(nullValue()))
                 .andExpect(jsonPath("$.warehouseCode").value(nullValue()))
                 .andExpect(jsonPath("$.expectedDeliveryDate").value(nullValue()))
+                .andExpect(jsonPath("$.overdue").value(false))
                 .andExpect(jsonPath("$.total").value(10.00))
                 .andExpect(jsonPath("$.items[0].productId").value(3))
                 .andExpect(jsonPath("$.items[0].sku").value("SKU-3"))
@@ -155,8 +156,19 @@ class PurchaseOrderControllerTest {
     }
 
     @Test
+    void findByIdReportsAnOrderThatIsRunningLate() throws Exception {
+        PurchaseOrder order = order(PurchaseOrderStatus.PLACED);
+        order.setExpectedDeliveryDate(LocalDate.now().minusDays(1));
+        when(purchaseOrderService.findById(1L)).thenReturn(order);
+
+        mockMvc.perform(get("/api/purchase-orders/1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.overdue").value(true));
+    }
+
+    @Test
     void findAllReturnsAPageOfOrders() throws Exception {
-        when(purchaseOrderService.find(isNull(), any(Pageable.class))).thenReturn(
+        when(purchaseOrderService.find(isNull(), eq(false), any(Pageable.class))).thenReturn(
                 new PageImpl<>(List.of(PurchaseOrderResponse.from(order(PurchaseOrderStatus.DRAFT))),
                         PageRequest.of(0, 20), 1));
 
@@ -169,7 +181,7 @@ class PurchaseOrderControllerTest {
 
     @Test
     void findAllFiltersBySupplierWhenProvided() throws Exception {
-        when(purchaseOrderService.find(eq(7L), any(Pageable.class))).thenReturn(
+        when(purchaseOrderService.find(eq(7L), eq(false), any(Pageable.class))).thenReturn(
                 new PageImpl<>(List.of(PurchaseOrderResponse.from(order(PurchaseOrderStatus.PLACED))),
                         PageRequest.of(0, 20), 1));
 
@@ -177,31 +189,55 @@ class PurchaseOrderControllerTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.content[0].status").value("PLACED"));
 
-        verify(purchaseOrderService).find(eq(7L), any(Pageable.class));
+        verify(purchaseOrderService).find(eq(7L), eq(false), any(Pageable.class));
+    }
+
+    @Test
+    void findAllKeepsOnlyTheLateOrdersWhenAskedTo() throws Exception {
+        when(purchaseOrderService.find(isNull(), eq(true), any(Pageable.class))).thenReturn(
+                new PageImpl<>(List.of(PurchaseOrderResponse.from(order(PurchaseOrderStatus.PLACED))),
+                        PageRequest.of(0, 20), 1));
+
+        mockMvc.perform(get("/api/purchase-orders").param("overdue", "true"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(1));
+
+        verify(purchaseOrderService).find(isNull(), eq(true), any(Pageable.class));
+    }
+
+    @Test
+    void findAllAsksASupplierForItsLateOrders() throws Exception {
+        when(purchaseOrderService.find(eq(7L), eq(true), any(Pageable.class))).thenReturn(Page.empty());
+
+        mockMvc.perform(get("/api/purchase-orders")
+                        .param("supplierId", "7").param("overdue", "true"))
+                .andExpect(status().isOk());
+
+        verify(purchaseOrderService).find(eq(7L), eq(true), any(Pageable.class));
     }
 
     @Test
     void findAllDefaultsToTheMostRecentFirst() throws Exception {
-        when(purchaseOrderService.find(isNull(), any(Pageable.class))).thenReturn(Page.empty());
+        when(purchaseOrderService.find(isNull(), eq(false), any(Pageable.class))).thenReturn(Page.empty());
 
         mockMvc.perform(get("/api/purchase-orders"))
                 .andExpect(status().isOk());
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
-        verify(purchaseOrderService).find(isNull(), pageable.capture());
+        verify(purchaseOrderService).find(isNull(), eq(false), pageable.capture());
         assertThat(pageable.getValue())
                 .isEqualTo(PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt")));
     }
 
     @Test
     void findAllHonoursThePagingAndSortingAsked() throws Exception {
-        when(purchaseOrderService.find(isNull(), any(Pageable.class))).thenReturn(Page.empty());
+        when(purchaseOrderService.find(isNull(), eq(false), any(Pageable.class))).thenReturn(Page.empty());
 
         mockMvc.perform(get("/api/purchase-orders").param("page", "1").param("size", "50").param("sort", "status,asc"))
                 .andExpect(status().isOk());
 
         ArgumentCaptor<Pageable> pageable = ArgumentCaptor.captor();
-        verify(purchaseOrderService).find(isNull(), pageable.capture());
+        verify(purchaseOrderService).find(isNull(), eq(false), pageable.capture());
         assertThat(pageable.getValue()).isEqualTo(PageRequest.of(1, 50, Sort.by(Sort.Direction.ASC, "status")));
     }
 

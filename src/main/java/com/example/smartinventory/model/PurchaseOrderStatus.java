@@ -16,5 +16,18 @@ public enum PurchaseOrderStatus {
     RECEIVED,
 
     /** Order abandoned; whatever had already been received stays, the outstanding quantity does not. */
-    CANCELLED
+    CANCELLED;
+
+    /**
+     * Reports whether an order in this state is still waiting on the supplier for goods.
+     *
+     * <p>A draft is not: nobody has sent it, so nobody owes anything against it. A received order
+     * arrived, and a cancelled one is not coming and is not being waited on. A part-delivered order
+     * is waiting, for whatever is left on it.
+     *
+     * @return {@code true} when goods are still expected against an order in this state
+     */
+    public boolean isAwaitingDelivery() {
+        return this == PLACED || this == PARTIALLY_RECEIVED;
+    }
 }
