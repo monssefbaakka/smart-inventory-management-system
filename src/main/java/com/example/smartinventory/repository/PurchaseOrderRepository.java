@@ -1,5 +1,6 @@
 package com.example.smartinventory.repository;
 
+import java.time.LocalDate;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -52,6 +53,37 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      */
     @EntityGraph(attributePaths = {"supplier", "warehouse"})
     Page<PurchaseOrder> findBySupplierId(Long supplierId, Pageable pageable);
+
+    /**
+     * Returns one page of the purchase orders whose goods were due before a given day and are still
+     * being waited on.
+     *
+     * <p>The statuses are passed in rather than assumed here: what counts as still waiting is the
+     * order's business, not the query's. An order carrying no expected delivery date is left out by
+     * the comparison itself, which is what a promise nobody made deserves.
+     *
+     * @param statuses the order statuses that count as awaiting delivery
+     * @param onDate   the day they had to have been due before
+     * @param pageable the page to return and the order to return it in
+     * @return the requested page of late orders
+     */
+    @EntityGraph(attributePaths = {"supplier", "warehouse"})
+    Page<PurchaseOrder> findByStatusInAndExpectedDeliveryDateBefore(Collection<PurchaseOrderStatus> statuses,
+            LocalDate onDate, Pageable pageable);
+
+    /**
+     * Returns one page of the late orders raised against one supplier, for the question that follows
+     * "what is late": which of them is this supplier sitting on.
+     *
+     * @param supplierId identifier of the supplier
+     * @param statuses   the order statuses that count as awaiting delivery
+     * @param onDate     the day they had to have been due before
+     * @param pageable   the page to return and the order to return it in
+     * @return the requested page of that supplier's late orders
+     */
+    @EntityGraph(attributePaths = {"supplier", "warehouse"})
+    Page<PurchaseOrder> findBySupplierIdAndStatusInAndExpectedDeliveryDateBefore(Long supplierId,
+            Collection<PurchaseOrderStatus> statuses, LocalDate onDate, Pageable pageable);
 
     /**
      * Sums how much of a product is bought but not yet delivered, so replenishment is measured
