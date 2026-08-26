@@ -95,6 +95,7 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.warehouseCode").value(nullValue()))
                 .andExpect(jsonPath("$.expectedDeliveryDate").value(nullValue()))
                 .andExpect(jsonPath("$.overdue").value(false))
+                .andExpect(jsonPath("$.deliveredDate").value(nullValue()))
                 .andExpect(jsonPath("$.total").value(10.00))
                 .andExpect(jsonPath("$.items[0].productId").value(3))
                 .andExpect(jsonPath("$.items[0].sku").value("SKU-3"))
@@ -257,6 +258,17 @@ class PurchaseOrderControllerTest {
         mockMvc.perform(post("/api/purchase-orders/1/receive"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("RECEIVED"));
+    }
+
+    @Test
+    void receiveReportsTheDayTheGoodsArrived() throws Exception {
+        PurchaseOrder received = order(PurchaseOrderStatus.RECEIVED);
+        received.setDeliveredDate(LocalDate.of(2026, 9, 11));
+        when(purchaseOrderService.receive(1L, (Long) null)).thenReturn(received);
+
+        mockMvc.perform(post("/api/purchase-orders/1/receive"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.deliveredDate").value("2026-09-11"));
     }
 
     @Test

@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, and the listing answers which orders are past it.
+- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, the listing answers which orders are past it, and the receipt that completes an order records the day its goods actually turned up.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
 whether it was emptied by a sale or by a transfer to another site. A product sold in packs is ordered
 in whole packs, and never below the minimum its supplier will accept.
@@ -688,6 +688,18 @@ Every line reports `receivedQuantity` and `outstandingQuantity`, so purchasing c
 without recomputing it. The order lands in `PARTIALLY_RECEIVED` while anything is still to come and
 reaches `RECEIVED` only when every line is complete — both as a consequence of the receipt, not as a
 separate call. Further receipts are accepted against a `PLACED` or `PARTIALLY_RECEIVED` order.
+
+The receipt that completes an order stamps it with `deliveredDate`, the day its goods finished
+arriving. An order delivered in parts is dated by the day the last part landed, because an order is
+not delivered until all of it is: a first pallet in January against a line completed in March is a
+delivery in March. Anything still outstanding means no such day yet, and a cancelled order never gets
+one — what had already turned up stays in stock, but the order was abandoned rather than fulfilled.
+
+Unlike `overdue`, the date is a record of an event rather than a figure worked out on reading. Once
+stamped it is never recomputed: an order cannot leave `RECEIVED`, and the day its goods landed does
+not change afterwards the way its lateness does. It is the second half of the pair a supplier is
+judged on — what was promised, and what happened — though nothing yet reads the two back together,
+and no order that arrived before the field existed carries one.
 
 A delivery is one transaction: a line receiving more than it has outstanding answers `409 Conflict`
 and nothing at all is booked, and a line that is not on the order answers `404 Not Found`. There is

@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **An order records the day its goods turned up** — the receipt that completes a purchase order
+  stamps it with a `deliveredDate`, reported on the order response. An order delivered in parts is
+  dated by the day the last part landed: an order is not delivered until all of it is. Anything still
+  outstanding means no date yet, and a cancelled order never gets one — what had already arrived
+  stays in stock, but the order was abandoned rather than fulfilled. Unlike `overdue`, it is a record
+  of an event rather than a figure worked out on reading, and is never recomputed once stamped.
+  Orders received before the column existed keep no date, the day they arrived not being recoverable
+  now. Nothing yet reads the promised and actual dates back together (#179).
+
 - **Which orders are running late** — a purchase order reports `overdue`, and the listing takes
   `overdue=true` to keep only the orders that are, on its own or alongside `supplierId` and the
   paging and sorting it already had. Late means still being waited on — `PLACED` or

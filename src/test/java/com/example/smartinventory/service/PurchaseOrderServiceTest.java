@@ -283,6 +283,18 @@ class PurchaseOrderServiceTest {
     }
 
     @Test
+    void receivingEverythingStampsTheDayTheGoodsArrived() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L);
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
+        assertThat(result.getDeliveredDate()).isEqualTo(LocalDate.now());
+    }
+
+    @Test
     void receiveRejectsOrderThatIsNotPlaced() {
         PurchaseOrder order = PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.DRAFT).build();
         when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
@@ -335,6 +347,32 @@ class PurchaseOrderServiceTest {
         assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.PARTIALLY_RECEIVED);
         verify(stockMovementService).record(3L, null, null, MovementType.IN, 2, "Purchase order #9 received",
                 new BigDecimal("4.50"));
+    }
+
+    @Test
+    void aDeliveryLeavingSomethingOutstandingStampsNoDayItArrived() {
+        PurchaseOrder order = placedOrder();
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L, receipt(line(11L, 3)));
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        assertThat(result.getDeliveredDate()).isNull();
+    }
+
+    @Test
+    void theDayAnOrderArrivedIsTheDayItsLastPartLanded() {
+        PurchaseOrder order = placedOrder();
+        order.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        order.getItems().get(0).setReceivedQuantity(5);
+        when(purchaseOrderRepository.findById(9L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.receive(9L, receipt(line(12L, 2)));
+
+        assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.RECEIVED);
+        assertThat(result.getDeliveredDate()).isEqualTo(LocalDate.now());
     }
 
     @Test
@@ -606,6 +644,7 @@ class PurchaseOrderServiceTest {
 
         assertThat(result.getStatus()).isEqualTo(PurchaseOrderStatus.CANCELLED);
         assertThat(result.getItems().get(0).getReceivedQuantity()).isEqualTo(3);
+        assertThat(result.getDeliveredDate()).isNull();
         verifyNoInteractions(stockMovementService);
     }
 
