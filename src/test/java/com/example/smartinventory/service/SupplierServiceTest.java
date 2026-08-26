@@ -171,6 +171,7 @@ class SupplierServiceTest {
         return PurchaseOrder.builder()
                 .status(PurchaseOrderStatus.RECEIVED)
                 .expectedDeliveryDate(promisedFor)
+                .originalExpectedDeliveryDate(promisedFor)
                 .deliveredDate(arrivedOn)
                 .build();
     }

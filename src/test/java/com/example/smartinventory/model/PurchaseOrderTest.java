@@ -15,9 +15,10 @@ class PurchaseOrderTest {
         return PurchaseOrder.builder().id(1L).status(status).expectedDeliveryDate(due).build();
     }
 
-    private PurchaseOrder delivered(LocalDate due, LocalDate arrivedOn) {
+    private PurchaseOrder delivered(LocalDate promisedFor, LocalDate arrivedOn) {
         return PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.RECEIVED)
-                .expectedDeliveryDate(due).deliveredDate(arrivedOn).build();
+                .expectedDeliveryDate(promisedFor).originalExpectedDeliveryDate(promisedFor)
+                .deliveredDate(arrivedOn).build();
     }
 
     @Test
@@ -53,6 +54,14 @@ class PurchaseOrderTest {
     @Test
     void anEarlyDeliveryIsReportedAsEarlyRatherThanAsOnTime() {
         assertThat(delivered(TODAY, TODAY.minusDays(2)).getDaysLate()).isEqualTo(-2);
+    }
+
+    @Test
+    void aRePromisedDeliveryIsJudgedAgainstThePromiseItWasPlacedOn() {
+        PurchaseOrder order = delivered(TODAY, TODAY.plusDays(14));
+        order.setExpectedDeliveryDate(TODAY.plusDays(14));
+
+        assertThat(order.getDaysLate()).isEqualTo(14);
     }
 
     @Test
