@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every supplier's record in one table** — `GET /api/suppliers/reliability` reports the figures
+  `/{id}/reliability` reports for one supplier, for all of them, worst first: by the proportion on
+  time ascending, the suppliers with nothing judged last, ties settled by how many orders the row
+  rests on and then by name. Every supplier appears, including the ones nobody has received from,
+  so absence from the table means no supplier rather than no record. The ranking does not weigh
+  confidence — `ordersJudged` says what each row rests on — and nothing is decided by it (#185).
+
 - **A slipped delivery can be re-promised** — `POST /api/purchase-orders/{id}/expected-delivery-date`
   records a new date the goods are now expected on a `PLACED` or `PARTIALLY_RECEIVED` order, earlier
   or later, and an order placed with no date at all may be given one. What it was promised for when
