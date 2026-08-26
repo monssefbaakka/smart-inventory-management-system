@@ -3,6 +3,7 @@ package com.example.smartinventory.model;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -144,6 +145,25 @@ public class PurchaseOrder {
     public boolean isOverdueOn(LocalDate on) {
         return expectedDeliveryDate != null && status != null && status.isAwaitingDelivery()
                 && expectedDeliveryDate.isBefore(on);
+    }
+
+    /**
+     * Reports how the delivery went against what was promised: whole days between the day the goods
+     * were due and the day they arrived. Positive is late, zero is the day promised, and negative is
+     * early — an early delivery is information, and reporting it as no days late would throw it away.
+     *
+     * <p>An order missing either date is not judged at all rather than judged as on time: one still
+     * awaiting delivery has no arrival, one placed against a supplier naming no lead time was
+     * promised nothing, and one received before arrivals were recorded has nothing to compare.
+     *
+     * @return days between the promise and the arrival, or {@code null} when the order carries
+     *         fewer than both dates
+     */
+    public Long getDaysLate() {
+        if (expectedDeliveryDate == null || deliveredDate == null) {
+            return null;
+        }
+        return ChronoUnit.DAYS.between(expectedDeliveryDate, deliveredDate);
     }
 
     /**

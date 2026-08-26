@@ -5,9 +5,13 @@ import java.util.List;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.smartinventory.dto.SupplierReliabilityResponse;
 import com.example.smartinventory.exception.ResourceNotFoundException;
+import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.model.Warehouse;
+import com.example.smartinventory.repository.PurchaseOrderRepository;
 import com.example.smartinventory.repository.SupplierRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -20,6 +24,7 @@ public class SupplierService {
 
     private final SupplierRepository supplierRepository;
     private final WarehouseService warehouseService;
+    private final PurchaseOrderRepository purchaseOrderRepository;
 
     /**
      * Persists a new supplier, resolving the warehouse its goods are normally delivered to.
@@ -71,6 +76,29 @@ public class SupplierService {
 
     public void delete(Long id) {
         supplierRepository.delete(findById(id));
+    }
+
+    /**
+     * Reports how well a supplier has kept the dates their orders were promised for, reading the
+     * expected delivery date and the day the goods arrived back together.
+     *
+     * <p>Only their fulfilled orders carrying both dates are judged. What a lead time of fourteen
+     * days is worth is a question about deliveries that happened, and one order is an anecdote: a
+     * supplier who was a week late once is not the supplier who is a week late every time, which is
+     * the distinction a buyer placing the next order needs and cannot make one order at a time.
+     *
+     * @param id identifier of the supplier
+     * @return that supplier's record over the deliveries that can be judged
+     * @throws ResourceNotFoundException if the supplier does not exist
+     */
+    @Transactional(readOnly = true)
+    public SupplierReliabilityResponse reliability(Long id) {
+        Supplier supplier = findById(id);
+        List<Long> lateness = purchaseOrderRepository
+                .findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED).stream()
+                .map(PurchaseOrder::getDaysLate)
+                .toList();
+        return SupplierReliabilityResponse.of(supplier, lateness);
     }
 
     /**

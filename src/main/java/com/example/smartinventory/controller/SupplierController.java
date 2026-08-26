@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.SupplierReliabilityResponse;
 import com.example.smartinventory.dto.SupplierResponse;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.service.SupplierService;
@@ -61,6 +62,22 @@ public class SupplierController {
     public ResponseEntity<SupplierResponse> findById(
             @Parameter(description = "Identifier of the supplier") @PathVariable Long id) {
         return ResponseEntity.ok(SupplierResponse.from(supplierService.findById(id)));
+    }
+
+    @GetMapping("/{id}/reliability")
+    @Operation(summary = "How well a supplier keeps their dates",
+            description = "Reads the day each of this supplier's orders was due back against the day its "
+                    + "goods arrived, over their fulfilled orders carrying both dates. Orders still "
+                    + "awaiting delivery, cancelled ones, and ones promised no date are not judged. The "
+                    + "average lateness counts only the late orders, and every figure is null when there is "
+                    + "nothing to judge.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Supplier record returned"),
+        @ApiResponse(responseCode = "404", description = "Supplier not found", content = @Content)
+    })
+    public ResponseEntity<SupplierReliabilityResponse> reliability(
+            @Parameter(description = "Identifier of the supplier") @PathVariable Long id) {
+        return ResponseEntity.ok(supplierService.reliability(id));
     }
 
     @GetMapping
