@@ -88,9 +88,10 @@ implemented in repo but GitHub issue not yet closed
 | 171 | Order in the packs the supplier ships, not a number they cannot fill | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 173 | Order a quantity the supplier will accept, not one below their minimum | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 175 | Say when the goods are due, not only that an order went out | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 177 | Say which orders are late, not only when each was due | ![working](https://img.shields.io/badge/status-working-blue) |
+| 177 | Say which orders are late, not only when each was due | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 179 | Record when the goods actually turned up, not only that they did | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #177 — Say which orders are late, not only when each was due (PR open)
+**Working:** #179 — Record when the goods actually turned up, not only that they did (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
