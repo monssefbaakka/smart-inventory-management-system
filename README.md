@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, the listing answers which orders are past it, and the receipt that completes an order records the day its goods actually turned up — from which a supplier's record of keeping their dates is read back.
+- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, the listing answers which orders are past it, and the receipt that completes an order records the day its goods actually turned up — from which a supplier's record of keeping their dates is read back. A delivery that slips can be re-promised without letting the supplier off the date they first gave.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
 whether it was emptied by a sale or by a transfer to another site. A product sold in packs is ordered
 in whole packs, and never below the minimum its supplier will accept.
@@ -547,6 +547,7 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | Endpoint | Purpose |
 | :--- | :--- |
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
+| `POST /api/purchase-orders/{id}/expected-delivery-date` | Re-promise a delivery that has slipped, keeping the first date |
 | `GET /api/suppliers/{id}/reliability` | A supplier's record of delivering when they said they would |
 | `GET /api/purchase-orders` · `?overdue=true&supplierId=` | List orders, narrowed to the ones running late |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
@@ -704,6 +705,26 @@ carries one.
 The two dates are read back together as `daysLate` on the order — whole days between the day the
 goods were due and the day they arrived, negative when they came early, and null unless the order
 carries both dates. Null is "not judged", which is not the same as "on time".
+
+A delivery that has slipped is re-promised rather than argued about on the phone:
+
+```json
+POST /api/purchase-orders/4/expected-delivery-date
+{ "expectedDeliveryDate": "2026-09-22" }
+```
+
+Only an order awaiting delivery can be re-promised — a `DRAFT` names its date by being edited, and a
+`RECEIVED` or `CANCELLED` order has no delivery left to promise. The date may be moved earlier as
+well as later, and an order placed with no date at all may be given one this way, which is how a
+delivery from a supplier naming no lead time stops being planned around nothing.
+
+What the order was promised for when it was placed is kept as `originalExpectedDeliveryDate` and
+never written again, because the two dates answer different questions. `overdue` reads the current
+one: it says what to chase today, and an order re-promised for next week is not this morning's
+problem. `daysLate` and the supplier's reliability record read the original: a promise moved is a
+promise missed, and an order re-promised twice and delivered on the third date is late by the
+distance from the first. Were it otherwise, a supplier who rings up often enough would never be late
+again, and the reliability figures would measure how promptly the buyer updates the system.
 
 One order is an anecdote, so a supplier's whole record is one call:
 

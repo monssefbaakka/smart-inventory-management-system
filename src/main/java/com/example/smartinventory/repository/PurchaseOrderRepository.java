@@ -94,6 +94,10 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      * late, one placed against a supplier naming no lead time was promised nothing, and one received
      * before arrivals were recorded has only half the pair.
      *
+     * <p>The promise read is the one the order was placed on, which is the one the order judges
+     * itself by. An order placed against no date and given one later by being re-promised carries an
+     * expected date and no original: the supplier promised nothing to miss, and it is not judged.
+     *
      * <p>The orders are read rather than the two dates alone, because how a delivery went against its
      * promise is the order's own arithmetic and is stated once, on the order.
      *
@@ -102,7 +106,7 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      * @return that supplier's judgeable deliveries, in no particular order
      */
     @Query("select o from PurchaseOrder o where o.supplier.id = :supplierId and o.status = :status "
-            + "and o.expectedDeliveryDate is not null and o.deliveredDate is not null")
+            + "and o.originalExpectedDeliveryDate is not null and o.deliveredDate is not null")
     List<PurchaseOrder> findJudgeableDeliveries(@Param("supplierId") Long supplierId,
             @Param("status") PurchaseOrderStatus status);
 

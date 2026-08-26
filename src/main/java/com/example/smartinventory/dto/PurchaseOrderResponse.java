@@ -39,6 +39,10 @@ public record PurchaseOrderResponse(
                 + "its supplier no lead time", example = "2026-09-08")
         LocalDate expectedDeliveryDate,
 
+        @Schema(description = "What the order was promised for when it was placed, which a later revision of "
+                + "the expected date leaves untouched", example = "2026-09-08")
+        LocalDate originalExpectedDeliveryDate,
+
         @Schema(description = "Whether the goods were due before today and are still being waited on",
                 example = "false")
         boolean overdue,
@@ -48,7 +52,8 @@ public record PurchaseOrderResponse(
         LocalDate deliveredDate,
 
         @Schema(description = "Whole days between the day the goods were due and the day they arrived; "
-                + "negative when they came early, and null unless the order carries both dates",
+                + "negative when they came early. Judged against the date originally promised, and null "
+                + "unless the order carries both dates.",
                 example = "3")
         Long daysLate,
 
@@ -87,6 +92,7 @@ public record PurchaseOrderResponse(
                 warehouse == null ? null : warehouse.getCode(),
                 order.getStatus(),
                 order.getExpectedDeliveryDate(),
+                order.getOriginalExpectedDeliveryDate(),
                 order.isOverdueOn(LocalDate.now()),
                 order.getDeliveredDate(),
                 order.getDaysLate(),

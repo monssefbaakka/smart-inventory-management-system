@@ -15,6 +15,8 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
@@ -251,6 +253,70 @@ class PurchaseOrderServiceTest {
         PurchaseOrder result = purchaseOrderService.place(1L);
 
         assertThat(result.getExpectedDeliveryDate()).isNull();
+    }
+
+    @Test
+    void placingRecordsWhatTheOrderWasPromisedForAlongsideWhenItIsExpected() {
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.DRAFT)
+                .supplier(Supplier.builder().id(7L).leadTimeDays(14).build()).build();
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.place(1L);
+
+        assertThat(result.getExpectedDeliveryDate()).isEqualTo(LocalDate.now().plusDays(14));
+        assertThat(result.getOriginalExpectedDeliveryDate()).isEqualTo(result.getExpectedDeliveryDate());
+    }
+
+    @Test
+    void rePromisingMovesTheExpectedDateAndLeavesThePromiseItWasPlacedOn() {
+        LocalDate promisedFor = LocalDate.now().plusDays(3);
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.PLACED)
+                .expectedDeliveryDate(promisedFor).originalExpectedDeliveryDate(promisedFor).build();
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.rePromise(1L, promisedFor.plusDays(14));
+
+        assertThat(result.getExpectedDeliveryDate()).isEqualTo(promisedFor.plusDays(14));
+        assertThat(result.getOriginalExpectedDeliveryDate()).isEqualTo(promisedFor);
+    }
+
+    @Test
+    void rePromisingAcceptsADateEarlierThanTheOneTheOrderCarried() {
+        LocalDate promisedFor = LocalDate.now().plusDays(14);
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.PARTIALLY_RECEIVED)
+                .expectedDeliveryDate(promisedFor).originalExpectedDeliveryDate(promisedFor).build();
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.rePromise(1L, promisedFor.minusDays(4));
+
+        assertThat(result.getExpectedDeliveryDate()).isEqualTo(promisedFor.minusDays(4));
+        assertThat(result.getOriginalExpectedDeliveryDate()).isEqualTo(promisedFor);
+    }
+
+    @Test
+    void anOrderPlacedWithoutADateCanBeGivenOne() {
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.PLACED).build();
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+        when(purchaseOrderRepository.save(any(PurchaseOrder.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        PurchaseOrder result = purchaseOrderService.rePromise(1L, LocalDate.now().plusDays(9));
+
+        assertThat(result.getExpectedDeliveryDate()).isEqualTo(LocalDate.now().plusDays(9));
+        assertThat(result.getOriginalExpectedDeliveryDate()).isNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PurchaseOrderStatus.class, names = {"DRAFT", "RECEIVED", "CANCELLED"})
+    void rePromisingRejectsAnOrderWithNoDeliveryLeftToPromise(PurchaseOrderStatus status) {
+        PurchaseOrder order = PurchaseOrder.builder().id(1L).status(status).build();
+        when(purchaseOrderRepository.findById(1L)).thenReturn(java.util.Optional.of(order));
+
+        assertThatThrownBy(() -> purchaseOrderService.rePromise(1L, LocalDate.now().plusDays(9)))
+                .isInstanceOf(InvalidPurchaseOrderStateException.class);
+        verify(purchaseOrderRepository, never()).save(any());
     }
 
     @Test

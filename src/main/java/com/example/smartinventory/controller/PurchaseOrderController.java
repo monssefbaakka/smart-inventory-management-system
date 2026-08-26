@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.example.smartinventory.dto.ExpectedDeliveryDateRequest;
 import com.example.smartinventory.dto.GoodsReceiptRequest;
 import com.example.smartinventory.dto.PageRequests;
 import com.example.smartinventory.dto.PageResponse;
@@ -124,6 +125,36 @@ public class PurchaseOrderController {
     public ResponseEntity<PurchaseOrderResponse> place(
             @Parameter(description = "Identifier of the purchase order") @PathVariable Long id) {
         return ResponseEntity.ok(PurchaseOrderResponse.from(purchaseOrderService.place(id)));
+    }
+
+    /**
+     * Records a new date the goods on an order are now expected.
+     *
+     * @param id      identifier of the purchase order
+     * @param request the day the goods are now expected
+     * @return the re-promised order
+     */
+    @PostMapping("/{id}/expected-delivery-date")
+    @PreAuthorize("hasRole('ADMIN')")
+    @Operation(summary = "Re-promise a purchase order",
+            description = "Records a new date the goods on a PLACED or PARTIALLY_RECEIVED order are now "
+                    + "expected, for a supplier who has said the delivery has moved. The date the order was "
+                    + "originally promised for is kept: overdue is judged against the new date, because it "
+                    + "says what to chase today, while daysLate and the supplier's reliability record are "
+                    + "judged against the original, because a promise moved is a promise missed. The date may "
+                    + "be moved earlier as well as later. Requires the ADMIN role.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Order re-promised"),
+        @ApiResponse(responseCode = "400", description = "Validation failed", content = @Content),
+        @ApiResponse(responseCode = "403", description = "Caller is not an ADMIN", content = @Content),
+        @ApiResponse(responseCode = "404", description = "Purchase order not found", content = @Content),
+        @ApiResponse(responseCode = "409", description = "Order is not awaiting delivery", content = @Content)
+    })
+    public ResponseEntity<PurchaseOrderResponse> rePromise(
+            @Parameter(description = "Identifier of the purchase order") @PathVariable Long id,
+            @Valid @RequestBody ExpectedDeliveryDateRequest request) {
+        return ResponseEntity.ok(PurchaseOrderResponse.from(
+                purchaseOrderService.rePromise(id, request.expectedDeliveryDate())));
     }
 
     /**
