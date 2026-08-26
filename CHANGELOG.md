@@ -9,6 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A slipped delivery can be re-promised** — `POST /api/purchase-orders/{id}/expected-delivery-date`
+  records a new date the goods are now expected on a `PLACED` or `PARTIALLY_RECEIVED` order, earlier
+  or later, and an order placed with no date at all may be given one. What it was promised for when
+  it was placed is kept as `originalExpectedDeliveryDate` and never written again: `overdue` reads
+  the current date, because it says what to chase today, while `daysLate` and the supplier's
+  reliability record read the original, because a promise moved is a promise missed. Orders placed
+  before the column existed have their original set to the date they already carry, nothing having
+  been re-promised yet (#183).
+
 - **Whether a supplier keeps their dates** — an order reports `daysLate`, whole days between the day
   its goods were due and the day they arrived, negative when they came early and null unless the
   order carries both dates. `GET /api/suppliers/{id}/reliability` folds that supplier's judgeable

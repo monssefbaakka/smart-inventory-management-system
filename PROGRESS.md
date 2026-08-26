@@ -90,9 +90,10 @@ implemented in repo but GitHub issue not yet closed
 | 175 | Say when the goods are due, not only that an order went out | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 177 | Say which orders are late, not only when each was due | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 179 | Record when the goods actually turned up, not only that they did | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 181 | Say whether a supplier keeps their dates, not only what they promised | ![working](https://img.shields.io/badge/status-working-blue) |
+| 181 | Say whether a supplier keeps their dates, not only what they promised | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 183 | Re-promise an order that has slipped, without letting the supplier off the first promise | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #181 — Say whether a supplier keeps their dates, not only what they promised (PR open)
+**Working:** #183 — Re-promise an order that has slipped, without letting the supplier off the first promise (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
