@@ -1,5 +1,6 @@
 package com.example.smartinventory.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -25,6 +26,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import com.example.smartinventory.dto.SupplierReliabilityResponse;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.model.Warehouse;
@@ -48,6 +50,44 @@ class SupplierControllerTest {
 
     @MockitoBean
     private UserDetailsServiceImpl userDetailsService;
+
+    @Test
+    void reliabilityReportsHowWellTheSupplierKeepsTheirDates() throws Exception {
+        when(supplierService.reliability(7L)).thenReturn(new SupplierReliabilityResponse(
+                7L, "Acme Supplies", 4, 2, 2, new BigDecimal("0.50"), new BigDecimal("7.0"), 11L));
+
+        mockMvc.perform(get("/api/suppliers/7/reliability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.supplierId").value(7))
+                .andExpect(jsonPath("$.supplierName").value("Acme Supplies"))
+                .andExpect(jsonPath("$.ordersJudged").value(4))
+                .andExpect(jsonPath("$.onTime").value(2))
+                .andExpect(jsonPath("$.late").value(2))
+                .andExpect(jsonPath("$.onTimeRate").value(0.50))
+                .andExpect(jsonPath("$.averageDaysLate").value(7.0))
+                .andExpect(jsonPath("$.worstDaysLate").value(11));
+    }
+
+    @Test
+    void reliabilityReportsNothingJudgedAsNullFigures() throws Exception {
+        when(supplierService.reliability(7L)).thenReturn(new SupplierReliabilityResponse(
+                7L, "Acme Supplies", 0, 0, 0, null, null, null));
+
+        mockMvc.perform(get("/api/suppliers/7/reliability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ordersJudged").value(0))
+                .andExpect(jsonPath("$.onTimeRate").value(nullValue()))
+                .andExpect(jsonPath("$.averageDaysLate").value(nullValue()))
+                .andExpect(jsonPath("$.worstDaysLate").value(nullValue()));
+    }
+
+    @Test
+    void reliabilityAnswersNotFoundForASupplierThatDoesNotExist() throws Exception {
+        when(supplierService.reliability(9L)).thenThrow(new ResourceNotFoundException("Supplier not found"));
+
+        mockMvc.perform(get("/api/suppliers/9/reliability"))
+                .andExpect(status().isNotFound());
+    }
 
     @Test
     void createReturnsCreatedSupplier() throws Exception {
