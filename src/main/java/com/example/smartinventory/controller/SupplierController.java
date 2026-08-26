@@ -64,6 +64,18 @@ public class SupplierController {
         return ResponseEntity.ok(SupplierResponse.from(supplierService.findById(id)));
     }
 
+    @GetMapping("/reliability")
+    @Operation(summary = "How well every supplier keeps their dates",
+            description = "Reports the same record as /{id}/reliability for every supplier, worst first: by "
+                    + "the proportion of deliveries that arrived on time, ascending, with the suppliers "
+                    + "having nothing judged last and ties settled by how many orders each was judged on and "
+                    + "then by name. Every supplier appears, including the ones nobody has received from. The "
+                    + "ranking does not weigh confidence, so ordersJudged says how much each row rests on.")
+    @ApiResponse(responseCode = "200", description = "Supplier records returned")
+    public ResponseEntity<List<SupplierReliabilityResponse>> reliability() {
+        return ResponseEntity.ok(supplierService.reliability());
+    }
+
     @GetMapping("/{id}/reliability")
     @Operation(summary = "How well a supplier keeps their dates",
             description = "Reads the day each of this supplier's orders was due back against the day its "

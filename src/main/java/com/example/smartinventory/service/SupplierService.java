@@ -1,6 +1,9 @@
 package com.example.smartinventory.service;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,6 +24,17 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 @Transactional
 public class SupplierService {
+
+    /**
+     * The order the league table is read in: the worst proportion on time first, the suppliers with
+     * no record at all last, ties settled by how many orders each was judged on and then by name.
+     */
+    private static final Comparator<SupplierReliabilityResponse> WORST_FIRST = Comparator
+            .comparing(SupplierReliabilityResponse::onTimeRate,
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(Comparator.comparingLong(SupplierReliabilityResponse::ordersJudged).reversed())
+            .thenComparing(SupplierReliabilityResponse::supplierName,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
 
     private final SupplierRepository supplierRepository;
     private final WarehouseService warehouseService;
@@ -99,6 +113,38 @@ public class SupplierService {
                 .map(PurchaseOrder::getDaysLate)
                 .toList();
         return SupplierReliabilityResponse.of(supplier, lateness);
+    }
+
+    /**
+     * Reports every supplier's record of keeping their dates in one table, worst first.
+     *
+     * <p>Ranked by the proportion of deliveries that arrived on time, ascending, so the suppliers
+     * holding the warehouse up are at the top where the question is asked. Suppliers with nothing
+     * judged sort last: no record is not a bad record. Ties are settled by the number of orders
+     * judged, most first, and then by name, so the table comes back in the same order twice.
+     *
+     * <p>Every supplier appears, including the ones nobody has received from. Leaving them out would
+     * make absence from the table mean two different things — no record, or no supplier — and a
+     * buyer wondering who they have never bought from would have no way to tell.
+     *
+     * <p>The ranking does not weigh confidence: a supplier late on their only delivery sorts above
+     * one late on thirty of fifty. {@code ordersJudged} is in every row to say which is which, and a
+     * weighting would hide the thin records rather than show them.
+     *
+     * @return every supplier's record, the worst of them first
+     */
+    @Transactional(readOnly = true)
+    public List<SupplierReliabilityResponse> reliability() {
+        Map<Long, List<Long>> latenessBySupplier = purchaseOrderRepository
+                .findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED).stream()
+                .collect(Collectors.groupingBy(order -> order.getSupplier().getId(),
+                        Collectors.mapping(PurchaseOrder::getDaysLate, Collectors.toList())));
+
+        return supplierRepository.findAll().stream()
+                .map(supplier -> SupplierReliabilityResponse.of(supplier,
+                        latenessBySupplier.getOrDefault(supplier.getId(), List.of())))
+                .sorted(WORST_FIRST)
+                .toList();
     }
 
     /**

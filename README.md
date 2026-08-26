@@ -549,6 +549,7 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
 | `POST /api/purchase-orders/{id}/expected-delivery-date` | Re-promise a delivery that has slipped, keeping the first date |
 | `GET /api/suppliers/{id}/reliability` | A supplier's record of delivering when they said they would |
+| `GET /api/suppliers/reliability` | Every supplier's record, worst keepers of dates first |
 | `GET /api/purchase-orders` · `?overdue=true&supplierId=` | List orders, narrowed to the ones running late |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
 | `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
@@ -755,6 +756,23 @@ early cancel one a week late and report a supplier as punctual on a record where
 the day it was promised — and the warehouse that waited the week did not experience an average. A
 figure over no orders is `null` rather than zero: a supplier nobody has received from has no record,
 which is neither a perfect one nor a terrible one. The counts stay zero, because none is a count.
+
+One supplier at a time answers "how is Acme doing". The question underneath it is comparative, and
+the whole book reads in one call, worst first:
+
+```
+GET /api/suppliers/reliability
+```
+
+Rows are ranked by the proportion on time, ascending, so whoever is holding the warehouse up is at
+the top. Suppliers with nothing judged sort last, because no record is not a bad record, and ties
+are settled by how many orders the row rests on and then by name, so the table comes back the same
+way twice. Every supplier appears, including the ones nobody has received from: leaving them out
+would make absence from the table mean either no record or no supplier.
+
+The ranking does not weigh confidence. A supplier late on their only delivery sorts above one late
+on thirty of fifty, and `ordersJudged` is in every row to say which is which — a weighting would
+hide the thin records rather than show them.
 
 Nothing is decided by the figures. A supplier's `leadTimeDays` is not corrected from them, the
 reorder rule does not prefer a reliable supplier to an unreliable one, and nothing is alerted — the
