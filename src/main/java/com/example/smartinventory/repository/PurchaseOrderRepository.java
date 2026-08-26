@@ -86,6 +86,27 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
             Collection<PurchaseOrderStatus> statuses, LocalDate onDate, Pageable pageable);
 
     /**
+     * Returns the orders of one supplier whose delivery can be judged against what was promised:
+     * fulfilled, and carrying both the day they were due and the day they arrived.
+     *
+     * <p>Everything else says nothing about whether the supplier keeps dates. An order still awaiting
+     * delivery has not arrived, one cancelled part-delivered was abandoned rather than delivered
+     * late, one placed against a supplier naming no lead time was promised nothing, and one received
+     * before arrivals were recorded has only half the pair.
+     *
+     * <p>The orders are read rather than the two dates alone, because how a delivery went against its
+     * promise is the order's own arithmetic and is stated once, on the order.
+     *
+     * @param supplierId identifier of the supplier
+     * @param status     the status a fulfilled order is in
+     * @return that supplier's judgeable deliveries, in no particular order
+     */
+    @Query("select o from PurchaseOrder o where o.supplier.id = :supplierId and o.status = :status "
+            + "and o.expectedDeliveryDate is not null and o.deliveredDate is not null")
+    List<PurchaseOrder> findJudgeableDeliveries(@Param("supplierId") Long supplierId,
+            @Param("status") PurchaseOrderStatus status);
+
+    /**
      * Sums how much of a product is bought but not yet delivered, so replenishment is measured
      * against the cover that is genuinely on its way rather than against the bare fact of an order.
      *
