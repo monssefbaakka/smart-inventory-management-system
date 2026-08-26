@@ -77,6 +77,15 @@ public class PurchaseOrder {
     @Column(name = "expected_delivery_date")
     private LocalDate expectedDeliveryDate;
 
+    /**
+     * The day the last of the goods arrived, or {@code null} while any of them are still to come.
+     * Stamped when a receipt completes the order, and a record of what happened rather than a figure
+     * worked out from anything: an order cannot leave {@code RECEIVED}, and the day its goods landed
+     * does not change afterwards the way its lateness does.
+     */
+    @Column(name = "delivered_date")
+    private LocalDate deliveredDate;
+
     @Size(max = 1000)
     @Column(length = 1000)
     private String note;

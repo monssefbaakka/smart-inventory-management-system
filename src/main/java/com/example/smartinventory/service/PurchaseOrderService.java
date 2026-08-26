@@ -394,15 +394,25 @@ public class PurchaseOrderService {
     }
 
     /**
-     * Moves the order to the status its lines now warrant and saves it.
+     * Moves the order to the status its lines now warrant and saves it, recording the day it was
+     * delivered once the last of its goods has arrived.
+     *
+     * <p>An order delivered in parts is dated by the day the last part landed, because an order is
+     * not delivered until all of it is: a first pallet in January against a line completed in March
+     * is a delivery in March. An order with anything still outstanding has no such day yet, and one
+     * that is abandoned never gets one — what had already turned up stays in stock, but the order it
+     * was raised against was not fulfilled.
      *
      * @param order the order a delivery was just booked against
      * @return the saved order
      */
     private PurchaseOrder settle(PurchaseOrder order) {
-        order.setStatus(order.isFullyReceived()
-                ? PurchaseOrderStatus.RECEIVED
-                : PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        if (order.isFullyReceived()) {
+            order.setStatus(PurchaseOrderStatus.RECEIVED);
+            order.setDeliveredDate(LocalDate.now());
+        } else {
+            order.setStatus(PurchaseOrderStatus.PARTIALLY_RECEIVED);
+        }
         return purchaseOrderRepository.save(order);
     }
 
