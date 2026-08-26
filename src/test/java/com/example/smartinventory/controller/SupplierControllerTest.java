@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.Matchers.nullValue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
@@ -50,6 +51,23 @@ class SupplierControllerTest {
 
     @MockitoBean
     private UserDetailsServiceImpl userDetailsService;
+
+    @Test
+    void theReliabilityTableIsReturnedInTheOrderTheServiceRanksIt() throws Exception {
+        when(supplierService.reliability()).thenReturn(List.of(
+                new SupplierReliabilityResponse(7L, "Acme Supplies", 2, 1, 1,
+                        new BigDecimal("0.50"), new BigDecimal("4.0"), 4L),
+                new SupplierReliabilityResponse(9L, "Cove Trading", 0, 0, 0, null, null, null)));
+
+        mockMvc.perform(get("/api/suppliers/reliability"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(2)))
+                .andExpect(jsonPath("$[0].supplierName").value("Acme Supplies"))
+                .andExpect(jsonPath("$[0].onTimeRate").value(0.50))
+                .andExpect(jsonPath("$[1].supplierName").value("Cove Trading"))
+                .andExpect(jsonPath("$[1].ordersJudged").value(0))
+                .andExpect(jsonPath("$[1].onTimeRate").value(nullValue()));
+    }
 
     @Test
     void reliabilityReportsHowWellTheSupplierKeepsTheirDates() throws Exception {
