@@ -108,11 +108,8 @@ public class SupplierService {
     @Transactional(readOnly = true)
     public SupplierReliabilityResponse reliability(Long id) {
         Supplier supplier = findById(id);
-        List<Long> lateness = purchaseOrderRepository
-                .findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED).stream()
-                .map(PurchaseOrder::getDaysLate)
-                .toList();
-        return SupplierReliabilityResponse.of(supplier, lateness);
+        return SupplierReliabilityResponse.of(supplier,
+                purchaseOrderRepository.findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED));
     }
 
     /**
@@ -135,14 +132,13 @@ public class SupplierService {
      */
     @Transactional(readOnly = true)
     public List<SupplierReliabilityResponse> reliability() {
-        Map<Long, List<Long>> latenessBySupplier = purchaseOrderRepository
+        Map<Long, List<PurchaseOrder>> deliveriesBySupplier = purchaseOrderRepository
                 .findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED).stream()
-                .collect(Collectors.groupingBy(order -> order.getSupplier().getId(),
-                        Collectors.mapping(PurchaseOrder::getDaysLate, Collectors.toList())));
+                .collect(Collectors.groupingBy(order -> order.getSupplier().getId()));
 
         return supplierRepository.findAll().stream()
                 .map(supplier -> SupplierReliabilityResponse.of(supplier,
-                        latenessBySupplier.getOrDefault(supplier.getId(), List.of())))
+                        deliveriesBySupplier.getOrDefault(supplier.getId(), List.of())))
                 .sorted(WORST_FIRST)
                 .toList();
     }
