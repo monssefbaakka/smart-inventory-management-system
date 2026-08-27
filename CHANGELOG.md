@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The money behind a supplier's record** — both reliability endpoints report `judgedSpend`, what
+  the judged orders came to at ordered quantity times unit price, and `lateSpend`, the same sum over
+  the late ones only. How often a supplier misses a date does not say how much rides on it: one late
+  on all three of their orders ranks above one late on a third of two hundred, and the money says
+  which of them the buying runs through. Both sums are taken over exactly the orders the record is
+  taken over, and a sum over none of them is zero rather than null, unlike the rates. The ranking is
+  unchanged — money is reported, not ranked on (#190).
+
 - **Every supplier's record in one table** — `GET /api/suppliers/reliability` reports the figures
   `/{id}/reliability` reports for one supplier, for all of them, worst first: by the proportion on
   time ascending, the suppliers with nothing judged last, ties settled by how many orders the row

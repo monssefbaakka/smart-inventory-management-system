@@ -742,7 +742,9 @@ GET /api/suppliers/7/reliability
   "late": 2,
   "onTimeRate": 0.50,
   "averageDaysLate": 7.0,
-  "worstDaysLate": 11
+  "worstDaysLate": 11,
+  "judgedSpend": 4000.00,
+  "lateSpend": 2600.00
 }
 ```
 
@@ -773,6 +775,17 @@ would make absence from the table mean either no record or no supplier.
 The ranking does not weigh confidence. A supplier late on their only delivery sorts above one late
 on thirty of fifty, and `ordersJudged` is in every row to say which is which — a weighting would
 hide the thin records rather than show them.
+
+How often is not how much, so every row also carries the money. `judgedSpend` is what the judged
+orders came to, at the quantity ordered times the price each line was bought at; `lateSpend` is the
+same sum over the late ones only. A supplier late on all three of their orders ranks above one late
+on a third of two hundred, and the two figures say which of them the buying actually runs through —
+a box of labels twice a year is a different conversation from half of what the warehouse sells.
+
+Both sums are taken over exactly the orders the record is taken over, because a figure standing
+beside a rate has to rest on the same orders the rate does. A sum over no orders is `0` rather than
+`null`, unlike the rates: no money went through, which is a fact, where no rate is not a rate of
+nothing. Money is reported, never ranked on — a table ordered by spend answers a different question.
 
 Nothing is decided by the figures. A supplier's `leadTimeDays` is not corrected from them, the
 reorder rule does not prefer a reliable supplier to an unreliable one, and nothing is alerted — the
