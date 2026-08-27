@@ -21,6 +21,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import com.example.smartinventory.dto.SupplierReliabilityResponse;
 import com.example.smartinventory.exception.ResourceNotFoundException;
 import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderItem;
 import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.model.Warehouse;
@@ -188,6 +189,18 @@ class SupplierServiceTest {
     }
 
     /**
+     * Gives a delivery a line worth the stated amount, so what it was worth can be summed.
+     *
+     * @param order  the order to price
+     * @param amount what the delivery came to
+     * @return the same order, now carrying a line
+     */
+    private PurchaseOrder worth(PurchaseOrder order, String amount) {
+        order.addItem(PurchaseOrderItem.builder().quantity(1).unitPrice(new BigDecimal(amount)).build());
+        return order;
+    }
+
+    /**
      * A delivery of one of that supplier's orders, landing the stated number of days off its promise.
      *
      * @param supplier the supplier who shipped it
@@ -314,6 +327,67 @@ class SupplierServiceTest {
             assertThat(row.ordersJudged()).isZero();
             assertThat(row.onTimeRate()).isNull();
         });
+    }
+
+    @Test
+    void reliabilitySumsWhatTheJudgedOrdersWereWorthAndWhatTheLateOnesCost() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED)).thenReturn(List.of(
+                worth(deliveryLateBy(0), "1000.00"),
+                worth(deliveryLateBy(-2), "400.00"),
+                worth(deliveryLateBy(3), "2500.50"),
+                worth(deliveryLateBy(11), "99.50")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.judgedSpend()).isEqualByComparingTo("4000.00");
+        assertThat(result.lateSpend()).isEqualByComparingTo("2600.00");
+    }
+
+    @Test
+    void reliabilityReportsNoMoneyAsZeroWhereItReportsNoRateAsNull() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of());
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.judgedSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.lateSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.onTimeRate()).isNull();
+    }
+
+    @Test
+    void reliabilityCountsNothingLateAsNoLateSpendWhileTheJudgedSpendStands() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED)).thenReturn(List.of(
+                worth(deliveryLateBy(0), "700.00"), worth(deliveryLateBy(-3), "300.00")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.judgedSpend()).isEqualByComparingTo("1000.00");
+        assertThat(result.lateSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void theTableCarriesTheMoneyBehindEachRow() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        Supplier bolt = Supplier.builder().id(8L).name("Bolt Brothers").build();
+        when(supplierRepository.findAll()).thenReturn(List.of(acme, bolt));
+        when(purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED)).thenReturn(List.of(
+                worth(deliveryFrom(acme, 4), "5000.00"), worth(deliveryFrom(acme, 0), "1000.00"),
+                worth(deliveryFrom(bolt, 0), "20.00")));
+
+        List<SupplierReliabilityResponse> table = supplierService.reliability();
+
+        assertThat(table.get(0).supplierName()).isEqualTo("Acme Supplies");
+        assertThat(table.get(0).judgedSpend()).isEqualByComparingTo("6000.00");
+        assertThat(table.get(0).lateSpend()).isEqualByComparingTo("5000.00");
+        assertThat(table.get(1).judgedSpend()).isEqualByComparingTo("20.00");
+        assertThat(table.get(1).lateSpend()).isEqualByComparingTo(BigDecimal.ZERO);
     }
 
     @Test
