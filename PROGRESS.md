@@ -92,9 +92,10 @@ implemented in repo but GitHub issue not yet closed
 | 179 | Record when the goods actually turned up, not only that they did | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 181 | Say whether a supplier keeps their dates, not only what they promised | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 183 | Re-promise an order that has slipped, without letting the supplier off the first promise | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 185 | Rank the suppliers by whether they keep their dates, not one at a time | ![working](https://img.shields.io/badge/status-working-blue) |
+| 185 | Rank the suppliers by whether they keep their dates, not one at a time | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 190 | Say what the buying behind a supplier's record is worth, not only how they rank | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #185 — Rank the suppliers by whether they keep their dates, not one at a time (PR open)
+**Working:** #190 — Say what the buying behind a supplier's record is worth, not only how they rank (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md

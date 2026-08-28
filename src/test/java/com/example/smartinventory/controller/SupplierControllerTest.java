@@ -56,8 +56,10 @@ class SupplierControllerTest {
     void theReliabilityTableIsReturnedInTheOrderTheServiceRanksIt() throws Exception {
         when(supplierService.reliability()).thenReturn(List.of(
                 new SupplierReliabilityResponse(7L, "Acme Supplies", 2, 1, 1,
-                        new BigDecimal("0.50"), new BigDecimal("4.0"), 4L),
-                new SupplierReliabilityResponse(9L, "Cove Trading", 0, 0, 0, null, null, null)));
+                        new BigDecimal("0.50"), new BigDecimal("4.0"), 4L,
+                        new BigDecimal("6000.00"), new BigDecimal("5000.00")),
+                new SupplierReliabilityResponse(9L, "Cove Trading", 0, 0, 0, null, null, null,
+                        BigDecimal.ZERO, BigDecimal.ZERO)));
 
         mockMvc.perform(get("/api/suppliers/reliability"))
                 .andExpect(status().isOk())
@@ -65,14 +67,18 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$[0].supplierName").value("Acme Supplies"))
                 .andExpect(jsonPath("$[0].onTimeRate").value(0.50))
                 .andExpect(jsonPath("$[1].supplierName").value("Cove Trading"))
+                .andExpect(jsonPath("$[0].judgedSpend").value(6000.00))
+                .andExpect(jsonPath("$[0].lateSpend").value(5000.00))
                 .andExpect(jsonPath("$[1].ordersJudged").value(0))
-                .andExpect(jsonPath("$[1].onTimeRate").value(nullValue()));
+                .andExpect(jsonPath("$[1].onTimeRate").value(nullValue()))
+                .andExpect(jsonPath("$[1].judgedSpend").value(0));
     }
 
     @Test
     void reliabilityReportsHowWellTheSupplierKeepsTheirDates() throws Exception {
         when(supplierService.reliability(7L)).thenReturn(new SupplierReliabilityResponse(
-                7L, "Acme Supplies", 4, 2, 2, new BigDecimal("0.50"), new BigDecimal("7.0"), 11L));
+                7L, "Acme Supplies", 4, 2, 2, new BigDecimal("0.50"), new BigDecimal("7.0"), 11L,
+                new BigDecimal("4000.00"), new BigDecimal("2600.00")));
 
         mockMvc.perform(get("/api/suppliers/7/reliability"))
                 .andExpect(status().isOk())
@@ -83,20 +89,23 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$.late").value(2))
                 .andExpect(jsonPath("$.onTimeRate").value(0.50))
                 .andExpect(jsonPath("$.averageDaysLate").value(7.0))
-                .andExpect(jsonPath("$.worstDaysLate").value(11));
+                .andExpect(jsonPath("$.worstDaysLate").value(11))
+                .andExpect(jsonPath("$.judgedSpend").value(4000.00))
+                .andExpect(jsonPath("$.lateSpend").value(2600.00));
     }
 
     @Test
     void reliabilityReportsNothingJudgedAsNullFigures() throws Exception {
         when(supplierService.reliability(7L)).thenReturn(new SupplierReliabilityResponse(
-                7L, "Acme Supplies", 0, 0, 0, null, null, null));
+                7L, "Acme Supplies", 0, 0, 0, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO));
 
         mockMvc.perform(get("/api/suppliers/7/reliability"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.ordersJudged").value(0))
                 .andExpect(jsonPath("$.onTimeRate").value(nullValue()))
                 .andExpect(jsonPath("$.averageDaysLate").value(nullValue()))
-                .andExpect(jsonPath("$.worstDaysLate").value(nullValue()));
+                .andExpect(jsonPath("$.worstDaysLate").value(nullValue()))
+                .andExpect(jsonPath("$.judgedSpend").value(0));
     }
 
     @Test
