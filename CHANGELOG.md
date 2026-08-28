@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **What the buying behind a supplier's record is worth** — `GET /api/suppliers/{id}/reliability` and
+  `GET /api/suppliers/reliability` report `judgedSpend`, the summed value of the orders the record is
+  taken over at ordered quantity times unit price, and `lateSpend`, the same sum over the late ones
+  only. A rate says how often a supplier is late and not whether it costs anything: a supplier late
+  on all three of their orders and one late on a third of two hundred read alike until the money is
+  on the row. The money is summed over exactly the orders the rates are taken over, so the two can be
+  read against each other, and a sum over no orders is zero rather than null — no money went through
+  is a fact, where no record is not a record of nothing. The table is ranked as before, on the
+  proportion on time: the money is reported, not ranked on (#190).
+
 - **Every supplier's record in one table** — `GET /api/suppliers/reliability` reports the figures
   `/{id}/reliability` reports for one supplier, for all of them, worst first: by the proportion on
   time ascending, the suppliers with nothing judged last, ties settled by how many orders the row
