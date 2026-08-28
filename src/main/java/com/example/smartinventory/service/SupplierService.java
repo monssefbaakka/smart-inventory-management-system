@@ -101,6 +101,11 @@ public class SupplierService {
      * supplier who was a week late once is not the supplier who is a week late every time, which is
      * the distinction a buyer placing the next order needs and cannot make one order at a time.
      *
+     * <p>What those same orders were worth is reported beside the rates, because a record says how
+     * often a supplier is late and not whether being late costs anything: a supplier late on all
+     * three of their orders and one late on a third of two hundred read alike until the money is on
+     * the row.
+     *
      * @param id identifier of the supplier
      * @return that supplier's record over the deliveries that can be judged
      * @throws ResourceNotFoundException if the supplier does not exist
@@ -108,11 +113,8 @@ public class SupplierService {
     @Transactional(readOnly = true)
     public SupplierReliabilityResponse reliability(Long id) {
         Supplier supplier = findById(id);
-        List<Long> lateness = purchaseOrderRepository
-                .findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED).stream()
-                .map(PurchaseOrder::getDaysLate)
-                .toList();
-        return SupplierReliabilityResponse.of(supplier, lateness);
+        return SupplierReliabilityResponse.of(supplier,
+                purchaseOrderRepository.findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED));
     }
 
     /**
@@ -131,18 +133,21 @@ public class SupplierService {
      * one late on thirty of fifty. {@code ordersJudged} is in every row to say which is which, and a
      * weighting would hide the thin records rather than show them.
      *
+     * <p>Nor does it rank on the money. What each row is worth is reported so the expensive problem
+     * can be told from the loud one, but a table ordered by spend answers a different question than
+     * the one this table answers.
+     *
      * @return every supplier's record, the worst of them first
      */
     @Transactional(readOnly = true)
     public List<SupplierReliabilityResponse> reliability() {
-        Map<Long, List<Long>> latenessBySupplier = purchaseOrderRepository
+        Map<Long, List<PurchaseOrder>> deliveriesBySupplier = purchaseOrderRepository
                 .findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED).stream()
-                .collect(Collectors.groupingBy(order -> order.getSupplier().getId(),
-                        Collectors.mapping(PurchaseOrder::getDaysLate, Collectors.toList())));
+                .collect(Collectors.groupingBy(order -> order.getSupplier().getId()));
 
         return supplierRepository.findAll().stream()
                 .map(supplier -> SupplierReliabilityResponse.of(supplier,
-                        latenessBySupplier.getOrDefault(supplier.getId(), List.of())))
+                        deliveriesBySupplier.getOrDefault(supplier.getId(), List.of())))
                 .sorted(WORST_FIRST)
                 .toList();
     }

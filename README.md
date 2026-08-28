@@ -548,7 +548,7 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | :--- | :--- |
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
 | `POST /api/purchase-orders/{id}/expected-delivery-date` | Re-promise a delivery that has slipped, keeping the first date |
-| `GET /api/suppliers/{id}/reliability` | A supplier's record of delivering when they said they would |
+| `GET /api/suppliers/{id}/reliability` | A supplier's record of delivering when they said they would, and what it is worth |
 | `GET /api/suppliers/reliability` | Every supplier's record, worst keepers of dates first |
 | `GET /api/purchase-orders` · `?overdue=true&supplierId=` | List orders, narrowed to the ones running late |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
@@ -742,7 +742,9 @@ GET /api/suppliers/7/reliability
   "late": 2,
   "onTimeRate": 0.50,
   "averageDaysLate": 7.0,
-  "worstDaysLate": 11
+  "worstDaysLate": 11,
+  "judgedSpend": 1390.50,
+  "lateSpend": 1040.50
 }
 ```
 
@@ -756,6 +758,19 @@ early cancel one a week late and report a supplier as punctual on a record where
 the day it was promised — and the warehouse that waited the week did not experience an average. A
 figure over no orders is `null` rather than zero: a supplier nobody has received from has no record,
 which is neither a perfect one nor a terrible one. The counts stay zero, because none is a count.
+
+The rate says how often a supplier is late, not whether being late costs anything. `judgedSpend` is
+what the judged orders were worth — ordered quantity times unit price, the same total the order
+itself reports — and `lateSpend` is how much of that arrived after the day it was promised for. A
+supplier late on all three of their orders and one late on a third of two hundred rank alike on the
+rate; the money is what separates the box of labels twice a year from half of what the warehouse
+sells.
+
+Both sums are taken over exactly the orders the rates are taken over, so a sum standing beside a
+rate can be read against it. They are zero rather than `null` over no orders, unlike the rates: no
+money went through is a fact, where no record is not a record of nothing. The line values are summed
+as they stand, with no conversion and no currency reported, because an order line does not record
+one.
 
 One supplier at a time answers "how is Acme doing". The question underneath it is comparative, and
 the whole book reads in one call, worst first:
@@ -773,6 +788,11 @@ would make absence from the table mean either no record or no supplier.
 The ranking does not weigh confidence. A supplier late on their only delivery sorts above one late
 on thirty of fifty, and `ordersJudged` is in every row to say which is which — a weighting would
 hide the thin records rather than show them.
+
+Nor does it rank on the money. `judgedSpend` and `lateSpend` are on every row, so the expensive
+problem can be told from the loud one, but the table is still ordered by the proportion on time: a
+table ranked by spend answers a different question, and this one answers who is holding the
+warehouse up.
 
 Nothing is decided by the figures. A supplier's `leadTimeDays` is not corrected from them, the
 reorder rule does not prefer a reliable supplier to an unreliable one, and nothing is alerted — the

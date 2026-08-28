@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.List;
 
+import com.example.smartinventory.model.PurchaseOrder;
 import com.example.smartinventory.model.Supplier;
 
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -38,7 +39,15 @@ public record SupplierReliabilityResponse(
 
         @Schema(description = "Days late of the latest single order, or null when none of them was late",
                 example = "11")
-        Long worstDaysLate) {
+        Long worstDaysLate,
+
+        @Schema(description = "What the judged orders were worth in total, at ordered quantity times unit "
+                + "price; zero when none was judged", example = "48250.00")
+        BigDecimal judgedSpend,
+
+        @Schema(description = "How much of that arrived after the day it was promised for; zero when nothing "
+                + "was late", example = "12100.00")
+        BigDecimal lateSpend) {
 
     /** Scale the on-time proportion is reported at: a rate, not a sum of money. */
     private static final int RATE_SCALE = 2;
@@ -49,36 +58,55 @@ public record SupplierReliabilityResponse(
     /**
      * Folds a supplier's judged deliveries into their record.
      *
-     * <p>A figure over no orders is {@code null} rather than zero. A supplier nobody has received
-     * from yet has no record, which is neither a perfect one nor a terrible one, and reporting a
-     * rate of zero for one and a rate of one for the other would be inventing both. The counts stay
-     * zero, because none is a count.
+     * <p>A rate over no orders is {@code null} rather than zero. A supplier nobody has received from
+     * yet has no record, which is neither a perfect one nor a terrible one, and reporting a rate of
+     * zero for one and a rate of one for the other would be inventing both. The counts stay zero,
+     * because none is a count, and so do the sums: no money went through, which is a fact, where no
+     * record is not a record of nothing.
      *
      * <p>The average is taken over the late orders only. Averaging the early deliveries in would let
      * one arriving a week early cancel one arriving a week late and report a supplier as punctual on
      * a record where nothing landed on the day it was promised; the warehouse that waited the week
      * did not experience an average.
      *
-     * @param supplier the supplier being judged
-     * @param lateness how each judged delivery went against its promise, in days, negative when early
+     * <p>The money is summed over exactly the orders the rates are taken over, so a sum standing
+     * beside a rate can be read against it. Both are the order's own total, at ordered quantity
+     * times unit price, which is the figure the order itself reports.
+     *
+     * @param supplier   the supplier being judged
+     * @param deliveries their fulfilled orders carrying both the day promised and the day of arrival
      * @return the response payload
      */
-    public static SupplierReliabilityResponse of(Supplier supplier, List<Long> lateness) {
-        List<Long> late = lateness.stream().filter(days -> days > 0).toList();
-        long judged = lateness.size();
+    public static SupplierReliabilityResponse of(Supplier supplier, List<PurchaseOrder> deliveries) {
+        List<PurchaseOrder> late = deliveries.stream().filter(order -> order.getDaysLate() > 0).toList();
+        List<Long> latenesses = late.stream().map(PurchaseOrder::getDaysLate).toList();
+        long judged = deliveries.size();
         long onTime = judged - late.size();
 
         BigDecimal onTimeRate = judged == 0
                 ? null
                 : BigDecimal.valueOf(onTime).divide(BigDecimal.valueOf(judged), RATE_SCALE, RoundingMode.HALF_UP);
-        BigDecimal averageDaysLate = late.isEmpty()
+        BigDecimal averageDaysLate = latenesses.isEmpty()
                 ? null
-                : BigDecimal.valueOf(late.stream().mapToLong(Long::longValue).sum())
-                        .divide(BigDecimal.valueOf(late.size()), DAYS_SCALE, RoundingMode.HALF_UP);
-        Long worstDaysLate = late.stream().max(Long::compareTo).orElse(null);
+                : BigDecimal.valueOf(latenesses.stream().mapToLong(Long::longValue).sum())
+                        .divide(BigDecimal.valueOf(latenesses.size()), DAYS_SCALE, RoundingMode.HALF_UP);
+        Long worstDaysLate = latenesses.stream().max(Long::compareTo).orElse(null);
 
         return new SupplierReliabilityResponse(supplier.getId(), supplier.getName(), judged, onTime, late.size(),
-                onTimeRate, averageDaysLate, worstDaysLate);
+                onTimeRate, averageDaysLate, worstDaysLate, spendOver(deliveries), spendOver(late));
+    }
+
+    /**
+     * Sums what a set of orders was worth, at ordered quantity times unit price.
+     *
+     * <p>Summed as the line values stand, with no conversion and no currency reported, because an
+     * order line does not record one.
+     *
+     * @param orders the orders to total
+     * @return their combined value, zero over none of them
+     */
+    private static BigDecimal spendOver(List<PurchaseOrder> orders) {
+        return orders.stream().map(PurchaseOrder::getTotal).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
 }
