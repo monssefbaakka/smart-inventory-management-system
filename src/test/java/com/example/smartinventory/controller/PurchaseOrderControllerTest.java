@@ -94,8 +94,10 @@ class PurchaseOrderControllerTest {
                 .andExpect(jsonPath("$.warehouseId").value(nullValue()))
                 .andExpect(jsonPath("$.warehouseCode").value(nullValue()))
                 .andExpect(jsonPath("$.expectedDeliveryDate").value(nullValue()))
+                .andExpect(jsonPath("$.originalExpectedDeliveryDate").value(nullValue()))
                 .andExpect(jsonPath("$.overdue").value(false))
                 .andExpect(jsonPath("$.deliveredDate").value(nullValue()))
+                .andExpect(jsonPath("$.daysLate").value(nullValue()))
                 .andExpect(jsonPath("$.total").value(10.00))
                 .andExpect(jsonPath("$.items[0].productId").value(3))
                 .andExpect(jsonPath("$.items[0].sku").value("SKU-3"))
@@ -252,6 +254,35 @@ class PurchaseOrderControllerTest {
     }
 
     @Test
+    void rePromisingReportsTheNewDateAndKeepsTheOneItWasPlacedOn() throws Exception {
+        PurchaseOrder order = order(PurchaseOrderStatus.PLACED);
+        order.setOriginalExpectedDeliveryDate(LocalDate.of(2026, 9, 8));
+        order.setExpectedDeliveryDate(LocalDate.of(2026, 9, 22));
+        when(purchaseOrderService.rePromise(1L, LocalDate.of(2026, 9, 22))).thenReturn(order);
+
+        mockMvc.perform(post("/api/purchase-orders/1/expected-delivery-date")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {"expectedDeliveryDate":"2026-09-22"}
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.expectedDeliveryDate").value("2026-09-22"))
+                .andExpect(jsonPath("$.originalExpectedDeliveryDate").value("2026-09-08"));
+
+        verify(purchaseOrderService).rePromise(1L, LocalDate.of(2026, 9, 22));
+    }
+
+    @Test
+    void rePromisingWithoutADateIsRejected() throws Exception {
+        mockMvc.perform(post("/api/purchase-orders/1/expected-delivery-date")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isBadRequest());
+
+        verifyNoInteractions(purchaseOrderService);
+    }
+
+    @Test
     void receiveReturnsReceivedOrder() throws Exception {
         when(purchaseOrderService.receive(1L, (Long) null)).thenReturn(order(PurchaseOrderStatus.RECEIVED));
 
@@ -263,12 +294,15 @@ class PurchaseOrderControllerTest {
     @Test
     void receiveReportsTheDayTheGoodsArrived() throws Exception {
         PurchaseOrder received = order(PurchaseOrderStatus.RECEIVED);
+        received.setExpectedDeliveryDate(LocalDate.of(2026, 9, 8));
+        received.setOriginalExpectedDeliveryDate(LocalDate.of(2026, 9, 8));
         received.setDeliveredDate(LocalDate.of(2026, 9, 11));
         when(purchaseOrderService.receive(1L, (Long) null)).thenReturn(received);
 
         mockMvc.perform(post("/api/purchase-orders/1/receive"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.deliveredDate").value("2026-09-11"));
+                .andExpect(jsonPath("$.deliveredDate").value("2026-09-11"))
+                .andExpect(jsonPath("$.daysLate").value(3));
     }
 
     @Test

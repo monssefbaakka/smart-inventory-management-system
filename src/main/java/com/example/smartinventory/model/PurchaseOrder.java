@@ -3,6 +3,7 @@ package com.example.smartinventory.model;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -78,6 +79,15 @@ public class PurchaseOrder {
     private LocalDate expectedDeliveryDate;
 
     /**
+     * What the order was promised for when it was placed, or {@code null} when it was placed against
+     * no date at all. Written once, at placing, and never again: re-promising a slipped order moves
+     * {@link #expectedDeliveryDate} and leaves this where it is, because a supplier who could move
+     * what they are judged against would never be late twice.
+     */
+    @Column(name = "original_expected_delivery_date")
+    private LocalDate originalExpectedDeliveryDate;
+
+    /**
      * The day the last of the goods arrived, or {@code null} while any of them are still to come.
      * Stamped when a receipt completes the order, and a record of what happened rather than a figure
      * worked out from anything: an order cannot leave {@code RECEIVED}, and the day its goods landed
@@ -144,6 +154,29 @@ public class PurchaseOrder {
     public boolean isOverdueOn(LocalDate on) {
         return expectedDeliveryDate != null && status != null && status.isAwaitingDelivery()
                 && expectedDeliveryDate.isBefore(on);
+    }
+
+    /**
+     * Reports how the delivery went against what was promised: whole days between the day the goods
+     * were due and the day they arrived. Positive is late, zero is the day promised, and negative is
+     * early — an early delivery is information, and reporting it as no days late would throw it away.
+     *
+     * <p>Judged against what the order was promised for when it was placed, not against a date it
+     * was later re-promised for: a promise moved is a promise missed, and an order re-promised twice
+     * and delivered on the third date is late by the distance from the first.
+     *
+     * <p>An order missing either date is not judged at all rather than judged as on time: one still
+     * awaiting delivery has no arrival, one placed against a supplier naming no lead time was
+     * promised nothing, and one received before arrivals were recorded has nothing to compare.
+     *
+     * @return days between the original promise and the arrival, or {@code null} when the order
+     *         carries fewer than both dates
+     */
+    public Long getDaysLate() {
+        if (originalExpectedDeliveryDate == null || deliveredDate == null) {
+            return null;
+        }
+        return ChronoUnit.DAYS.between(originalExpectedDeliveryDate, deliveredDate);
     }
 
     /**

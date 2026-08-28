@@ -1,5 +1,7 @@
 package com.example.smartinventory.service;
 
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
@@ -16,9 +18,13 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import com.example.smartinventory.dto.SupplierReliabilityResponse;
 import com.example.smartinventory.exception.ResourceNotFoundException;
+import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.model.Warehouse;
+import com.example.smartinventory.repository.PurchaseOrderRepository;
 import com.example.smartinventory.repository.SupplierRepository;
 
 @ExtendWith(MockitoExtension.class)
@@ -29,6 +35,9 @@ class SupplierServiceTest {
 
     @Mock
     private WarehouseService warehouseService;
+
+    @Mock
+    private PurchaseOrderRepository purchaseOrderRepository;
 
     @InjectMocks
     private SupplierService supplierService;
@@ -149,6 +158,171 @@ class SupplierServiceTest {
                 Supplier.builder().name("Old").email("old@example.com").build());
 
         assertThat(result.getLeadTimeDays()).isNull();
+    }
+
+    /**
+     * A delivery of one of this supplier's orders: promised for a day, arrived on another.
+     *
+     * @param promisedFor the day the goods were due
+     * @param arrivedOn   the day they turned up
+     * @return the fulfilled order
+     */
+    private PurchaseOrder delivery(LocalDate promisedFor, LocalDate arrivedOn) {
+        return PurchaseOrder.builder()
+                .status(PurchaseOrderStatus.RECEIVED)
+                .expectedDeliveryDate(promisedFor)
+                .originalExpectedDeliveryDate(promisedFor)
+                .deliveredDate(arrivedOn)
+                .build();
+    }
+
+    /**
+     * A delivery that landed the stated number of days off its promise; negative is early.
+     *
+     * @param days days between the promise and the arrival
+     * @return the fulfilled order
+     */
+    private PurchaseOrder deliveryLateBy(long days) {
+        LocalDate promisedFor = LocalDate.of(2026, 9, 8);
+        return delivery(promisedFor, promisedFor.plusDays(days));
+    }
+
+    /**
+     * A delivery of one of that supplier's orders, landing the stated number of days off its promise.
+     *
+     * @param supplier the supplier who shipped it
+     * @param days     days between the promise and the arrival; negative is early
+     * @return the fulfilled order
+     */
+    private PurchaseOrder deliveryFrom(Supplier supplier, long days) {
+        PurchaseOrder order = deliveryLateBy(days);
+        order.setSupplier(supplier);
+        return order;
+    }
+
+    @Test
+    void reliabilityJudgesEveryDeliveryAgainstTheDayItWasPromised() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryLateBy(0), deliveryLateBy(-2), deliveryLateBy(3), deliveryLateBy(11)));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.supplierId()).isEqualTo(7L);
+        assertThat(result.supplierName()).isEqualTo("Acme Supplies");
+        assertThat(result.ordersJudged()).isEqualTo(4);
+        assertThat(result.onTime()).isEqualTo(2);
+        assertThat(result.late()).isEqualTo(2);
+        assertThat(result.onTimeRate()).isEqualByComparingTo("0.50");
+        assertThat(result.averageDaysLate()).isEqualByComparingTo("7.0");
+        assertThat(result.worstDaysLate()).isEqualTo(11);
+    }
+
+    @Test
+    void reliabilityAveragesTheLateDeliveriesOnlySoAnEarlyOneCannotCancelALateOne() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryLateBy(-7), deliveryLateBy(7)));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.averageDaysLate()).isEqualByComparingTo("7.0");
+        assertThat(result.onTimeRate()).isEqualByComparingTo("0.50");
+    }
+
+    @Test
+    void reliabilityReportsNothingRatherThanAPerfectRecordWhenNoDeliveryCanBeJudged() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of());
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.ordersJudged()).isZero();
+        assertThat(result.onTime()).isZero();
+        assertThat(result.late()).isZero();
+        assertThat(result.onTimeRate()).isNull();
+        assertThat(result.averageDaysLate()).isNull();
+        assertThat(result.worstDaysLate()).isNull();
+    }
+
+    @Test
+    void reliabilityLeavesTheAverageAndTheWorstUnstatedWhenNothingWasLate() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryLateBy(0), deliveryLateBy(-3)));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L);
+
+        assertThat(result.onTime()).isEqualTo(2);
+        assertThat(result.onTimeRate()).isEqualByComparingTo(BigDecimal.ONE);
+        assertThat(result.averageDaysLate()).isNull();
+        assertThat(result.worstDaysLate()).isNull();
+    }
+
+    @Test
+    void theTableRanksTheWorstKeepersOfDatesFirstAndPutsTheUnjudgedLast() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        Supplier bolt = Supplier.builder().id(8L).name("Bolt Brothers").build();
+        Supplier cove = Supplier.builder().id(9L).name("Cove Trading").build();
+        when(supplierRepository.findAll()).thenReturn(List.of(cove, acme, bolt));
+        when(purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED)).thenReturn(List.of(
+                deliveryFrom(acme, 4), deliveryFrom(acme, 0),
+                deliveryFrom(bolt, 0), deliveryFrom(bolt, 0), deliveryFrom(bolt, 0), deliveryFrom(bolt, 2)));
+
+        List<SupplierReliabilityResponse> table = supplierService.reliability();
+
+        assertThat(table).extracting(SupplierReliabilityResponse::supplierName)
+                .containsExactly("Acme Supplies", "Bolt Brothers", "Cove Trading");
+        assertThat(table.get(0).onTimeRate()).isEqualByComparingTo("0.50");
+        assertThat(table.get(1).onTimeRate()).isEqualByComparingTo("0.75");
+        assertThat(table.get(2).ordersJudged()).isZero();
+        assertThat(table.get(2).onTimeRate()).isNull();
+    }
+
+    @Test
+    void theTableSettlesATieOnHowManyOrdersTheRowRestsOnAndThenOnName() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        Supplier bolt = Supplier.builder().id(8L).name("Bolt Brothers").build();
+        Supplier ashby = Supplier.builder().id(9L).name("Ashby Ltd").build();
+        when(supplierRepository.findAll()).thenReturn(List.of(acme, bolt, ashby));
+        when(purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED)).thenReturn(List.of(
+                deliveryFrom(acme, 3),
+                deliveryFrom(bolt, 3), deliveryFrom(bolt, 5),
+                deliveryFrom(ashby, 3)));
+
+        List<SupplierReliabilityResponse> table = supplierService.reliability();
+
+        assertThat(table).extracting(SupplierReliabilityResponse::supplierName)
+                .containsExactly("Bolt Brothers", "Acme Supplies", "Ashby Ltd");
+    }
+
+    @Test
+    void theTableHoldsEverySupplierEvenWhereNobodyHasReceivedFromAnyOfThem() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findAll()).thenReturn(List.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED)).thenReturn(List.of());
+
+        List<SupplierReliabilityResponse> table = supplierService.reliability();
+
+        assertThat(table).singleElement().satisfies(row -> {
+            assertThat(row.supplierId()).isEqualTo(7L);
+            assertThat(row.ordersJudged()).isZero();
+            assertThat(row.onTimeRate()).isNull();
+        });
+    }
+
+    @Test
+    void reliabilityRejectsASupplierThatDoesNotExist() {
+        when(supplierRepository.findById(9L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> supplierService.reliability(9L))
+                .isInstanceOf(ResourceNotFoundException.class);
+        verifyNoInteractions(purchaseOrderRepository);
     }
 
     @Test

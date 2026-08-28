@@ -18,7 +18,7 @@ A modern, robust, and automated Inventory Management System built on Spring Boot
 - **Flyway Migrations:** Consistent database schema evolution across environments.
 - **RESTful API:** Clean, validated endpoints for integration with frontend and external systems.
 - **Reporting & Dashboard:** Stock value/movement reports plus a dashboard summary of counts, low-stock items, and recent activity, with downloadable CSV export of the product inventory and stock-movement history.
-- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, the listing answers which orders are past it, and the receipt that completes an order records the day its goods actually turned up.
+- **Purchase Orders:** Raise supplier purchase orders with line items, the warehouse they are to be delivered to, and drive their lifecycle (draft → placed → received), receiving a delivery in full or line by line as it arrives, into the warehouse and the lot the goods actually landed in, with received goods flowing through the stock-movement audit trail. Placing an order records when its goods are due, from the supplier's lead time or from the date the buyer named, the listing answers which orders are past it, and the receipt that completes an order records the day its goods actually turned up — from which a supplier's record of keeping their dates is read back. A delivery that slips can be re-promised without letting the supplier off the date they first gave.
 - **Automatic Reordering:** Stock reaching its reorder threshold raises a draft purchase order against the product's supplier, delivered to the site that supplier's goods normally go to, so a buyer only reviews and places it. A warehouse holding a reorder point of its own is measured on its own stock and ordered for by name,
 whether it was emptied by a sale or by a transfer to another site. A product sold in packs is ordered
 in whole packs, and never below the minimum its supplier will accept.
@@ -547,6 +547,9 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | Endpoint | Purpose |
 | :--- | :--- |
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
+| `POST /api/purchase-orders/{id}/expected-delivery-date` | Re-promise a delivery that has slipped, keeping the first date |
+| `GET /api/suppliers/{id}/reliability` | A supplier's record of delivering when they said they would |
+| `GET /api/suppliers/reliability` | Every supplier's record, worst keepers of dates first |
 | `GET /api/purchase-orders` · `?overdue=true&supplierId=` | List orders, narrowed to the ones running late |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
 | `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
@@ -697,9 +700,83 @@ one — what had already turned up stays in stock, but the order was abandoned r
 
 Unlike `overdue`, the date is a record of an event rather than a figure worked out on reading. Once
 stamped it is never recomputed: an order cannot leave `RECEIVED`, and the day its goods landed does
-not change afterwards the way its lateness does. It is the second half of the pair a supplier is
-judged on — what was promised, and what happened — though nothing yet reads the two back together,
-and no order that arrived before the field existed carries one.
+not change afterwards the way its lateness does. No order that arrived before the field existed
+carries one.
+
+The two dates are read back together as `daysLate` on the order — whole days between the day the
+goods were due and the day they arrived, negative when they came early, and null unless the order
+carries both dates. Null is "not judged", which is not the same as "on time".
+
+A delivery that has slipped is re-promised rather than argued about on the phone:
+
+```json
+POST /api/purchase-orders/4/expected-delivery-date
+{ "expectedDeliveryDate": "2026-09-22" }
+```
+
+Only an order awaiting delivery can be re-promised — a `DRAFT` names its date by being edited, and a
+`RECEIVED` or `CANCELLED` order has no delivery left to promise. The date may be moved earlier as
+well as later, and an order placed with no date at all may be given one this way, which is how a
+delivery from a supplier naming no lead time stops being planned around nothing.
+
+What the order was promised for when it was placed is kept as `originalExpectedDeliveryDate` and
+never written again, because the two dates answer different questions. `overdue` reads the current
+one: it says what to chase today, and an order re-promised for next week is not this morning's
+problem. `daysLate` and the supplier's reliability record read the original: a promise moved is a
+promise missed, and an order re-promised twice and delivered on the third date is late by the
+distance from the first. Were it otherwise, a supplier who rings up often enough would never be late
+again, and the reliability figures would measure how promptly the buyer updates the system.
+
+One order is an anecdote, so a supplier's whole record is one call:
+
+```
+GET /api/suppliers/7/reliability
+```
+
+```json
+{
+  "supplierId": 7,
+  "supplierName": "Acme Supplies",
+  "ordersJudged": 4,
+  "onTime": 2,
+  "late": 2,
+  "onTimeRate": 0.50,
+  "averageDaysLate": 7.0,
+  "worstDaysLate": 11
+}
+```
+
+Only their fulfilled orders carrying both dates are judged: one still awaiting delivery has not
+arrived, one cancelled part-delivered was abandoned rather than delivered late, and one promised no
+date was promised nothing. On time means on or before the day promised, the same reading `overdue`
+takes.
+
+The average counts the late orders only. Averaging the early ones in would let a delivery a week
+early cancel one a week late and report a supplier as punctual on a record where nothing arrived on
+the day it was promised — and the warehouse that waited the week did not experience an average. A
+figure over no orders is `null` rather than zero: a supplier nobody has received from has no record,
+which is neither a perfect one nor a terrible one. The counts stay zero, because none is a count.
+
+One supplier at a time answers "how is Acme doing". The question underneath it is comparative, and
+the whole book reads in one call, worst first:
+
+```
+GET /api/suppliers/reliability
+```
+
+Rows are ranked by the proportion on time, ascending, so whoever is holding the warehouse up is at
+the top. Suppliers with nothing judged sort last, because no record is not a bad record, and ties
+are settled by how many orders the row rests on and then by name, so the table comes back the same
+way twice. Every supplier appears, including the ones nobody has received from: leaving them out
+would make absence from the table mean either no record or no supplier.
+
+The ranking does not weigh confidence. A supplier late on their only delivery sorts above one late
+on thirty of fifty, and `ordersJudged` is in every row to say which is which — a weighting would
+hide the thin records rather than show them.
+
+Nothing is decided by the figures. A supplier's `leadTimeDays` is not corrected from them, the
+reorder rule does not prefer a reliable supplier to an unreliable one, and nothing is alerted — the
+record answers the question a buyer asks before placing the next order.
 
 A delivery is one transaction: a line receiving more than it has outstanding answers `409 Conflict`
 and nothing at all is booked, and a line that is not on the order answers `404 Not Found`. There is

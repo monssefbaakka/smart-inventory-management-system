@@ -15,6 +15,12 @@ class PurchaseOrderTest {
         return PurchaseOrder.builder().id(1L).status(status).expectedDeliveryDate(due).build();
     }
 
+    private PurchaseOrder delivered(LocalDate promisedFor, LocalDate arrivedOn) {
+        return PurchaseOrder.builder().id(1L).status(PurchaseOrderStatus.RECEIVED)
+                .expectedDeliveryDate(promisedFor).originalExpectedDeliveryDate(promisedFor)
+                .deliveredDate(arrivedOn).build();
+    }
+
     @Test
     void anOrderStillAwaitedIsLateOnceItsDateHasPassed() {
         assertThat(order(PurchaseOrderStatus.PLACED, TODAY.minusDays(1)).isOverdueOn(TODAY)).isTrue();
@@ -33,6 +39,35 @@ class PurchaseOrderTest {
     @Test
     void anOrderDueLaterIsNotLate() {
         assertThat(order(PurchaseOrderStatus.PLACED, TODAY.plusDays(1)).isOverdueOn(TODAY)).isFalse();
+    }
+
+    @Test
+    void aDeliveryIsJudgedByTheDaysBetweenThePromiseAndTheArrival() {
+        assertThat(delivered(TODAY, TODAY.plusDays(3)).getDaysLate()).isEqualTo(3);
+    }
+
+    @Test
+    void aDeliveryOnTheDayPromisedIsNoDaysLate() {
+        assertThat(delivered(TODAY, TODAY).getDaysLate()).isZero();
+    }
+
+    @Test
+    void anEarlyDeliveryIsReportedAsEarlyRatherThanAsOnTime() {
+        assertThat(delivered(TODAY, TODAY.minusDays(2)).getDaysLate()).isEqualTo(-2);
+    }
+
+    @Test
+    void aRePromisedDeliveryIsJudgedAgainstThePromiseItWasPlacedOn() {
+        PurchaseOrder order = delivered(TODAY, TODAY.plusDays(14));
+        order.setExpectedDeliveryDate(TODAY.plusDays(14));
+
+        assertThat(order.getDaysLate()).isEqualTo(14);
+    }
+
+    @Test
+    void anOrderCarryingFewerThanBothDatesIsNotJudged() {
+        assertThat(delivered(TODAY, null).getDaysLate()).isNull();
+        assertThat(delivered(null, TODAY).getDaysLate()).isNull();
     }
 
     @Test

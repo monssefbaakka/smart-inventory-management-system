@@ -1,13 +1,20 @@
 package com.example.smartinventory.service;
 
+import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.example.smartinventory.dto.SupplierReliabilityResponse;
 import com.example.smartinventory.exception.ResourceNotFoundException;
+import com.example.smartinventory.model.PurchaseOrder;
+import com.example.smartinventory.model.PurchaseOrderStatus;
 import com.example.smartinventory.model.Supplier;
 import com.example.smartinventory.model.Warehouse;
+import com.example.smartinventory.repository.PurchaseOrderRepository;
 import com.example.smartinventory.repository.SupplierRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -18,8 +25,20 @@ import lombok.RequiredArgsConstructor;
 @Transactional
 public class SupplierService {
 
+    /**
+     * The order the league table is read in: the worst proportion on time first, the suppliers with
+     * no record at all last, ties settled by how many orders each was judged on and then by name.
+     */
+    private static final Comparator<SupplierReliabilityResponse> WORST_FIRST = Comparator
+            .comparing(SupplierReliabilityResponse::onTimeRate,
+                    Comparator.nullsLast(Comparator.naturalOrder()))
+            .thenComparing(Comparator.comparingLong(SupplierReliabilityResponse::ordersJudged).reversed())
+            .thenComparing(SupplierReliabilityResponse::supplierName,
+                    Comparator.nullsLast(Comparator.naturalOrder()));
+
     private final SupplierRepository supplierRepository;
     private final WarehouseService warehouseService;
+    private final PurchaseOrderRepository purchaseOrderRepository;
 
     /**
      * Persists a new supplier, resolving the warehouse its goods are normally delivered to.
@@ -71,6 +90,61 @@ public class SupplierService {
 
     public void delete(Long id) {
         supplierRepository.delete(findById(id));
+    }
+
+    /**
+     * Reports how well a supplier has kept the dates their orders were promised for, reading the
+     * expected delivery date and the day the goods arrived back together.
+     *
+     * <p>Only their fulfilled orders carrying both dates are judged. What a lead time of fourteen
+     * days is worth is a question about deliveries that happened, and one order is an anecdote: a
+     * supplier who was a week late once is not the supplier who is a week late every time, which is
+     * the distinction a buyer placing the next order needs and cannot make one order at a time.
+     *
+     * @param id identifier of the supplier
+     * @return that supplier's record over the deliveries that can be judged
+     * @throws ResourceNotFoundException if the supplier does not exist
+     */
+    @Transactional(readOnly = true)
+    public SupplierReliabilityResponse reliability(Long id) {
+        Supplier supplier = findById(id);
+        List<Long> lateness = purchaseOrderRepository
+                .findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED).stream()
+                .map(PurchaseOrder::getDaysLate)
+                .toList();
+        return SupplierReliabilityResponse.of(supplier, lateness);
+    }
+
+    /**
+     * Reports every supplier's record of keeping their dates in one table, worst first.
+     *
+     * <p>Ranked by the proportion of deliveries that arrived on time, ascending, so the suppliers
+     * holding the warehouse up are at the top where the question is asked. Suppliers with nothing
+     * judged sort last: no record is not a bad record. Ties are settled by the number of orders
+     * judged, most first, and then by name, so the table comes back in the same order twice.
+     *
+     * <p>Every supplier appears, including the ones nobody has received from. Leaving them out would
+     * make absence from the table mean two different things — no record, or no supplier — and a
+     * buyer wondering who they have never bought from would have no way to tell.
+     *
+     * <p>The ranking does not weigh confidence: a supplier late on their only delivery sorts above
+     * one late on thirty of fifty. {@code ordersJudged} is in every row to say which is which, and a
+     * weighting would hide the thin records rather than show them.
+     *
+     * @return every supplier's record, the worst of them first
+     */
+    @Transactional(readOnly = true)
+    public List<SupplierReliabilityResponse> reliability() {
+        Map<Long, List<Long>> latenessBySupplier = purchaseOrderRepository
+                .findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED).stream()
+                .collect(Collectors.groupingBy(order -> order.getSupplier().getId(),
+                        Collectors.mapping(PurchaseOrder::getDaysLate, Collectors.toList())));
+
+        return supplierRepository.findAll().stream()
+                .map(supplier -> SupplierReliabilityResponse.of(supplier,
+                        latenessBySupplier.getOrDefault(supplier.getId(), List.of())))
+                .sorted(WORST_FIRST)
+                .toList();
     }
 
     /**

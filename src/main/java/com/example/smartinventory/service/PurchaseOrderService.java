@@ -179,7 +179,40 @@ public class PurchaseOrderService {
         PurchaseOrder order = findById(id);
         requireStatus(order, PurchaseOrderStatus.DRAFT, "placed");
         order.setStatus(PurchaseOrderStatus.PLACED);
-        order.setExpectedDeliveryDate(deliveryDateOf(order));
+        LocalDate due = deliveryDateOf(order);
+        order.setExpectedDeliveryDate(due);
+        order.setOriginalExpectedDeliveryDate(due);
+        return purchaseOrderRepository.save(order);
+    }
+
+    /**
+     * Records a new date the goods on an order are now expected, for a supplier who has rung to say
+     * the delivery has moved.
+     *
+     * <p>Only the expected date moves. What the order was promised for when it was placed stays as
+     * it is, because that is what the supplier is answerable for: a date that moved with every phone
+     * call would let a supplier who re-promises diligently show a perfect record, and the reliability
+     * figures would measure how promptly the buyer updates the system rather than how the goods
+     * actually arrived.
+     *
+     * <p>The two dates then answer different questions. {@code overdue} reads the new one, because
+     * it says what to chase today and an order re-promised for next week is not this morning's
+     * problem. {@code daysLate} and the supplier's record read the original, because a promise moved
+     * is a promise missed.
+     *
+     * <p>A date may be moved earlier as well as later — goods coming sooner is the same kind of news
+     * — and an order placed with no date at all may be given one this way, which is how a delivery
+     * from a supplier naming no lead time stops being planned around nothing.
+     *
+     * @param id   identifier of the order
+     * @param date the day the goods are now expected
+     * @return the re-promised order
+     * @throws InvalidPurchaseOrderStateException if the order is not awaiting delivery
+     */
+    public PurchaseOrder rePromise(Long id, LocalDate date) {
+        PurchaseOrder order = findById(id);
+        requireAwaitingDelivery(order);
+        order.setExpectedDeliveryDate(date);
         return purchaseOrderRepository.save(order);
     }
 

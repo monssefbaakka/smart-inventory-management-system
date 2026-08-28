@@ -9,6 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Every supplier's record in one table** — `GET /api/suppliers/reliability` reports the figures
+  `/{id}/reliability` reports for one supplier, for all of them, worst first: by the proportion on
+  time ascending, the suppliers with nothing judged last, ties settled by how many orders the row
+  rests on and then by name. Every supplier appears, including the ones nobody has received from,
+  so absence from the table means no supplier rather than no record. The ranking does not weigh
+  confidence — `ordersJudged` says what each row rests on — and nothing is decided by it (#185).
+
+- **A slipped delivery can be re-promised** — `POST /api/purchase-orders/{id}/expected-delivery-date`
+  records a new date the goods are now expected on a `PLACED` or `PARTIALLY_RECEIVED` order, earlier
+  or later, and an order placed with no date at all may be given one. What it was promised for when
+  it was placed is kept as `originalExpectedDeliveryDate` and never written again: `overdue` reads
+  the current date, because it says what to chase today, while `daysLate` and the supplier's
+  reliability record read the original, because a promise moved is a promise missed. Orders placed
+  before the column existed have their original set to the date they already carry, nothing having
+  been re-promised yet (#183).
+
+- **Whether a supplier keeps their dates** — an order reports `daysLate`, whole days between the day
+  its goods were due and the day they arrived, negative when they came early and null unless the
+  order carries both dates. `GET /api/suppliers/{id}/reliability` folds that supplier's judgeable
+  deliveries into one record: how many were judged, how many arrived on time, how many late, the
+  proportion on time, the average lateness and the worst single one. Only fulfilled orders carrying
+  both dates are judged, and on time means on or before the day promised. The average counts the
+  late orders only, so an early delivery cannot cancel a late one, and a figure over no orders is
+  null rather than zero. Nothing is decided by the figures: no lead time is corrected, no reorder
+  prefers a reliable supplier, nothing is alerted (#181).
+
 - **An order records the day its goods turned up** — the receipt that completes a purchase order
   stamps it with a `deliveredDate`, reported on the order response. An order delivered in parts is
   dated by the day the last part landed: an order is not delivered until all of it is. Anything still
