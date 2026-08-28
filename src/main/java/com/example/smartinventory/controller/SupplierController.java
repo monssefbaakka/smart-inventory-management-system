@@ -70,7 +70,8 @@ public class SupplierController {
                     + "the proportion of deliveries that arrived on time, ascending, with the suppliers "
                     + "having nothing judged last and ties settled by how many orders each was judged on and "
                     + "then by name. Every supplier appears, including the ones nobody has received from. The "
-                    + "ranking does not weigh confidence, so ordersJudged says how much each row rests on.")
+                    + "ranking does not weigh confidence, so ordersJudged says how much each row rests on, and "
+                    + "it does not rank on the money, so judgedSpend says what each row is worth.")
     @ApiResponse(responseCode = "200", description = "Supplier records returned")
     public ResponseEntity<List<SupplierReliabilityResponse>> reliability() {
         return ResponseEntity.ok(supplierService.reliability());
@@ -81,8 +82,10 @@ public class SupplierController {
             description = "Reads the day each of this supplier's orders was due back against the day its "
                     + "goods arrived, over their fulfilled orders carrying both dates. Orders still "
                     + "awaiting delivery, cancelled ones, and ones promised no date are not judged. The "
-                    + "average lateness counts only the late orders, and every figure is null when there is "
-                    + "nothing to judge.")
+                    + "average lateness counts only the late orders, and every rate is null when there is "
+                    + "nothing to judge. judgedSpend and lateSpend total what those same orders were worth, "
+                    + "at ordered quantity times unit price, and are zero rather than null over none of "
+                    + "them.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Supplier record returned"),
         @ApiResponse(responseCode = "404", description = "Supplier not found", content = @Content)

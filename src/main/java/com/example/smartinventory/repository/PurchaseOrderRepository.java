@@ -99,12 +99,15 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      * expected date and no original: the supplier promised nothing to miss, and it is not judged.
      *
      * <p>The orders are read rather than the two dates alone, because how a delivery went against its
-     * promise is the order's own arithmetic and is stated once, on the order.
+     * promise is the order's own arithmetic and is stated once, on the order. Their lines come with
+     * them, because what the record is worth is the order's own total and reaching for a lazy
+     * collection per row would be a query per delivery.
      *
      * @param supplierId identifier of the supplier
      * @param status     the status a fulfilled order is in
      * @return that supplier's judgeable deliveries, in no particular order
      */
+    @EntityGraph(attributePaths = {"items"})
     @Query("select o from PurchaseOrder o where o.supplier.id = :supplierId and o.status = :status "
             + "and o.originalExpectedDeliveryDate is not null and o.deliveredDate is not null")
     List<PurchaseOrder> findJudgeableDeliveries(@Param("supplierId") Long supplierId,
@@ -115,12 +118,13 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
      * in one pass rather than asking after each of them in turn.
      *
      * <p>The supplier is fetched with the order, because the deliveries are grouped by supplier
-     * afterwards and reaching for a lazy association per row would be a query per order.
+     * afterwards and reaching for a lazy association per row would be a query per order. The lines
+     * come with them for the same reason: the money on each row is summed from them.
      *
      * @param status the status a fulfilled order is in
      * @return every judgeable delivery, in no particular order
      */
-    @EntityGraph(attributePaths = {"supplier"})
+    @EntityGraph(attributePaths = {"supplier", "items"})
     @Query("select o from PurchaseOrder o where o.status = :status "
             + "and o.originalExpectedDeliveryDate is not null and o.deliveredDate is not null")
     List<PurchaseOrder> findJudgeableDeliveries(@Param("status") PurchaseOrderStatus status);
