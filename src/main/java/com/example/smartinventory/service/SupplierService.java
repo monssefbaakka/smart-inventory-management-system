@@ -1,5 +1,6 @@
 package com.example.smartinventory.service;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -106,15 +107,28 @@ public class SupplierService {
      * three of their orders and one late on a third of two hundred read alike until the money is on
      * the row.
      *
-     * @param id identifier of the supplier
+     * <p>The record can be taken over the deliveries that arrived on or after a given day. A supplier
+     * who was late all last year and has been on time since reads as unreliable over their whole
+     * book, and one who has started slipping is covered by a long good history; the buyer placing
+     * the next order is asking about the supplier now. Naming no day asks about the whole book,
+     * which is the older question and still a fair one.
+     *
+     * <p>A window catching no delivery reports nothing judged rather than nothing found: over that
+     * period the supplier has no record, which is what a supplier nobody has received from has, and
+     * the counts, rates and sums say so on the same terms.
+     *
+     * @param id    identifier of the supplier
+     * @param since the earliest day of arrival to judge, inclusive, or null for their whole record
      * @return that supplier's record over the deliveries that can be judged
      * @throws ResourceNotFoundException if the supplier does not exist
      */
     @Transactional(readOnly = true)
-    public SupplierReliabilityResponse reliability(Long id) {
+    public SupplierReliabilityResponse reliability(Long id, LocalDate since) {
         Supplier supplier = findById(id);
-        return SupplierReliabilityResponse.of(supplier,
-                purchaseOrderRepository.findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED));
+        List<PurchaseOrder> deliveries = since == null
+                ? purchaseOrderRepository.findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED)
+                : purchaseOrderRepository.findJudgeableDeliveriesSince(id, PurchaseOrderStatus.RECEIVED, since);
+        return SupplierReliabilityResponse.of(supplier, deliveries);
     }
 
     /**
@@ -137,12 +151,19 @@ public class SupplierService {
      * can be told from the loud one, but a table ordered by spend answers a different question than
      * the one this table answers.
      *
+     * <p>The table can be taken over a window of arrivals, on the same terms as one supplier's record.
+     * Every supplier still appears: one whose deliveries all fall outside the window has no record
+     * over it, which is a thing worth seeing on the table rather than a reason to drop the row.
+     *
+     * @param since the earliest day of arrival to judge, inclusive, or null for the whole record
      * @return every supplier's record, the worst of them first
      */
     @Transactional(readOnly = true)
-    public List<SupplierReliabilityResponse> reliability() {
-        Map<Long, List<PurchaseOrder>> deliveriesBySupplier = purchaseOrderRepository
-                .findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED).stream()
+    public List<SupplierReliabilityResponse> reliability(LocalDate since) {
+        List<PurchaseOrder> deliveries = since == null
+                ? purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED)
+                : purchaseOrderRepository.findJudgeableDeliveriesSince(PurchaseOrderStatus.RECEIVED, since);
+        Map<Long, List<PurchaseOrder>> deliveriesBySupplier = deliveries.stream()
                 .collect(Collectors.groupingBy(order -> order.getSupplier().getId()));
 
         return supplierRepository.findAll().stream()
