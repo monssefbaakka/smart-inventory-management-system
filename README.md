@@ -548,8 +548,8 @@ goods. Deliveries rarely arrive in one piece, so a receipt says what actually tu
 | :--- | :--- |
 | `POST /api/purchase-orders` | Raise a `DRAFT` order with its line items, and where it is to be delivered |
 | `POST /api/purchase-orders/{id}/expected-delivery-date` | Re-promise a delivery that has slipped, keeping the first date |
-| `GET /api/suppliers/{id}/reliability` | A supplier's record of delivering when they said they would, and what it is worth |
-| `GET /api/suppliers/reliability` | Every supplier's record, worst keepers of dates first |
+| `GET /api/suppliers/{id}/reliability?since=` | A supplier's record of delivering when they said they would, and what it is worth |
+| `GET /api/suppliers/reliability?since=` | Every supplier's record, worst keepers of dates first |
 | `GET /api/purchase-orders` · `?overdue=true&supplierId=` | List orders, narrowed to the ones running late |
 | `POST /api/purchase-orders/{id}/place` | Send it to the supplier: `DRAFT` → `PLACED` |
 | `POST /api/purchase-orders/{id}/receipts` | Book one delivery, line by line |
@@ -793,6 +793,28 @@ Nor does it rank on the money. `judgedSpend` and `lateSpend` are on every row, s
 problem can be told from the loud one, but the table is still ordered by the proportion on time: a
 table ranked by spend answers a different question, and this one answers who is holding the
 warehouse up.
+
+Either call can be asked about a period instead of about everything:
+
+```
+GET /api/suppliers/7/reliability?since=2026-01-01
+GET /api/suppliers/reliability?since=2026-01-01
+```
+
+`since` judges only the deliveries that arrived on or after that day, inclusive. A supplier who was
+late all last year and has been on time since reads as unreliable over their whole book, and one who
+has started slipping this quarter is covered by a long good history — the buyer placing the next
+order is asking what the supplier is like now. Omitting it judges the whole record, which is the
+older question and still a fair one.
+
+The window is applied to the day the goods arrived, not the day they were promised for. It selects
+the deliveries that happened in the period, which is what a recent record is made of; an order
+promised inside the window and still awaited has not been delivered and is judged by neither.
+
+A window catching no delivery reports nothing judged rather than nothing found: counts zero, rates
+`null`, sums zero — over that period the supplier has the record of a supplier nobody has received
+from, and it is read on the same terms. On the table every supplier still appears, ranked over the
+window, because a supplier who delivered nothing this quarter is worth seeing rather than dropping.
 
 Nothing is decided by the figures. A supplier's `leadTimeDays` is not corrected from them, the
 reorder rule does not prefer a reliable supplier to an unreliable one, and nothing is alerted — the
