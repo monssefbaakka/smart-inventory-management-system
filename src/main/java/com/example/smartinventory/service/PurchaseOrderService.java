@@ -1,7 +1,6 @@
 package com.example.smartinventory.service;
 
 import java.time.LocalDate;
-import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,9 +41,7 @@ public class PurchaseOrderService {
      * The statuses an order is still waiting on the supplier in, taken from the states themselves so
      * that what counts as waiting is stated once.
      */
-    private static final List<PurchaseOrderStatus> AWAITING_DELIVERY = Arrays.stream(PurchaseOrderStatus.values())
-            .filter(PurchaseOrderStatus::isAwaitingDelivery)
-            .toList();
+    private static final List<PurchaseOrderStatus> AWAITING_DELIVERY = PurchaseOrderStatus.awaitingDelivery();
 
     private final PurchaseOrderRepository purchaseOrderRepository;
     private final SupplierService supplierService;

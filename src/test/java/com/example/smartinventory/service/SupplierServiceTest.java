@@ -8,6 +8,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyCollection;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -224,6 +226,36 @@ class SupplierServiceTest {
      */
     private PurchaseOrder deliveryFrom(Supplier supplier, long days, String value) {
         PurchaseOrder order = deliveryWorth(days, value);
+        order.setSupplier(supplier);
+        return order;
+    }
+
+    /**
+     * An order of the stated value still being waited on, promised for a day that many days ago.
+     *
+     * @param days  days since the day it was promised for
+     * @param value what the order is worth, as one line of a single unit
+     * @return the outstanding order
+     */
+    private PurchaseOrder outstandingBy(long days, String value) {
+        PurchaseOrder order = PurchaseOrder.builder()
+                .status(PurchaseOrderStatus.PLACED)
+                .originalExpectedDeliveryDate(LocalDate.now().minusDays(days))
+                .build();
+        order.addItem(PurchaseOrderItem.builder().quantity(1).unitPrice(new BigDecimal(value)).build());
+        return order;
+    }
+
+    /**
+     * One of that supplier's orders, still being waited on, promised for a day that many days ago.
+     *
+     * @param supplier the supplier who owes it
+     * @param days     days since the day it was promised for
+     * @param value    what the order is worth, as one line of a single unit
+     * @return the outstanding order
+     */
+    private PurchaseOrder outstandingFrom(Supplier supplier, long days, String value) {
+        PurchaseOrder order = outstandingBy(days, value);
         order.setSupplier(supplier);
         return order;
     }
@@ -498,6 +530,131 @@ class SupplierServiceTest {
                 .containsExactly("Acme Supplies", "Bolt Brothers");
         assertThat(table.get(1).ordersJudged()).isZero();
         assertThat(table.get(1).onTimeRate()).isNull();
+    }
+
+    @Test
+    void reliabilityCountsWhatTheSupplierStillOwesPastTheDayTheyPromisedIt() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryWorth(0, "100.00")));
+        when(purchaseOrderRepository.findOutstandingPastPromise(eq(7L), anyCollection(), any(LocalDate.class)))
+                .thenReturn(List.of(outstandingBy(9, "400.00"), outstandingBy(40, "3000.00")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L, null);
+
+        assertThat(result.ordersOverdue()).isEqualTo(2);
+        assertThat(result.worstDaysOverdue()).isEqualTo(40);
+        assertThat(result.overdueSpend()).isEqualByComparingTo("3400.00");
+    }
+
+    @Test
+    void reliabilityKeepsWhatIsOwedOutOfTheRatesTheDeliveriesAreJudgedOn() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryWorth(0, "100.00"), deliveryWorth(-1, "100.00")));
+        when(purchaseOrderRepository.findOutstandingPastPromise(eq(7L), anyCollection(), any(LocalDate.class)))
+                .thenReturn(List.of(outstandingBy(30, "900.00")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L, null);
+
+        assertThat(result.ordersJudged()).isEqualTo(2);
+        assertThat(result.onTimeRate()).isEqualByComparingTo(BigDecimal.ONE);
+        assertThat(result.late()).isZero();
+        assertThat(result.lateSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(result.ordersOverdue()).isEqualTo(1);
+        assertThat(result.overdueSpend()).isEqualByComparingTo("900.00");
+    }
+
+    @Test
+    void reliabilityReportsNothingOwedAsZeroAndNoWorstOutstanding() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryWorth(3, "100.00")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L, null);
+
+        assertThat(result.ordersOverdue()).isZero();
+        assertThat(result.worstDaysOverdue()).isNull();
+        assertThat(result.overdueSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+    }
+
+    @Test
+    void reliabilityReadsWhatIsOwedOverASupplierWhoHasDeliveredNothingAtAll() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveries(7L, PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of());
+        when(purchaseOrderRepository.findOutstandingPastPromise(eq(7L), anyCollection(), any(LocalDate.class)))
+                .thenReturn(List.of(outstandingBy(120, "5000.00")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L, null);
+
+        assertThat(result.ordersJudged()).isZero();
+        assertThat(result.onTimeRate()).isNull();
+        assertThat(result.ordersOverdue()).isEqualTo(1);
+        assertThat(result.worstDaysOverdue()).isEqualTo(120);
+        assertThat(result.overdueSpend()).isEqualByComparingTo("5000.00");
+    }
+
+    @Test
+    void reliabilityAsksAfterWhatIsOwedAsOfTodayEvenWhenTheDeliveriesAreWindowed() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        LocalDate since = LocalDate.of(2026, 1, 1);
+        when(supplierRepository.findById(7L)).thenReturn(Optional.of(acme));
+        when(purchaseOrderRepository.findJudgeableDeliveriesSince(7L, PurchaseOrderStatus.RECEIVED, since))
+                .thenReturn(List.of(deliveryWorth(0, "100.00")));
+        when(purchaseOrderRepository.findOutstandingPastPromise(eq(7L), anyCollection(), any(LocalDate.class)))
+                .thenReturn(List.of(outstandingBy(200, "800.00")));
+
+        SupplierReliabilityResponse result = supplierService.reliability(7L, since);
+
+        assertThat(result.ordersJudged()).isEqualTo(1);
+        assertThat(result.ordersOverdue()).isEqualTo(1);
+        assertThat(result.worstDaysOverdue()).isEqualTo(200);
+        assertThat(result.overdueSpend()).isEqualByComparingTo("800.00");
+    }
+
+    @Test
+    void theTableCarriesWhatEachSupplierOwesWithoutRankingOnIt() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        Supplier bolt = Supplier.builder().id(8L).name("Bolt Brothers").build();
+        when(supplierRepository.findAll()).thenReturn(List.of(acme, bolt));
+        when(purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryFrom(acme, 4, "50.00"), deliveryFrom(bolt, 0, "50.00")));
+        when(purchaseOrderRepository.findOutstandingPastPromise(anyCollection(), any(LocalDate.class)))
+                .thenReturn(List.of(outstandingFrom(bolt, 60, "6000.00")));
+
+        List<SupplierReliabilityResponse> table = supplierService.reliability(null);
+
+        assertThat(table).extracting(SupplierReliabilityResponse::supplierName)
+                .containsExactly("Acme Supplies", "Bolt Brothers");
+        assertThat(table.get(0).ordersOverdue()).isZero();
+        assertThat(table.get(0).overdueSpend()).isEqualByComparingTo(BigDecimal.ZERO);
+        assertThat(table.get(1).ordersOverdue()).isEqualTo(1);
+        assertThat(table.get(1).worstDaysOverdue()).isEqualTo(60);
+        assertThat(table.get(1).overdueSpend()).isEqualByComparingTo("6000.00");
+    }
+
+    @Test
+    void theTableStillSortsASupplierWhoOwesEverythingAndHasDeliveredNothingLast() {
+        Supplier acme = Supplier.builder().id(7L).name("Acme Supplies").build();
+        Supplier bolt = Supplier.builder().id(8L).name("Bolt Brothers").build();
+        when(supplierRepository.findAll()).thenReturn(List.of(acme, bolt));
+        when(purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED))
+                .thenReturn(List.of(deliveryFrom(acme, 6, "50.00")));
+        when(purchaseOrderRepository.findOutstandingPastPromise(anyCollection(), any(LocalDate.class)))
+                .thenReturn(List.of(outstandingFrom(bolt, 90, "9000.00")));
+
+        List<SupplierReliabilityResponse> table = supplierService.reliability(null);
+
+        assertThat(table).extracting(SupplierReliabilityResponse::supplierName)
+                .containsExactly("Acme Supplies", "Bolt Brothers");
+        assertThat(table.get(1).ordersJudged()).isZero();
+        assertThat(table.get(1).onTimeRate()).isNull();
+        assertThat(table.get(1).ordersOverdue()).isEqualTo(1);
     }
 
     @Test

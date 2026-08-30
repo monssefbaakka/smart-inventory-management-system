@@ -180,6 +180,31 @@ public class PurchaseOrder {
     }
 
     /**
+     * Reports how far past the day it was promised for an undelivered order has run, in whole days.
+     *
+     * <p>Read against the day the order was placed on, not against a day it was later re-promised
+     * for, which is the reading {@link #getDaysLate()} takes of a delivery that did arrive. An order
+     * re-promised every time its date comes round would otherwise never be outstanding, and a
+     * supplier could leave their own record by ringing up often enough.
+     *
+     * <p>Null unless the order is still being waited on and its promise has passed: a draft nobody
+     * sent is owed by nobody, a cancelled order is not coming and is not being waited on, a
+     * delivered one arrived and is judged on its arrival, one promised no day has no promise to run
+     * past, and one due today still has the whole of the day it was promised for.
+     *
+     * @param on the day to measure the outstanding promise against
+     * @return whole days between the original promise and that day, or {@code null} when the order
+     *         is not an outstanding promise on it
+     */
+    public Long getDaysOverdueOn(LocalDate on) {
+        if (originalExpectedDeliveryDate == null || status == null || !status.isAwaitingDelivery()
+                || !originalExpectedDeliveryDate.isBefore(on)) {
+            return null;
+        }
+        return ChronoUnit.DAYS.between(originalExpectedDeliveryDate, on);
+    }
+
+    /**
      * Reports whether every line has arrived in full.
      *
      * @return {@code true} when no line has anything outstanding

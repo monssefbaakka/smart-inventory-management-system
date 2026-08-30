@@ -76,7 +76,9 @@ public class SupplierController {
                     + "ranking does not weigh confidence, so ordersJudged says how much each row rests on, and "
                     + "it does not rank on the money, so judgedSpend says what each row is worth. Pass since "
                     + "to rank the suppliers on the deliveries that arrived on or after that day; a supplier "
-                    + "with none in the window keeps their row, with nothing judged on it.")
+                    + "with none in the window keeps their row, with nothing judged on it. Every row also "
+                    + "carries what that supplier still owes past the day they promised it, as of today, "
+                    + "which the ranking does not read.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Supplier records returned"),
         @ApiResponse(responseCode = "400", description = "since is not an ISO date", content = @Content)
@@ -98,7 +100,10 @@ public class SupplierController {
                     + "nothing to judge. judgedSpend and lateSpend total what those same orders were worth, "
                     + "at ordered quantity times unit price, and are zero rather than null over none of "
                     + "them. Pass since to judge only the deliveries that arrived on or after that day, for "
-                    + "the supplier's recent record rather than their whole one.")
+                    + "the supplier's recent record rather than their whole one. ordersOverdue, "
+                    + "worstDaysOverdue and overdueSpend report what the supplier still owes past the day "
+                    + "they promised it, as of today: an order that has not arrived is neither on time nor late, "
+                    + "so it stays out of the rates, and since does not narrow it.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Supplier record returned"),
         @ApiResponse(responseCode = "400", description = "since is not an ISO date", content = @Content),

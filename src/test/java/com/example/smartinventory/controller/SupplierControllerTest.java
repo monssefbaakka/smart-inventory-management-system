@@ -58,9 +58,9 @@ class SupplierControllerTest {
         when(supplierService.reliability((LocalDate) null)).thenReturn(List.of(
                 new SupplierReliabilityResponse(7L, "Acme Supplies", 2, 1, 1,
                         new BigDecimal("0.50"), new BigDecimal("4.0"), 4L,
-                        new BigDecimal("500.00"), new BigDecimal("400.00")),
+                        new BigDecimal("500.00"), new BigDecimal("400.00"), 0, null, BigDecimal.ZERO),
                 new SupplierReliabilityResponse(9L, "Cove Trading", 0, 0, 0, null, null, null,
-                        BigDecimal.ZERO, BigDecimal.ZERO)));
+                        BigDecimal.ZERO, BigDecimal.ZERO, 0, null, BigDecimal.ZERO)));
 
         mockMvc.perform(get("/api/suppliers/reliability"))
                 .andExpect(status().isOk())
@@ -79,7 +79,7 @@ class SupplierControllerTest {
     void reliabilityReportsHowWellTheSupplierKeepsTheirDates() throws Exception {
         when(supplierService.reliability(7L, null)).thenReturn(new SupplierReliabilityResponse(
                 7L, "Acme Supplies", 4, 2, 2, new BigDecimal("0.50"), new BigDecimal("7.0"), 11L,
-                new BigDecimal("1390.50"), new BigDecimal("1040.50")));
+                new BigDecimal("1390.50"), new BigDecimal("1040.50"), 2, 42L, new BigDecimal("7400.00")));
 
         mockMvc.perform(get("/api/suppliers/7/reliability"))
                 .andExpect(status().isOk())
@@ -92,13 +92,17 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$.averageDaysLate").value(7.0))
                 .andExpect(jsonPath("$.worstDaysLate").value(11))
                 .andExpect(jsonPath("$.judgedSpend").value(1390.50))
-                .andExpect(jsonPath("$.lateSpend").value(1040.50));
+                .andExpect(jsonPath("$.lateSpend").value(1040.50))
+                .andExpect(jsonPath("$.ordersOverdue").value(2))
+                .andExpect(jsonPath("$.worstDaysOverdue").value(42))
+                .andExpect(jsonPath("$.overdueSpend").value(7400.00));
     }
 
     @Test
     void reliabilityReportsNothingJudgedAsNullFigures() throws Exception {
         when(supplierService.reliability(7L, null)).thenReturn(new SupplierReliabilityResponse(
-                7L, "Acme Supplies", 0, 0, 0, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO));
+                7L, "Acme Supplies", 0, 0, 0, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO,
+                0, null, BigDecimal.ZERO));
 
         mockMvc.perform(get("/api/suppliers/7/reliability"))
                 .andExpect(status().isOk())
@@ -107,7 +111,10 @@ class SupplierControllerTest {
                 .andExpect(jsonPath("$.averageDaysLate").value(nullValue()))
                 .andExpect(jsonPath("$.worstDaysLate").value(nullValue()))
                 .andExpect(jsonPath("$.judgedSpend").value(0))
-                .andExpect(jsonPath("$.lateSpend").value(0));
+                .andExpect(jsonPath("$.lateSpend").value(0))
+                .andExpect(jsonPath("$.ordersOverdue").value(0))
+                .andExpect(jsonPath("$.worstDaysOverdue").value(nullValue()))
+                .andExpect(jsonPath("$.overdueSpend").value(0));
     }
 
     @Test
@@ -122,7 +129,8 @@ class SupplierControllerTest {
     void reliabilityCarriesTheWindowItWasAskedForThroughToTheService() throws Exception {
         when(supplierService.reliability(7L, LocalDate.of(2026, 1, 1))).thenReturn(
                 new SupplierReliabilityResponse(7L, "Acme Supplies", 2, 1, 1, new BigDecimal("0.50"),
-                        new BigDecimal("6.0"), 6L, new BigDecimal("500.00"), new BigDecimal("400.00")));
+                        new BigDecimal("6.0"), 6L, new BigDecimal("500.00"), new BigDecimal("400.00"),
+                        0, null, BigDecimal.ZERO));
 
         mockMvc.perform(get("/api/suppliers/7/reliability").param("since", "2026-01-01"))
                 .andExpect(status().isOk())
@@ -134,7 +142,8 @@ class SupplierControllerTest {
     void theReliabilityTableCarriesTheWindowItWasAskedForThroughToTheService() throws Exception {
         when(supplierService.reliability(LocalDate.of(2026, 1, 1))).thenReturn(List.of(
                 new SupplierReliabilityResponse(8L, "Bolt Brothers", 1, 0, 1, BigDecimal.ZERO,
-                        new BigDecimal("4.0"), 4L, new BigDecimal("90.00"), new BigDecimal("90.00"))));
+                        new BigDecimal("4.0"), 4L, new BigDecimal("90.00"), new BigDecimal("90.00"),
+                        0, null, BigDecimal.ZERO)));
 
         mockMvc.perform(get("/api/suppliers/reliability").param("since", "2026-01-01"))
                 .andExpect(status().isOk())

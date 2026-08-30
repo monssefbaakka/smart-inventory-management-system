@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **What a supplier still owes, not only what they delivered late** — `GET /api/suppliers/{id}/reliability`
+  and `GET /api/suppliers/reliability` report `ordersOverdue`, the orders still being waited on whose
+  promised day has passed, `worstDaysOverdue`, how far past its promise the longest of them has run,
+  and `overdueSpend`, what they are worth. A record taken over fulfilled orders only judges a
+  supplier on the half they sent: one who delivers punctually and silently sits on the rest reads as
+  perfectly reliable, and never sending the goods scores better than sending them late. Read against
+  the day the order was placed on, the same date `daysLate` reads, so a supplier who keeps
+  re-promising cannot leave their own record; drafts and cancelled orders are owed by nobody and are
+  not counted. The rates are unchanged — an order that has not arrived is neither on time nor late —
+  and `since` still windows the deliveries only, because what is outstanding is a fact about today
+  (#195).
+
 - **A supplier's recent record, not their whole book** — `GET /api/suppliers/{id}/reliability` and
   `GET /api/suppliers/reliability` take an optional `since` day (ISO `yyyy-MM-dd`) and judge only the
   deliveries that arrived on or after it. A supplier who was late all last year and has been on time

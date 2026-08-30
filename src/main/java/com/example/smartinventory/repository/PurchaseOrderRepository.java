@@ -173,6 +173,48 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
             @Param("since") LocalDate since);
 
     /**
+     * Returns the orders of one supplier that are still being waited on and were promised for a day
+     * that has passed: the promises they have not kept and have not broken either, having simply not
+     * answered them yet.
+     *
+     * <p>The promise read is the one the order was placed on, the one a delivered order is judged
+     * against, so an order re-promised every time its date comes round stays outstanding rather than
+     * walking off the supplier's record.
+     *
+     * <p>The statuses are passed in rather than assumed here: what counts as still waiting is the
+     * order's business. Drafts and cancelled orders are outside them, which is what a promise nobody
+     * sent and a promise nobody is waiting on deserve. Their lines come with them, because what the
+     * outstanding promises are worth is summed from the orders themselves.
+     *
+     * @param supplierId identifier of the supplier
+     * @param statuses   the order statuses that count as awaiting delivery
+     * @param onDate     the day the promise had to have fallen before
+     * @return that supplier's outstanding missed promises, in no particular order
+     */
+    @EntityGraph(attributePaths = {"items"})
+    @Query("select o from PurchaseOrder o where o.supplier.id = :supplierId and o.status in :statuses "
+            + "and o.originalExpectedDeliveryDate is not null and o.originalExpectedDeliveryDate < :onDate")
+    List<PurchaseOrder> findOutstandingPastPromise(@Param("supplierId") Long supplierId,
+            @Param("statuses") Collection<PurchaseOrderStatus> statuses, @Param("onDate") LocalDate onDate);
+
+    /**
+     * Returns every outstanding missed promise, whoever owes it, for reading the whole book of
+     * suppliers in one pass rather than asking after each of them in turn.
+     *
+     * <p>The supplier is fetched with the order, because the orders are grouped by supplier
+     * afterwards, and the lines with it, because the money on each row is summed from them.
+     *
+     * @param statuses the order statuses that count as awaiting delivery
+     * @param onDate   the day the promise had to have fallen before
+     * @return every outstanding missed promise, in no particular order
+     */
+    @EntityGraph(attributePaths = {"supplier", "items"})
+    @Query("select o from PurchaseOrder o where o.status in :statuses "
+            + "and o.originalExpectedDeliveryDate is not null and o.originalExpectedDeliveryDate < :onDate")
+    List<PurchaseOrder> findOutstandingPastPromise(
+            @Param("statuses") Collection<PurchaseOrderStatus> statuses, @Param("onDate") LocalDate onDate);
+
+    /**
      * Sums how much of a product is bought but not yet delivered, so replenishment is measured
      * against the cover that is genuinely on its way rather than against the bare fact of an order.
      *

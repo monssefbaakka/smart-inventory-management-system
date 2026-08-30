@@ -744,7 +744,10 @@ GET /api/suppliers/7/reliability
   "averageDaysLate": 7.0,
   "worstDaysLate": 11,
   "judgedSpend": 1390.50,
-  "lateSpend": 1040.50
+  "lateSpend": 1040.50,
+  "ordersOverdue": 2,
+  "worstDaysOverdue": 42,
+  "overdueSpend": 7400.00
 }
 ```
 
@@ -794,6 +797,27 @@ problem can be told from the loud one, but the table is still ordered by the pro
 table ranked by spend answers a different question, and this one answers who is holding the
 warehouse up.
 
+Nor on what is outstanding. Every row carries `ordersOverdue`, `worstDaysOverdue` and `overdueSpend`,
+but the ranking reads deliveries, and an order that has not arrived has not gone either way. A
+supplier with nothing judged and a pile outstanding still sorts last, where no record puts them, with
+the pile on their row saying what the rates cannot.
+
+The rates are taken over deliveries, so an order that never came is in none of them. A supplier who
+sends half their orders punctually and sits on the rest would read as perfectly reliable, and the
+worse they behave — never sending the goods rather than sending them late — the better the record
+would look. `ordersOverdue` counts what they are still being waited on for past the day they promised
+it, `worstDaysOverdue` says how far past its promise the longest of them has run, and `overdueSpend`
+says what that pile is worth.
+
+What is outstanding is read against the day the order was placed on, the date `daysLate` reads, so a
+supplier who re-promises every time the date comes round cannot walk off their own record. A draft
+nobody sent and a cancelled order nobody is waiting on are owed by nobody and are not counted, and an
+order due today still has the whole of the day it was promised for.
+
+The two sets of figures stand beside each other rather than being folded together. An order that has
+not arrived is neither on time nor late, so it stays out of the rates; the counts say what the rates
+cannot see.
+
 Either call can be asked about a period instead of about everything:
 
 ```
@@ -815,6 +839,10 @@ A window catching no delivery reports nothing judged rather than nothing found: 
 `null`, sums zero — over that period the supplier has the record of a supplier nobody has received
 from, and it is read on the same terms. On the table every supplier still appears, ranked over the
 window, because a supplier who delivered nothing this quarter is worth seeing rather than dropping.
+
+`since` windows the deliveries only. What a supplier still owes is a fact about today rather than
+about a period — an order overdue since before any window is overdue now — and no window over days
+of arrival can select an order that has not arrived.
 
 Nothing is decided by the figures. A supplier's `leadTimeDays` is not corrected from them, the
 reorder rule does not prefer a reliable supplier to an unreliable one, and nothing is alerted — the

@@ -2,6 +2,7 @@ package com.example.smartinventory.dto;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.List;
 
 import com.example.smartinventory.model.PurchaseOrder;
@@ -47,7 +48,19 @@ public record SupplierReliabilityResponse(
 
         @Schema(description = "How much of that arrived after the day it was promised for; zero when nothing "
                 + "was late", example = "12100.00")
-        BigDecimal lateSpend) {
+        BigDecimal lateSpend,
+
+        @Schema(description = "Orders still being waited on whose promised day has passed, as of today",
+                example = "3")
+        long ordersOverdue,
+
+        @Schema(description = "Days past its promise of the longest outstanding one, or null when none is "
+                + "outstanding", example = "42")
+        Long worstDaysOverdue,
+
+        @Schema(description = "What those outstanding orders are worth, at ordered quantity times unit "
+                + "price; zero when none is outstanding", example = "7400.00")
+        BigDecimal overdueSpend) {
 
     /** Scale the on-time proportion is reported at: a rate, not a sum of money. */
     private static final int RATE_SCALE = 2;
@@ -73,11 +86,24 @@ public record SupplierReliabilityResponse(
      * beside a rate can be read against it. Both are the order's own total, at ordered quantity
      * times unit price, which is the figure the order itself reports.
      *
-     * @param supplier   the supplier being judged
-     * @param deliveries their fulfilled orders carrying both the day promised and the day of arrival
+     * <p>What is still owed is folded in beside what arrived. A supplier who delivers half their
+     * orders punctually and sits on the rest is judged only on the half that came, and the worse
+     * they are — never sending the goods rather than sending them late — the better the rates read.
+     * An order that has not arrived cannot be on time or late, so it stays out of the rates and is
+     * counted on its own terms: the figures stand beside each other and say different things.
+     *
+     * <p>The outstanding orders are read as of a given day rather than over the window the
+     * deliveries are: what is owed is a fact about today, and an order overdue since before any
+     * window is overdue now.
+     *
+     * @param supplier    the supplier being judged
+     * @param deliveries  their fulfilled orders carrying both the day promised and the day of arrival
+     * @param outstanding their orders still being waited on whose promised day has passed
+     * @param on          the day the outstanding orders are measured against
      * @return the response payload
      */
-    public static SupplierReliabilityResponse of(Supplier supplier, List<PurchaseOrder> deliveries) {
+    public static SupplierReliabilityResponse of(Supplier supplier, List<PurchaseOrder> deliveries,
+            List<PurchaseOrder> outstanding, LocalDate on) {
         List<PurchaseOrder> late = deliveries.stream().filter(order -> order.getDaysLate() > 0).toList();
         List<Long> latenesses = late.stream().map(PurchaseOrder::getDaysLate).toList();
         long judged = deliveries.size();
@@ -92,8 +118,15 @@ public record SupplierReliabilityResponse(
                         .divide(BigDecimal.valueOf(latenesses.size()), DAYS_SCALE, RoundingMode.HALF_UP);
         Long worstDaysLate = latenesses.stream().max(Long::compareTo).orElse(null);
 
+        Long worstDaysOverdue = outstanding.stream()
+                .map(order -> order.getDaysOverdueOn(on))
+                .filter(days -> days != null)
+                .max(Long::compareTo)
+                .orElse(null);
+
         return new SupplierReliabilityResponse(supplier.getId(), supplier.getName(), judged, onTime, late.size(),
-                onTimeRate, averageDaysLate, worstDaysLate, spendOver(deliveries), spendOver(late));
+                onTimeRate, averageDaysLate, worstDaysLate, spendOver(deliveries), spendOver(late),
+                outstanding.size(), worstDaysOverdue, spendOver(outstanding));
     }
 
     /**
