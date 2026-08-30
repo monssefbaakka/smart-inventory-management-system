@@ -117,6 +117,10 @@ public class SupplierService {
      * period the supplier has no record, which is what a supplier nobody has received from has, and
      * the counts, rates and sums say so on the same terms.
      *
+     * <p>What the supplier still owes past the day they promised it is reported beside what they
+     * delivered. Read as of today and never narrowed by the window: what is outstanding is a fact
+     * about now, and a window over days of arrival cannot select an order that has not arrived.
+     *
      * @param id    identifier of the supplier
      * @param since the earliest day of arrival to judge, inclusive, or null for their whole record
      * @return that supplier's record over the deliveries that can be judged
@@ -128,7 +132,10 @@ public class SupplierService {
         List<PurchaseOrder> deliveries = since == null
                 ? purchaseOrderRepository.findJudgeableDeliveries(id, PurchaseOrderStatus.RECEIVED)
                 : purchaseOrderRepository.findJudgeableDeliveriesSince(id, PurchaseOrderStatus.RECEIVED, since);
-        return SupplierReliabilityResponse.of(supplier, deliveries);
+        LocalDate today = LocalDate.now();
+        List<PurchaseOrder> outstanding = purchaseOrderRepository.findOutstandingPastPromise(id,
+                PurchaseOrderStatus.awaitingDelivery(), today);
+        return SupplierReliabilityResponse.of(supplier, deliveries, outstanding, today);
     }
 
     /**
@@ -155,6 +162,12 @@ public class SupplierService {
      * Every supplier still appears: one whose deliveries all fall outside the window has no record
      * over it, which is a thing worth seeing on the table rather than a reason to drop the row.
      *
+     * <p>Every row also carries what that supplier still owes past the day they promised it, read as
+     * of today. The ranking does not read it: the table is ordered on how deliveries went, and an
+     * order that has not arrived has not gone either way. A supplier with nothing judged and a pile
+     * outstanding still sorts last, where no record puts them, with the pile on their row saying
+     * what the rates cannot.
+     *
      * @param since the earliest day of arrival to judge, inclusive, or null for the whole record
      * @return every supplier's record, the worst of them first
      */
@@ -163,14 +176,28 @@ public class SupplierService {
         List<PurchaseOrder> deliveries = since == null
                 ? purchaseOrderRepository.findJudgeableDeliveries(PurchaseOrderStatus.RECEIVED)
                 : purchaseOrderRepository.findJudgeableDeliveriesSince(PurchaseOrderStatus.RECEIVED, since);
-        Map<Long, List<PurchaseOrder>> deliveriesBySupplier = deliveries.stream()
-                .collect(Collectors.groupingBy(order -> order.getSupplier().getId()));
+        Map<Long, List<PurchaseOrder>> deliveriesBySupplier = bySupplier(deliveries);
+
+        LocalDate today = LocalDate.now();
+        Map<Long, List<PurchaseOrder>> outstandingBySupplier = bySupplier(purchaseOrderRepository
+                .findOutstandingPastPromise(PurchaseOrderStatus.awaitingDelivery(), today));
 
         return supplierRepository.findAll().stream()
                 .map(supplier -> SupplierReliabilityResponse.of(supplier,
-                        deliveriesBySupplier.getOrDefault(supplier.getId(), List.of())))
+                        deliveriesBySupplier.getOrDefault(supplier.getId(), List.of()),
+                        outstandingBySupplier.getOrDefault(supplier.getId(), List.of()), today))
                 .sorted(WORST_FIRST)
                 .toList();
+    }
+
+    /**
+     * Groups orders by the supplier they were raised against.
+     *
+     * @param orders the orders to group
+     * @return the orders under their supplier's identifier
+     */
+    private static Map<Long, List<PurchaseOrder>> bySupplier(List<PurchaseOrder> orders) {
+        return orders.stream().collect(Collectors.groupingBy(order -> order.getSupplier().getId()));
     }
 
     /**
