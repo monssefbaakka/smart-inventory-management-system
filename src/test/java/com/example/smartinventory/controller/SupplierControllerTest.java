@@ -1,6 +1,7 @@
 package com.example.smartinventory.controller;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -54,7 +55,7 @@ class SupplierControllerTest {
 
     @Test
     void theReliabilityTableIsReturnedInTheOrderTheServiceRanksIt() throws Exception {
-        when(supplierService.reliability()).thenReturn(List.of(
+        when(supplierService.reliability((LocalDate) null)).thenReturn(List.of(
                 new SupplierReliabilityResponse(7L, "Acme Supplies", 2, 1, 1,
                         new BigDecimal("0.50"), new BigDecimal("4.0"), 4L,
                         new BigDecimal("500.00"), new BigDecimal("400.00")),
@@ -76,7 +77,7 @@ class SupplierControllerTest {
 
     @Test
     void reliabilityReportsHowWellTheSupplierKeepsTheirDates() throws Exception {
-        when(supplierService.reliability(7L)).thenReturn(new SupplierReliabilityResponse(
+        when(supplierService.reliability(7L, null)).thenReturn(new SupplierReliabilityResponse(
                 7L, "Acme Supplies", 4, 2, 2, new BigDecimal("0.50"), new BigDecimal("7.0"), 11L,
                 new BigDecimal("1390.50"), new BigDecimal("1040.50")));
 
@@ -96,7 +97,7 @@ class SupplierControllerTest {
 
     @Test
     void reliabilityReportsNothingJudgedAsNullFigures() throws Exception {
-        when(supplierService.reliability(7L)).thenReturn(new SupplierReliabilityResponse(
+        when(supplierService.reliability(7L, null)).thenReturn(new SupplierReliabilityResponse(
                 7L, "Acme Supplies", 0, 0, 0, null, null, null, BigDecimal.ZERO, BigDecimal.ZERO));
 
         mockMvc.perform(get("/api/suppliers/7/reliability"))
@@ -111,10 +112,40 @@ class SupplierControllerTest {
 
     @Test
     void reliabilityAnswersNotFoundForASupplierThatDoesNotExist() throws Exception {
-        when(supplierService.reliability(9L)).thenThrow(new ResourceNotFoundException("Supplier not found"));
+        when(supplierService.reliability(9L, null)).thenThrow(new ResourceNotFoundException("Supplier not found"));
 
         mockMvc.perform(get("/api/suppliers/9/reliability"))
                 .andExpect(status().isNotFound());
+    }
+
+    @Test
+    void reliabilityCarriesTheWindowItWasAskedForThroughToTheService() throws Exception {
+        when(supplierService.reliability(7L, LocalDate.of(2026, 1, 1))).thenReturn(
+                new SupplierReliabilityResponse(7L, "Acme Supplies", 2, 1, 1, new BigDecimal("0.50"),
+                        new BigDecimal("6.0"), 6L, new BigDecimal("500.00"), new BigDecimal("400.00")));
+
+        mockMvc.perform(get("/api/suppliers/7/reliability").param("since", "2026-01-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ordersJudged").value(2))
+                .andExpect(jsonPath("$.onTimeRate").value(0.50));
+    }
+
+    @Test
+    void theReliabilityTableCarriesTheWindowItWasAskedForThroughToTheService() throws Exception {
+        when(supplierService.reliability(LocalDate.of(2026, 1, 1))).thenReturn(List.of(
+                new SupplierReliabilityResponse(8L, "Bolt Brothers", 1, 0, 1, BigDecimal.ZERO,
+                        new BigDecimal("4.0"), 4L, new BigDecimal("90.00"), new BigDecimal("90.00"))));
+
+        mockMvc.perform(get("/api/suppliers/reliability").param("since", "2026-01-01"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$", hasSize(1)))
+                .andExpect(jsonPath("$[0].supplierName").value("Bolt Brothers"));
+    }
+
+    @Test
+    void reliabilityRejectsAWindowThatIsNotADate() throws Exception {
+        mockMvc.perform(get("/api/suppliers/7/reliability").param("since", "last-tuesday"))
+                .andExpect(status().isBadRequest());
     }
 
     @Test
