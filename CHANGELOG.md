@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **A supplier's recent record, not their whole book** — `GET /api/suppliers/{id}/reliability` and
+  `GET /api/suppliers/reliability` take an optional `since` day (ISO `yyyy-MM-dd`) and judge only the
+  deliveries that arrived on or after it. A supplier who was late all last year and has been on time
+  since reads as unreliable over their whole record, and one who has started slipping is covered by a
+  long good history; the buyer placing the next order is asking about the supplier now. The window is
+  applied to the day the goods arrived rather than the day they were promised for, because it selects
+  the deliveries that happened in the period. It is inclusive, so a day names that day's deliveries.
+  A window catching nothing reports nothing judged — counts zero, rates null, sums zero — because
+  over that period the supplier has no record. Omitted, the whole record is judged, as before, and
+  the table still lists every supplier, worst first (#193).
+
 - **What the buying behind a supplier's record is worth** — `GET /api/suppliers/{id}/reliability` and
   `GET /api/suppliers/reliability` report `judgedSpend`, the summed value of the orders the record is
   taken over at ordered quantity times unit price, and `lateSpend`, the same sum over the late ones

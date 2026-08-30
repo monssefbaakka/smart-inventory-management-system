@@ -1,7 +1,9 @@
 package com.example.smartinventory.controller;
 
+import java.time.LocalDate;
 import java.util.List;
 
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -12,6 +14,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.example.smartinventory.dto.SupplierReliabilityResponse;
@@ -71,10 +74,19 @@ public class SupplierController {
                     + "having nothing judged last and ties settled by how many orders each was judged on and "
                     + "then by name. Every supplier appears, including the ones nobody has received from. The "
                     + "ranking does not weigh confidence, so ordersJudged says how much each row rests on, and "
-                    + "it does not rank on the money, so judgedSpend says what each row is worth.")
-    @ApiResponse(responseCode = "200", description = "Supplier records returned")
-    public ResponseEntity<List<SupplierReliabilityResponse>> reliability() {
-        return ResponseEntity.ok(supplierService.reliability());
+                    + "it does not rank on the money, so judgedSpend says what each row is worth. Pass since "
+                    + "to rank the suppliers on the deliveries that arrived on or after that day; a supplier "
+                    + "with none in the window keeps their row, with nothing judged on it.")
+    @ApiResponses({
+        @ApiResponse(responseCode = "200", description = "Supplier records returned"),
+        @ApiResponse(responseCode = "400", description = "since is not an ISO date", content = @Content)
+    })
+    public ResponseEntity<List<SupplierReliabilityResponse>> reliability(
+            @Parameter(description = "Earliest day of arrival to judge, inclusive, as an ISO-8601 date; "
+                    + "omitted, the whole record is judged")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate since) {
+        return ResponseEntity.ok(supplierService.reliability(since));
     }
 
     @GetMapping("/{id}/reliability")
@@ -85,14 +97,20 @@ public class SupplierController {
                     + "average lateness counts only the late orders, and every rate is null when there is "
                     + "nothing to judge. judgedSpend and lateSpend total what those same orders were worth, "
                     + "at ordered quantity times unit price, and are zero rather than null over none of "
-                    + "them.")
+                    + "them. Pass since to judge only the deliveries that arrived on or after that day, for "
+                    + "the supplier's recent record rather than their whole one.")
     @ApiResponses({
         @ApiResponse(responseCode = "200", description = "Supplier record returned"),
+        @ApiResponse(responseCode = "400", description = "since is not an ISO date", content = @Content),
         @ApiResponse(responseCode = "404", description = "Supplier not found", content = @Content)
     })
     public ResponseEntity<SupplierReliabilityResponse> reliability(
-            @Parameter(description = "Identifier of the supplier") @PathVariable Long id) {
-        return ResponseEntity.ok(supplierService.reliability(id));
+            @Parameter(description = "Identifier of the supplier") @PathVariable Long id,
+            @Parameter(description = "Earliest day of arrival to judge, inclusive, as an ISO-8601 date; "
+                    + "omitted, the whole record is judged")
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate since) {
+        return ResponseEntity.ok(supplierService.reliability(id, since));
     }
 
     @GetMapping

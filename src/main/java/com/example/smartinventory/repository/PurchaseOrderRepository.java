@@ -114,6 +114,31 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
             @Param("status") PurchaseOrderStatus status);
 
     /**
+     * Returns the judgeable deliveries of one supplier that arrived on or after a given day, for
+     * asking what they have been like lately rather than what they have ever been like.
+     *
+     * <p>The window is applied to the day the goods arrived, not the day they were promised for: it
+     * selects the deliveries that happened in the period, which is what a recent record is made of.
+     * An order promised inside the window and still awaited has not been delivered and is no more
+     * judgeable here than anywhere else.
+     *
+     * <p>Kept apart from the unwindowed finder rather than folded into it behind a nullable
+     * parameter: a query that reads {@code deliveredDate >= :since} says what it selects, where one
+     * carrying a null check says it twice and means it once.
+     *
+     * @param supplierId identifier of the supplier
+     * @param status     the status a fulfilled order is in
+     * @param since      the earliest day of arrival to judge, inclusive
+     * @return that supplier's judgeable deliveries inside the window, in no particular order
+     */
+    @EntityGraph(attributePaths = {"items"})
+    @Query("select o from PurchaseOrder o where o.supplier.id = :supplierId and o.status = :status "
+            + "and o.originalExpectedDeliveryDate is not null and o.deliveredDate is not null "
+            + "and o.deliveredDate >= :since")
+    List<PurchaseOrder> findJudgeableDeliveriesSince(@Param("supplierId") Long supplierId,
+            @Param("status") PurchaseOrderStatus status, @Param("since") LocalDate since);
+
+    /**
      * Returns every judgeable delivery, whoever supplied it, for reading the whole book of suppliers
      * in one pass rather than asking after each of them in turn.
      *
@@ -128,6 +153,24 @@ public interface PurchaseOrderRepository extends JpaRepository<PurchaseOrder, Lo
     @Query("select o from PurchaseOrder o where o.status = :status "
             + "and o.originalExpectedDeliveryDate is not null and o.deliveredDate is not null")
     List<PurchaseOrder> findJudgeableDeliveries(@Param("status") PurchaseOrderStatus status);
+
+    /**
+     * Returns every judgeable delivery that arrived on or after a given day, whoever supplied it, for
+     * reading the whole book of suppliers over one recent window in one pass.
+     *
+     * <p>Windowed on the day of arrival on the same terms as the single-supplier finder, so a row of
+     * the table and a supplier's own record answer alike over the same window.
+     *
+     * @param status the status a fulfilled order is in
+     * @param since  the earliest day of arrival to judge, inclusive
+     * @return every judgeable delivery inside the window, in no particular order
+     */
+    @EntityGraph(attributePaths = {"supplier", "items"})
+    @Query("select o from PurchaseOrder o where o.status = :status "
+            + "and o.originalExpectedDeliveryDate is not null and o.deliveredDate is not null "
+            + "and o.deliveredDate >= :since")
+    List<PurchaseOrder> findJudgeableDeliveriesSince(@Param("status") PurchaseOrderStatus status,
+            @Param("since") LocalDate since);
 
     /**
      * Sums how much of a product is bought but not yet delivered, so replenishment is measured
