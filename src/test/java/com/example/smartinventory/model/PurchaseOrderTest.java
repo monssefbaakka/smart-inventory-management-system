@@ -21,6 +21,11 @@ class PurchaseOrderTest {
                 .deliveredDate(arrivedOn).build();
     }
 
+    private PurchaseOrder outstanding(PurchaseOrderStatus status, LocalDate promisedFor) {
+        return PurchaseOrder.builder().id(1L).status(status)
+                .expectedDeliveryDate(promisedFor).originalExpectedDeliveryDate(promisedFor).build();
+    }
+
     @Test
     void anOrderStillAwaitedIsLateOnceItsDateHasPassed() {
         assertThat(order(PurchaseOrderStatus.PLACED, TODAY.minusDays(1)).isOverdueOn(TODAY)).isTrue();
@@ -82,6 +87,39 @@ class PurchaseOrderTest {
         assertThat(order(status, TODAY.minusDays(30)).isOverdueOn(TODAY)).isFalse();
     }
 
+    @Test
+    void anOrderStillAwaitedReportsHowFarPastItsPromiseItHasRun() {
+        assertThat(outstanding(PurchaseOrderStatus.PLACED, TODAY.minusDays(30)).getDaysOverdueOn(TODAY))
+                .isEqualTo(30);
+        assertThat(outstanding(PurchaseOrderStatus.PARTIALLY_RECEIVED, TODAY.minusDays(4))
+                .getDaysOverdueOn(TODAY)).isEqualTo(4);
+    }
+
+    @Test
+    void anOutstandingOrderIsMeasuredAgainstThePromiseItWasPlacedOn() {
+        PurchaseOrder order = outstanding(PurchaseOrderStatus.PLACED, TODAY.minusDays(21));
+        order.setExpectedDeliveryDate(TODAY.plusDays(7));
+
+        assertThat(order.getDaysOverdueOn(TODAY)).isEqualTo(21);
+    }
+
+    @Test
+    void anOrderPromisedForTodayOrLaterIsNotOutstandingYet() {
+        assertThat(outstanding(PurchaseOrderStatus.PLACED, TODAY).getDaysOverdueOn(TODAY)).isNull();
+        assertThat(outstanding(PurchaseOrderStatus.PLACED, TODAY.plusDays(3)).getDaysOverdueOn(TODAY)).isNull();
+    }
+
+    @Test
+    void anOrderPromisedNoDayHasNoPromiseToRunPast() {
+        assertThat(outstanding(PurchaseOrderStatus.PLACED, null).getDaysOverdueOn(TODAY)).isNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = PurchaseOrderStatus.class, names = {"DRAFT", "RECEIVED", "CANCELLED"})
+    void nothingIsOutstandingAgainstAnOrderNobodyIsWaitingOn(PurchaseOrderStatus status) {
+        assertThat(outstanding(status, TODAY.minusDays(30)).getDaysOverdueOn(TODAY)).isNull();
+    }
+
     @ParameterizedTest
     @EnumSource(value = PurchaseOrderStatus.class, names = {"PLACED", "PARTIALLY_RECEIVED"})
     void goodsAreStillExpectedAgainstAnOrderThatHasNotArrived(PurchaseOrderStatus status) {
@@ -92,6 +130,12 @@ class PurchaseOrderTest {
     @EnumSource(value = PurchaseOrderStatus.class, names = {"DRAFT", "RECEIVED", "CANCELLED"})
     void nobodyIsWaitingOnADraftOrOnAnOrderThatIsDone(PurchaseOrderStatus status) {
         assertThat(status.isAwaitingDelivery()).isFalse();
+    }
+
+    @Test
+    void theStatesGoodsAreExpectedInAreTheOnesThatSayTheyAre() {
+        assertThat(PurchaseOrderStatus.awaitingDelivery())
+                .containsExactlyInAnyOrder(PurchaseOrderStatus.PLACED, PurchaseOrderStatus.PARTIALLY_RECEIVED);
     }
 
 }
