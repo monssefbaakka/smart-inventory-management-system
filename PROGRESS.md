@@ -94,9 +94,10 @@ implemented in repo but GitHub issue not yet closed
 | 183 | Re-promise an order that has slipped, without letting the supplier off the first promise | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 185 | Rank the suppliers by whether they keep their dates, not one at a time | ![done](https://img.shields.io/badge/status-done-brightgreen) |
 | 190 | Say what the buying behind a supplier's record is worth, not only how they rank | ![done](https://img.shields.io/badge/status-done-brightgreen) |
-| 193 | Judge a supplier on their recent record, not on everything they ever did | ![working](https://img.shields.io/badge/status-working-blue) |
+| 193 | Judge a supplier on their recent record, not on everything they ever did | ![done](https://img.shields.io/badge/status-done-brightgreen) |
+| 195 | Count the order that never came, not only the one that came late | ![working](https://img.shields.io/badge/status-working-blue) |
 
 ## Current
 
-**Working:** #193 — Judge a supplier on their recent record, not on everything they ever did (PR open)
+**Working:** #195 — Count the order that never came, not only the one that came late (PR open)
 **Next up:** pick next milestone from Future Improvements in ROADMAP.md
