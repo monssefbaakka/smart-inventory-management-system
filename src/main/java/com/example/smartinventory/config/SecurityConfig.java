@@ -31,6 +31,9 @@ import tools.jackson.databind.json.JsonMapper;
 public class SecurityConfig {
 
     private static final String[] PUBLIC_ENDPOINTS = {
+        "/",
+        "/index.html",
+        "/favicon.ico",
         "/swagger-ui.html",
         "/swagger-ui/**",
         "/v3/api-docs/**",

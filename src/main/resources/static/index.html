@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Inventory — Console</title>
+<style>
+  /* ============================ tokens ============================ */
+  :root {
+    --bg:            #0a0d13;
+    --bg-glow-1:     #2563eb2e;
+    --bg-glow-2:     #7c3aed24;
+    --surface:       #11161f;
+    --surface-2:     #161d29;
+    --surface-3:     #1c2534;
+    --line:          #222c3c;
+    --line-soft:     #1a2231;
+    --text:          #e8edf5;
+    --text-dim:      #9aa8bd;
+    --text-faint:    #64748b;
+    --accent:        #5b8cff;
+    --accent-2:      #8b5cf6;
+    --accent-ink:    #ffffff;
+    --accent-soft:   #5b8cff1f;
+    --accent-line:   #5b8cff4d;
+    --good:          #34d399;
+    --good-soft:     #34d3991a;
+    --warn:          #fbbf24;
+    --warn-soft:     #fbbf241a;
+    --bad:           #fb7185;
+    --bad-soft:      #fb71851a;
+    --r-sm: 8px; --r: 12px; --r-lg: 16px; --r-xl: 22px;
+    --shadow:   0 1px 2px #0006, 0 8px 24px -12px #000a;
+    --shadow-lg:0 24px 60px -20px #000c, 0 2px 8px #0007;
+    --ring: 0 0 0 3px var(--accent-soft);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+  }
+  :root[data-theme="light"] {
+    --bg:            #f4f6fb;
+    --bg-glow-1:     #2563eb1a;
+    --bg-glow-2:     #7c3aed14;
+    --surface:       #ffffff;
+    --surface-2:     #f5f7fb;
+    --surface-3:     #eef2f8;
+    --line:          #e0e6f0;
+    --line-soft:     #eaeff7;
+    --text:          #0f172a;
+    --text-dim:      #56637a;
+    --text-faint:    #8592a8;
+    --accent:        #3b6ef6;
+    --accent-2:      #7c3aed;
+    --accent-soft:   #3b6ef614;
+    --accent-line:   #3b6ef644;
+    --good:          #0f9d6e;
+    --good-soft:     #0f9d6e14;
+    --warn:          #b7791f;
+    --warn-soft:     #b7791f14;
+    --bad:           #e11d48;
+    --bad-soft:      #e11d4814;
+    --shadow:   0 1px 2px #0f172a12, 0 8px 24px -14px #0f172a2e;
+    --shadow-lg:0 24px 60px -24px #0f172a33, 0 2px 8px #0f172a10;
+  }
+
+  /* ============================ base ============================ */
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 14px/1.55 ui-sans-serif, -apple-system, "Segoe UI Variable Text", "Segoe UI", Inter, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+  }
+  body::before {
+    content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(900px 480px at 12% -8%, var(--bg-glow-1), transparent 65%),
+      radial-gradient(760px 420px at 92% 4%, var(--bg-glow-2), transparent 62%);
+  }
+  button, input, select { font: inherit; color: inherit; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .icon { width: 18px; height: 18px; flex: none; stroke: currentColor; fill: none;
+    stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-thumb { background: var(--surface-3); border-radius: 99px; border: 3px solid transparent; background-clip: content-box; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--line); background-clip: content-box; }
+
+  /* ============================ atoms ============================ */
+  .card {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--r-lg); box-shadow: var(--shadow);
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 8px 13px; border-radius: var(--r-sm); cursor: pointer;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
+    font-weight: 500; transition: border-color .15s, background .15s, transform .06s, box-shadow .15s;
+  }
+  .btn:hover { border-color: var(--accent-line); background: var(--surface-3); }
+  .btn:active { transform: translateY(1px); }
+  .btn:focus-visible { outline: none; box-shadow: var(--ring); }
+  .btn.primary {
+    background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 82%, #000));
+    border-color: transparent; color: var(--accent-ink);
+    box-shadow: 0 1px 0 #fff2 inset, 0 8px 20px -10px var(--accent);
+  }
+  .btn.primary:hover { filter: brightness(1.07); border-color: transparent; }
+  .btn.ghost { background: transparent; border-color: transparent; color: var(--text-dim); }
+  .btn.ghost:hover { background: var(--surface-2); color: var(--text); }
+  .btn.icon-only { padding: 8px; }
+  .btn.block { width: 100%; padding: 11px 14px; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+
+  label { display: block; font-size: 12px; font-weight: 500; color: var(--text-dim);
+    margin: 0 0 6px; letter-spacing: .01em; }
+  input, select {
+    width: 100%; padding: 10px 12px; background: var(--surface-2);
+    border: 1px solid var(--line); border-radius: var(--r-sm); outline: none;
+    transition: border-color .15s, box-shadow .15s, background .15s;
+  }
+  input::placeholder { color: var(--text-faint); }
+  input:focus, select:focus { border-color: var(--accent); box-shadow: var(--ring); background: var(--surface); }
+  .field { position: relative; }
+  .field .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: var(--text-faint); pointer-events: none; }
+  .field input { padding-left: 38px; }
+
+  .tag {
+    display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: .02em;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text-dim);
+  }
+  .tag::before { content: ""; width: 5px; height: 5px; border-radius: 99px; background: currentColor; }
+  .tag.good { color: var(--good); border-color: color-mix(in srgb, var(--good) 40%, transparent); background: var(--good-soft); }
+  .tag.warn { color: var(--warn); border-color: color-mix(in srgb, var(--warn) 40%, transparent); background: var(--warn-soft); }
+  .tag.bad  { color: var(--bad);  border-color: color-mix(in srgb, var(--bad) 40%, transparent);  background: var(--bad-soft); }
+  .tag.flat::before { display: none; }
+  .muted { color: var(--text-dim); }
+  .faint { color: var(--text-faint); }
+
+  /* ============================ login ============================ */
+  #login { position: relative; z-index: 1; min-height: 100vh; display: grid; place-items: center; padding: 28px; }
+  .auth {
+    width: min(980px, 100%); display: grid; grid-template-columns: 1.05fr .95fr;
+    overflow: hidden; border-radius: var(--r-xl); box-shadow: var(--shadow-lg);
+    background: var(--surface); border: 1px solid var(--line);
+  }
+  .auth .pitch {
+    position: relative; padding: 40px 38px; color: #f2f6ff; overflow: hidden;
+    background:
+      radial-gradient(620px 320px at 8% 0%, #ffffff26, transparent 60%),
+      linear-gradient(150deg, #1d4ed8 0%, #4338ca 46%, #6d28d9 100%);
+  }
+  .auth .pitch::after {
+    content: ""; position: absolute; inset: -40% -30% auto auto; width: 420px; height: 420px;
+    border-radius: 50%; background: #ffffff14; filter: blur(2px);
+  }
+  .pitch .mark { display: inline-flex; align-items: center; gap: 10px; font-weight: 650; letter-spacing: -.01em; }
+  .pitch .mark .glyph {
+    width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px;
+    background: #ffffff1f; border: 1px solid #ffffff33; backdrop-filter: blur(6px);
+  }
+  .pitch h1 { margin: 30px 0 10px; font-size: 30px; line-height: 1.2; letter-spacing: -.025em; font-weight: 650; }
+  .pitch p.lede { margin: 0; color: #dbe4ff; max-width: 34ch; }
+  .pitch ul { list-style: none; margin: 30px 0 0; padding: 0; display: grid; gap: 13px; position: relative; z-index: 1; }
+  .pitch li { display: flex; gap: 10px; align-items: flex-start; color: #e4ebff; font-size: 13.5px; }
+  .pitch li .icon { color: #a5f3d0; margin-top: 2px; }
+  .auth .form { padding: 44px 40px; display: flex; flex-direction: column; justify-content: center; }
+  .auth .form h2 { margin: 0 0 4px; font-size: 21px; letter-spacing: -.02em; }
+  .auth .form p.sub { margin: 0 0 26px; color: var(--text-dim); }
+  .auth .form .stack { display: grid; gap: 16px; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 22px 0 16px; color: var(--text-faint); font-size: 12px; }
+  .divider::before, .divider::after { content: ""; height: 1px; flex: 1; background: var(--line); }
+  @media (max-width: 860px) { .auth { grid-template-columns: 1fr; } .auth .pitch { display: none; } .auth .form { padding: 34px 26px; } }
+
+  /* ============================ shell ============================ */
+  #app { position: relative; z-index: 1; display: none; grid-template-columns: 248px 1fr; min-height: 100vh; }
+  aside {
+    display: flex; flex-direction: column; gap: 6px; padding: 18px 14px;
+    background: color-mix(in srgb, var(--surface) 78%, transparent);
+    backdrop-filter: blur(14px); border-right: 1px solid var(--line);
+    position: sticky; top: 0; height: 100vh;
+  }
+  .brand { display: flex; align-items: center; gap: 11px; padding: 6px 8px 20px; }
+  .brand .glyph {
+    width: 36px; height: 36px; flex: none; display: grid; place-items: center; border-radius: 11px;
+    color: #fff; background: linear-gradient(140deg, var(--accent), var(--accent-2));
+    box-shadow: 0 6px 18px -8px var(--accent), 0 1px 0 #fff3 inset;
+  }
+  .brand b { display: block; font-size: 14.5px; font-weight: 650; letter-spacing: -.015em; }
+  .brand span { display: block; font-size: 11px; color: var(--text-faint); letter-spacing: .04em; text-transform: uppercase; }
+  .nav-label { padding: 10px 10px 6px; font-size: 10.5px; font-weight: 600; letter-spacing: .09em;
+    text-transform: uppercase; color: var(--text-faint); }
+  nav button {
+    position: relative; display: flex; align-items: center; gap: 10px; width: 100%; text-align: left;
+    padding: 9px 11px; margin-bottom: 2px; border: 0; border-radius: var(--r-sm);
+    background: transparent; color: var(--text-dim); cursor: pointer; font-weight: 500;
+    transition: background .15s, color .15s;
+  }
+  nav button:hover { background: var(--surface-2); color: var(--text); }
+  nav button.on { background: var(--accent-soft); color: var(--accent); }
+  nav button.on::before {
+    content: ""; position: absolute; left: -14px; top: 50%; transform: translateY(-50%);
+    width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--accent);
+  }
+  aside .foot { margin-top: auto; display: grid; gap: 10px; }
+  .who { display: flex; align-items: center; gap: 10px; padding: 9px 10px;
+    border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
+  .who .av {
+    width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center;
+    font-size: 12px; font-weight: 650; color: #fff;
+    background: linear-gradient(140deg, var(--accent), var(--accent-2));
+  }
+  .who .meta { min-width: 0; }
+  .who .meta b { display: block; font-size: 12.5px; font-weight: 600; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; }
+  .who .meta span { font-size: 11px; color: var(--text-faint); }
+
+  main { min-width: 0; padding: 0 0 64px; }
+  .topbar {
+    position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between;
+    gap: 16px; padding: 16px 32px; border-bottom: 1px solid var(--line-soft);
+    background: color-mix(in srgb, var(--bg) 82%, transparent); backdrop-filter: blur(12px);
+  }
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--text-faint); }
+  .crumb b { color: var(--text); font-weight: 600; }
+  .page-head { padding: 26px 32px 6px; }
+  .page-head h2 { margin: 0; font-size: 23px; letter-spacing: -.025em; font-weight: 650; }
+  .page-head p { margin: 7px 0 0; color: var(--text-dim); max-width: 74ch; }
+  .body { padding: 18px 32px 0; animation: rise .28s cubic-bezier(.2,.7,.3,1) both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(7px); } to { opacity: 1; transform: none; } }
+
+  /* ============================ pieces ============================ */
+  .stats { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); }
+  .stat { position: relative; padding: 16px 18px; overflow: hidden; }
+  .stat::after {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 1px;
+    background: linear-gradient(90deg, transparent, var(--accent-line), transparent);
+  }
+  .stat .top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .stat .k { font-size: 11px; font-weight: 600; letter-spacing: .07em; text-transform: uppercase; color: var(--text-faint); }
+  .stat .tile {
+    width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px;
+    background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent-line);
+  }
+  .stat.is-warn .tile { background: var(--warn-soft); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 35%, transparent); }
+  .stat.is-good .tile { background: var(--good-soft); color: var(--good); border-color: color-mix(in srgb, var(--good) 35%, transparent); }
+  .stat .v { margin-top: 12px; font-size: 27px; font-weight: 650; letter-spacing: -.03em;
+    font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .stat .foot { margin-top: 5px; font-size: 12px; color: var(--text-faint); }
+
+  .panel { margin-top: 20px; overflow: hidden; }
+  .panel > header {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 14px 18px; border-bottom: 1px solid var(--line-soft); background: var(--surface-2);
+  }
+  .panel > header h3 { margin: 0; font-size: 13.5px; font-weight: 600; letter-spacing: -.005em; }
+  .panel > header p { margin: 3px 0 0; font-size: 12px; color: var(--text-faint); }
+  .scroll { overflow-x: auto; }
+  table { border-collapse: separate; border-spacing: 0; width: 100%; }
+  th, td { padding: 11px 16px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--line-soft); }
+  thead th {
+    position: sticky; top: 0; z-index: 1; background: var(--surface);
+    font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--text-faint);
+  }
+  tbody tr { transition: background .12s; }
+  tbody tr:hover { background: var(--surface-2); }
+  tbody tr:last-child td { border-bottom: 0; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td.num { font-family: var(--mono); font-size: 13px; }
+  td.name { font-weight: 550; }
+  .sku { font-family: var(--mono); font-size: 12px; color: var(--text-faint); }
+
+  .meter { display: flex; align-items: center; gap: 9px; min-width: 132px; }
+  .meter .track { flex: 1; height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
+  .meter .track > i { display: block; height: 100%; border-radius: 99px; transition: width .4s ease; }
+  .meter .val { font-family: var(--mono); font-size: 12px; color: var(--text-dim); min-width: 34px; text-align: right; }
+
+  .empty { display: grid; place-items: center; gap: 10px; padding: 46px 20px; text-align: center; color: var(--text-dim); }
+  .empty .icon { width: 26px; height: 26px; color: var(--text-faint); }
+  .empty b { font-weight: 600; color: var(--text); }
+
+  .toolbar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .toolbar .f { min-width: 210px; }
+
+  /* skeleton */
+  .sk { border-radius: 6px; background:
+      linear-gradient(90deg, var(--surface-2) 25%, var(--surface-3) 37%, var(--surface-2) 63%);
+    background-size: 400% 100%; animation: shimmer 1.3s ease infinite; height: 12px; }
+  @keyframes shimmer { from { background-position: 100% 0; } to { background-position: 0 0; } }
+  .sk-stats { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(196px, 1fr)); }
+  .sk-card { padding: 18px; }
+  .sk-row { padding: 13px 18px; border-bottom: 1px solid var(--line-soft); }
+
+  /* toasts */
+  #toast { position: fixed; right: 20px; bottom: 20px; z-index: 60; display: flex; flex-direction: column; gap: 10px; }
+  #toast > div {
+    display: flex; gap: 10px; align-items: flex-start; max-width: 400px; padding: 12px 14px;
+    border-radius: var(--r); background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-left: 3px solid var(--bad); box-shadow: var(--shadow-lg);
+    animation: slidein .22s cubic-bezier(.2,.7,.3,1) both;
+  }
+  #toast .icon { color: var(--bad); margin-top: 1px; }
+  @keyframes slidein { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
+
+  @media (max-width: 900px) {
+    #app { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
+    aside .foot { margin-top: 14px; }
+    nav { display: flex; gap: 6px; overflow-x: auto; }
+    nav button { width: auto; white-space: nowrap; }
+    nav button.on::before { display: none; }
+    .nav-label { display: none; }
+    .topbar, .page-head, .body { padding-left: 18px; padding-right: 18px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+</style>
+</head>
+<body>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="i-cube" viewBox="0 0 24 24"><path d="M21 7.5 12 3 3 7.5v9L12 21l9-4.5v-9Z"/><path d="M3 7.5 12 12l9-4.5M12 12v9"/></symbol>
+    <symbol id="i-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></symbol>
+    <symbol id="i-box" viewBox="0 0 24 24"><path d="M20 8.5 12 4 4 8.5v7L12 20l8-4.5v-7Z"/><path d="m8 6.2 8 4.6v4"/></symbol>
+    <symbol id="i-truck" viewBox="0 0 24 24"><path d="M3 6.5h11v9H3zM14 10h4l3 3v2.5h-7z"/><circle cx="7" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></symbol>
+    <symbol id="i-clipboard" viewBox="0 0 24 24"><path d="M9 4h6v3H9z"/><path d="M15 5.5h2.5A1.5 1.5 0 0 1 19 7v12a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 19V7a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="M8.5 12h7M8.5 16h4"/></symbol>
+    <symbol id="i-layers" viewBox="0 0 24 24"><path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z"/><path d="m3 12.5 9 4.5 9-4.5"/></symbol>
+    <symbol id="i-alert" viewBox="0 0 24 24"><path d="M10.3 4.3 2.9 17a1.9 1.9 0 0 0 1.7 2.9h14.8a1.9 1.9 0 0 0 1.7-2.9L13.7 4.3a1.9 1.9 0 0 0-3.4 0Z"/><path d="M12 9.5v4M12 17h.01"/></symbol>
+    <symbol id="i-coins" viewBox="0 0 24 24"><ellipse cx="12" cy="6.5" rx="7" ry="3"/><path d="M5 6.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/><path d="M5 11.5v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></symbol>
+    <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.5 6.5 8.5 6 8.5-6"/></symbol>
+    <symbol id="i-lock" viewBox="0 0 24 24"><rect x="4.5" y="10" width="15" height="10" rx="2"/><path d="M8 10V7.5a4 4 0 0 1 8 0V10"/></symbol>
+    <symbol id="i-check" viewBox="0 0 24 24"><path d="m4.5 12.5 5 5 10-11"/></symbol>
+    <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.2 5.2l1.4 1.4M17.4 17.4l1.4 1.4M18.8 5.2l-1.4 1.4M6.6 17.4l-1.4 1.4"/></symbol>
+    <symbol id="i-moon" viewBox="0 0 24 24"><path d="M20 14.3A8.2 8.2 0 0 1 9.7 4 8.5 8.5 0 1 0 20 14.3Z"/></symbol>
+    <symbol id="i-out" viewBox="0 0 24 24"><path d="M14 20H6.5A1.5 1.5 0 0 1 5 18.5v-13A1.5 1.5 0 0 1 6.5 4H14"/><path d="M17 15.5 20.5 12 17 8.5M20 12h-9.5"/></symbol>
+    <symbol id="i-link" viewBox="0 0 24 24"><path d="M14 5h5v5M19.5 4.5 12 12"/><path d="M18 14v5a1.5 1.5 0 0 1-1.5 1.5H5.5A1.5 1.5 0 0 1 4 19V8a1.5 1.5 0 0 1 1.5-1.5H10"/></symbol>
+    <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13.5h4l1.5 3h6l1.5-3h4"/><path d="M5.6 5.5h12.8l2.1 8v4a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17.5v-4Z"/></symbol>
+    <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5.5h16l-6.2 7.3v5.4l-3.6 2v-7.4L4 5.5Z"/></symbol>
+    <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 1 0-.9 4.6"/><path d="M20.5 5.5V11H15"/></symbol>
+  </defs>
+</svg>
+
+<section id="login">
+  <div class="auth">
+    <div class="pitch">
+      <div class="mark"><span class="glyph"><svg class="icon"><use href="#i-cube"/></svg></span> Smart Inventory</div>
+      <h1>Every unit, every date, accounted for.</h1>
+      <p class="lede">Stock levels, supplier promises and purchase orders in one console, straight off the API.</p>
+      <ul>
+        <li><svg class="icon"><use href="#i-check"/></svg><span>Live stock value and reorder thresholds at a glance.</span></li>
+        <li><svg class="icon"><use href="#i-check"/></svg><span>Supplier reliability ranked by the dates they actually kept.</span></li>
+        <li><svg class="icon"><use href="#i-check"/></svg><span>Overdue spend surfaced before it becomes a shortage.</span></li>
+      </ul>
+    </div>
+
+    <form class="form" id="loginForm">
+      <h2>Sign in</h2>
+      <p class="sub">Use your console credentials to continue.</p>
+      <div class="stack">
+        <div>
+          <label for="email">Email</label>
+          <div class="field">
+            <svg class="icon"><use href="#i-mail"/></svg>
+            <input id="email" type="email" autocomplete="username" required placeholder="admin@example.com">
+          </div>
+        </div>
+        <div>
+          <label for="password">Password</label>
+          <div class="field">
+            <svg class="icon"><use href="#i-lock"/></svg>
+            <input id="password" type="password" autocomplete="current-password" required placeholder="••••••••">
+          </div>
+        </div>
+      </div>
+      <button class="btn primary block" type="submit" style="margin-top:22px">Sign in</button>
+      <div class="divider">or</div>
+      <button class="btn block" type="button" id="toRegister">Create an account</button>
+      <p class="faint" style="margin:16px 0 0;font-size:12px">
+        New accounts join the default tenant with the USER role.
+      </p>
+    </form>
+  </div>
+</section>
+
+<section id="app">
+  <aside>
+    <div class="brand">
+      <span class="glyph"><svg class="icon"><use href="#i-cube"/></svg></span>
+      <span><b>Smart Inventory</b><span>API console</span></span>
+    </div>
+
+    <div class="nav-label">Workspace</div>
+    <nav id="nav">
+      <button data-view="dashboard" class="on"><svg class="icon"><use href="#i-grid"/></svg>Dashboard</button>
+      <button data-view="products"><svg class="icon"><use href="#i-box"/></svg>Products</button>
+      <button data-view="suppliers"><svg class="icon"><use href="#i-truck"/></svg>Supplier records</button>
+      <button data-view="orders"><svg class="icon"><use href="#i-clipboard"/></svg>Purchase orders</button>
+    </nav>
+
+    <div class="foot">
+      <a class="btn ghost" href="/swagger-ui.html" target="_blank" style="justify-content:flex-start">
+        <svg class="icon"><use href="#i-link"/></svg>Swagger UI
+      </a>
+      <div class="who">
+        <span class="av" id="avatar">—</span>
+        <span class="meta"><b id="who">signed in</b><span>Signed in</span></span>
+      </div>
+      <div class="row" style="gap:8px">
+        <button class="btn" id="theme" title="Toggle theme" style="flex:1">
+          <svg class="icon" id="themeIcon"><use href="#i-sun"/></svg><span id="themeLabel">Light</span>
+        </button>
+        <button class="btn icon-only" id="logout" title="Sign out"><svg class="icon"><use href="#i-out"/></svg></button>
+      </div>
+    </div>
+  </aside>
+
+  <main>
+    <div class="topbar">
+      <div class="crumb">Smart Inventory <span class="faint">/</span> <b id="crumb">Dashboard</b></div>
+      <button class="btn" id="reload"><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
+    </div>
+    <div id="view"></div>
+  </main>
+</section>
+
+<div id="toast"></div>
+
+<script>
+const S = { token: localStorage.getItem('sims.token') || null, email: localStorage.getItem('sims.email') || '', view: 'dashboard' };
+
+/* ---------- helpers ---------- */
+const el = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; };
+const esc = (v) => String(v ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const money = (v) => v == null ? '—' : Number(v).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const num = (v) => v == null ? '—' : Number(v).toLocaleString();
+const pct = (v) => v == null ? null : Math.round(Number(v) * 100);
+const ico = (id, cls = 'icon') => `<svg class="${cls}"><use href="#${id}"/></svg>`;
+
+function toast(msg) {
+  const box = document.getElementById('toast');
+  const t = el(`<div>${ico('i-alert')}<span>${esc(msg)}</span></div>`);
+  box.appendChild(t);
+  setTimeout(() => t.remove(), 6000);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, {
+    ...opts,
+    headers: { 'Content-Type': 'application/json', ...(S.token ? { Authorization: 'Bearer ' + S.token } : {}), ...(opts.headers || {}) }
+  });
+  if (res.status === 401 || res.status === 403) {
+    if (S.token) { signOut(); toast('Session rejected (' + res.status + '). Sign in again.'); }
+    throw new Error('unauthorized');
+  }
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { const b = await res.json(); detail = b.message || b.error || detail; } catch {}
+    throw new Error(res.status + ' — ' + detail);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+/* ---------- auth ---------- */
+function signOut() {
+  S.token = null; localStorage.removeItem('sims.token');
+  document.getElementById('app').style.display = 'none';
+  document.getElementById('login').style.display = 'grid';
+}
+function signedIn() {
+  document.getElementById('login').style.display = 'none';
+  document.getElementById('app').style.display = 'grid';
+  document.getElementById('who').textContent = S.email || 'signed in';
+  document.getElementById('avatar').textContent = (S.email || '?').trim().charAt(0).toUpperCase();
+  render('dashboard');
+}
+
+document.getElementById('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  try {
+    const body = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    S.token = body.token; S.email = email;
+    localStorage.setItem('sims.token', body.token); localStorage.setItem('sims.email', email);
+    signedIn();
+  } catch (err) { toast('Sign in failed: ' + err.message); }
+});
+
+document.getElementById('toRegister').addEventListener('click', async () => {
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  if (!email || password.length < 8) return toast('Enter an email and a password of at least 8 characters, then click Create an account.');
+  try {
+    const body = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
+    S.token = body.token; S.email = email;
+    localStorage.setItem('sims.token', body.token); localStorage.setItem('sims.email', email);
+    signedIn();
+  } catch (err) { toast('Register failed: ' + err.message); }
+});
+
+document.getElementById('logout').addEventListener('click', signOut);
+document.getElementById('reload').addEventListener('click', () => render(S.view));
+
+function paintTheme(next) {
+  document.documentElement.setAttribute('data-theme', next);
+  const dark = next === 'dark';
+  document.getElementById('themeIcon').innerHTML = `<use href="#${dark ? 'i-sun' : 'i-moon'}"/>`;
+  document.getElementById('themeLabel').textContent = dark ? 'Light' : 'Dark';
+}
+document.getElementById('theme').addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  paintTheme(next); localStorage.setItem('sims.theme', next);
+});
+
+/* ---------- view scaffolding ---------- */
+const view = () => document.getElementById('view');
+const head = (title, sub) => `<div class="page-head"><h2>${esc(title)}</h2><p>${sub}</p></div>`;
+const wrap = (inner) => `<div class="body">${inner}</div>`;
+
+const stat = (k, v, icon, foot = '', tone = '') => `
+  <div class="card stat ${tone}">
+    <div class="top"><span class="k">${esc(k)}</span><span class="tile">${ico(icon)}</span></div>
+    <div class="v">${v}</div>
+    ${foot ? `<div class="foot">${foot}</div>` : ''}
+  </div>`;
+
+const empty = (title, note, icon = 'i-inbox') =>
+  `<div class="empty">${ico(icon)}<b>${esc(title)}</b><span>${esc(note)}</span></div>`;
+
+const skeleton = (opts = {}) => {
+  const skCard = '<div class="card sk-card"><div class="sk" style="width:45%"></div>' +
+    '<div class="sk" style="height:24px;width:70%;margin-top:14px"></div></div>';
+  const cards = opts.stats ? `<div class="sk-stats">${skCard.repeat(opts.stats)}</div>` : '';
+  const skRow = (w) => `<div class="sk-row"><div class="sk" style="width:${w}%"></div></div>`;
+  const widths = [78, 62, 88, 54, 70, 84, 60, 74];
+  const rows = `<div class="card panel"><header><div class="sk" style="width:150px"></div></header>` +
+    Array.from({ length: opts.rows || 5 }, (_, i) => skRow(widths[i % widths.length])).join('') + `</div>`;
+  return wrap(cards + rows);
+};
+
+const meter = (p) => {
+  const tone = p >= 90 ? 'var(--good)' : p >= 70 ? 'var(--warn)' : 'var(--bad)';
+  return `<div class="meter"><div class="track"><i style="width:${p}%;background:${tone}"></i></div><span class="val">${p}%</span></div>`;
+};
+
+const VIEWS = {
+  async dashboard() {
+    const h = head('Dashboard', 'What the warehouse looks like right now.');
+    view().innerHTML = h + skeleton({ stats: 5, rows: 5 });
+    const [sum, low] = await Promise.all([api('/api/dashboard/summary'), api('/api/dashboard/low-stock').catch(() => [])]);
+    const rows = (Array.isArray(low) ? low : low?.content || []).slice(0, 12);
+    view().innerHTML = h + wrap(`
+      <div class="stats">
+        ${stat('Products', num(sum.totalProducts), 'i-box', 'in the catalogue')}
+        ${stat('Categories', num(sum.totalCategories), 'i-layers', 'ways the stock is filed')}
+        ${stat('Suppliers', num(sum.totalSuppliers), 'i-truck', 'on the books')}
+        ${stat('Low stock', num(sum.lowStockCount), 'i-alert', 'below reorder threshold', sum.lowStockCount ? 'is-warn' : 'is-good')}
+        ${stat('Stock value', money(sum.totalStockValue), 'i-coins', 'at average cost')}
+      </div>
+      <div class="card panel">
+        <header>
+          <div><h3>Running low</h3><p>Products sitting under the level that should trigger a reorder.</p></div>
+          ${rows.length ? `<span class="tag warn flat">${rows.length} shown</span>` : ''}
+        </header>
+        ${rows.length ? `<div class="scroll"><table>
+          <thead><tr><th>Product</th><th>SKU</th><th class="num">On hand</th><th class="num">Threshold</th><th>Cover</th></tr></thead>
+          <tbody>${rows.map(r => {
+            const q = Number(r.quantity ?? 0), t = Number(r.reorderThreshold ?? 0);
+            const p = t > 0 ? Math.max(0, Math.min(100, Math.round(q / t * 100))) : 0;
+            return `<tr>
+              <td class="name">${esc(r.name ?? r.productName)}</td>
+              <td class="sku">${esc(r.sku ?? '')}</td>
+              <td class="num">${num(r.quantity)}</td>
+              <td class="num">${num(r.reorderThreshold)}</td>
+              <td>${meter(p)}</td>
+            </tr>`; }).join('')}</tbody></table></div>`
+          : empty('Everything is stocked', 'Nothing is below its reorder threshold.', 'i-check')}
+      </div>`);
+  },
+
+  async products() {
+    const h = (sub) => head('Products', sub);
+    view().innerHTML = h('The catalogue, paged as the API pages it.') + skeleton({ rows: 8 });
+    const page = await api('/api/products?page=0&size=25');
+    const rows = page.content || [];
+    view().innerHTML = h(`${num(page.totalElements)} products, showing page ${page.page + 1} of ${page.totalPages || 1}.`) + wrap(`
+      <div class="card panel" style="margin-top:0">
+        <header>
+          <div><h3>Catalogue</h3><p>Price, average cost and what is on the shelf.</p></div>
+          <span class="tag flat">${num(page.totalElements)} total</span>
+        </header>
+        ${rows.length ? `<div class="scroll"><table>
+          <thead><tr><th>Name</th><th>SKU</th><th>Category</th><th>Supplier</th>
+            <th class="num">Price</th><th class="num">Avg cost</th><th class="num">On hand</th></tr></thead>
+          <tbody>${rows.map(p => `<tr>
+            <td class="name">${esc(p.name)}</td>
+            <td class="sku">${esc(p.sku)}</td>
+            <td>${esc(p.categoryName ?? '—')}</td>
+            <td>${esc(p.supplierName ?? '—')}</td>
+            <td class="num">${money(p.price)}</td>
+            <td class="num">${money(p.averageCost)}</td>
+            <td class="num">${num(p.quantity)}</td></tr>`).join('')}</tbody></table></div>`
+          : empty('No products yet', 'Add a product through the API and it will show up here.', 'i-box')}
+      </div>`);
+  },
+
+  async suppliers() {
+    const shell = (since) => head('Supplier records',
+      'How well each supplier keeps the dates they promised — and what they still owe past them. ' +
+      'The ranking reads deliveries only; an order that has not arrived is neither on time nor late.') + `
+      <div class="body" style="padding-bottom:0">
+        <div class="card" style="padding:16px 18px">
+          <div class="toolbar">
+            <div class="f">
+              <label for="since">Judge deliveries arriving on or after</label>
+              <input id="since" type="date" value="${esc(since || '')}">
+            </div>
+            <button class="btn primary" id="apply">${ico('i-filter')}Apply window</button>
+            <button class="btn" id="clear">Whole record</button>
+          </div>
+        </div>
+      </div>`;
+    const wire = () => {
+      document.getElementById('apply').onclick = () => draw(document.getElementById('since').value || null);
+      document.getElementById('clear').onclick = () => draw(null);
+    };
+    const draw = async (since) => {
+      view().innerHTML = shell(since) + skeleton({ rows: 6 });
+      wire();
+      const q = since ? '?since=' + encodeURIComponent(since) : '';
+      const table = await api('/api/suppliers/reliability' + q);
+      view().innerHTML = shell(since) + wrap(`
+        <div class="card panel" style="margin-top:14px">
+          <header>
+            <div><h3>Worst keepers of dates first</h3>
+              <p>${since ? `Deliveries since ${esc(since)}.` : 'The whole record.'}</p></div>
+            <span class="tag flat">${table.length} supplier${table.length === 1 ? '' : 's'}</span>
+          </header>
+          ${table.length ? `<div class="scroll"><table>
+            <thead><tr>
+              <th>Supplier</th><th class="num">Judged</th><th>On time</th><th class="num">Avg days late</th>
+              <th class="num">Worst</th><th class="num">Judged spend</th><th class="num">Late spend</th>
+              <th class="num">Overdue</th><th class="num">Worst overdue</th><th class="num">Overdue spend</th>
+            </tr></thead>
+            <tbody>${table.map(r => {
+              const p = pct(r.onTimeRate);
+              return `<tr>
+                <td class="name">${esc(r.supplierName)}</td>
+                <td class="num">${num(r.ordersJudged)}</td>
+                <td>${p == null ? '<span class="faint">no record</span>' : meter(p)}</td>
+                <td class="num">${r.averageDaysLate ?? '—'}</td>
+                <td class="num">${r.worstDaysLate ?? '—'}</td>
+                <td class="num">${money(r.judgedSpend)}</td>
+                <td class="num">${money(r.lateSpend)}</td>
+                <td class="num">${r.ordersOverdue ? `<span class="tag bad">${r.ordersOverdue}</span>` : '<span class="faint">0</span>'}</td>
+                <td class="num">${r.worstDaysOverdue == null ? '—' : r.worstDaysOverdue + ' d'}</td>
+                <td class="num">${money(r.overdueSpend)}</td>
+              </tr>`; }).join('')}</tbody></table></div>`
+            : empty('No suppliers yet', 'Reliability is worked out from delivered orders.', 'i-truck')}
+        </div>`);
+      wire();
+    };
+    await draw(null);
+  },
+
+  async orders() {
+    const h = (sub) => head('Purchase orders', sub);
+    view().innerHTML = h('What has been ordered, what is late, and what has landed.') + skeleton({ rows: 8 });
+    const page = await api('/api/purchase-orders?page=0&size=25');
+    const rows = page.content || [];
+    const statusTag = (s) => {
+      const cls = s === 'RECEIVED' ? 'good' : s === 'PARTIALLY_RECEIVED' ? 'warn' : s === 'CANCELLED' ? '' : '';
+      return `<span class="tag ${cls}">${esc(s)}</span>`;
+    };
+    view().innerHTML = h(`${num(page.totalElements)} orders, page ${page.page + 1} of ${page.totalPages || 1}.`) + wrap(`
+      <div class="card panel" style="margin-top:0">
+        <header>
+          <div><h3>Orders</h3><p>Promised dates against what actually arrived.</p></div>
+          <span class="tag flat">${num(page.totalElements)} total</span>
+        </header>
+        ${rows.length ? `<div class="scroll"><table>
+          <thead><tr><th>#</th><th>Supplier</th><th>Status</th><th>Due</th><th>Promised</th>
+            <th>Arrived</th><th class="num">Days late</th><th class="num">Total</th></tr></thead>
+          <tbody>${rows.map(o => `<tr>
+            <td class="sku">${o.id}</td>
+            <td class="name">${esc(o.supplierName ?? '—')}</td>
+            <td>${statusTag(o.status)}${o.overdue ? ' <span class="tag bad">overdue</span>' : ''}</td>
+            <td>${esc(o.expectedDeliveryDate ?? '—')}</td>
+            <td class="faint">${esc(o.originalExpectedDeliveryDate ?? '—')}</td>
+            <td>${esc(o.deliveredDate ?? '—')}</td>
+            <td class="num">${o.daysLate == null ? '—' : (o.daysLate > 0 ? `<span class="tag bad">+${o.daysLate}</span>` : `<span class="tag good">${o.daysLate}</span>`)}</td>
+            <td class="num">${money(o.total)}</td>
+          </tr>`).join('')}</tbody></table></div>`
+          : empty('No purchase orders yet', 'Raise an order and it will be tracked here.', 'i-clipboard')}
+      </div>`);
+  }
+};
+
+const TITLES = { dashboard: 'Dashboard', products: 'Products', suppliers: 'Supplier records', orders: 'Purchase orders' };
+
+async function render(name) {
+  S.view = name;
+  document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === name));
+  document.getElementById('crumb').textContent = TITLES[name] || name;
+  try { await VIEWS[name](); }
+  catch (err) {
+    if (err.message !== 'unauthorized') {
+      view().innerHTML = head(TITLES[name] || name, 'That view could not be loaded.') +
+        wrap(`<div class="card">${empty('Request failed', err.message, 'i-alert')}</div>`);
+      toast(err.message);
+    }
+  }
+}
+
+document.getElementById('nav').addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-view]');
+  if (b) render(b.dataset.view);
+});
+
+paintTheme(localStorage.getItem('sims.theme') || 'dark');
+if (S.token) signedIn();
+</script>
+</body>
+</html>
