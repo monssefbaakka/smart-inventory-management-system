@@ -98,6 +98,7 @@
   .btn:hover { border-color: var(--accent-line); background: var(--surface-3); }
   .btn:active { transform: translateY(1px); }
   .btn:focus-visible { outline: none; box-shadow: var(--ring); }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
   .btn.primary {
     background: linear-gradient(180deg, var(--accent), color-mix(in srgb, var(--accent) 82%, #000));
     border-color: transparent; color: var(--accent-ink);
@@ -112,6 +113,7 @@
 
   label { display: block; font-size: 12px; font-weight: 500; color: var(--text-dim);
     margin: 0 0 6px; letter-spacing: .01em; }
+  label.inline { display: inline; margin: 0; }
   input, select {
     width: 100%; padding: 10px 12px; background: var(--surface-2);
     border: 1px solid var(--line); border-radius: var(--r-sm); outline: none;
@@ -119,10 +121,16 @@
   }
   input::placeholder { color: var(--text-faint); }
   input:focus, select:focus { border-color: var(--accent); box-shadow: var(--ring); background: var(--surface); }
+  select.mini { width: auto; padding: 6px 9px; font-size: 12.5px; }
   .field { position: relative; }
   .field .icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
     color: var(--text-faint); pointer-events: none; }
   .field input { padding-left: 38px; }
+  .field kbd {
+    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+    font: 600 11px var(--mono); color: var(--text-faint); background: var(--surface-3);
+    border: 1px solid var(--line); border-radius: 5px; padding: 2px 6px; pointer-events: none;
+  }
 
   .tag {
     display: inline-flex; align-items: center; gap: 5px; padding: 3px 9px; border-radius: 999px;
@@ -202,6 +210,7 @@
     content: ""; position: absolute; left: -14px; top: 50%; transform: translateY(-50%);
     width: 3px; height: 20px; border-radius: 0 3px 3px 0; background: var(--accent);
   }
+  nav button .key { margin-left: auto; font: 600 10.5px var(--mono); color: var(--text-faint); letter-spacing: .04em; }
   aside .foot { margin-top: auto; display: grid; gap: 10px; }
   .who { display: flex; align-items: center; gap: 10px; padding: 9px 10px;
     border: 1px solid var(--line); border-radius: var(--r); background: var(--surface-2); }
@@ -247,6 +256,9 @@
   .stat .v { margin-top: 12px; font-size: 27px; font-weight: 650; letter-spacing: -.03em;
     font-variant-numeric: tabular-nums; line-height: 1.1; }
   .stat .foot { margin-top: 5px; font-size: 12px; color: var(--text-faint); }
+  .stat.tap { cursor: pointer; transition: border-color .15s, transform .06s; }
+  .stat.tap:hover { border-color: var(--accent-line); }
+  .stat.tap:active { transform: translateY(1px); }
 
   .panel { margin-top: 20px; overflow: hidden; }
   .panel > header {
@@ -270,6 +282,13 @@
   td.name { font-weight: 550; }
   .sku { font-family: var(--mono); font-size: 12px; color: var(--text-faint); }
 
+  th.s { cursor: pointer; user-select: none; }
+  th.s > span { display: inline-flex; align-items: center; gap: 5px; }
+  th.num.s > span { width: 100%; justify-content: flex-end; }
+  th.s:hover { color: var(--text); }
+  th.s.on { color: var(--accent); }
+  .caret { width: 13px; height: 13px; stroke-width: 2.4; }
+
   .meter { display: flex; align-items: center; gap: 9px; min-width: 132px; }
   .meter .track { flex: 1; height: 6px; border-radius: 99px; background: var(--surface-3); overflow: hidden; }
   .meter .track > i { display: block; height: 100%; border-radius: 99px; transition: width .4s ease; }
@@ -281,6 +300,41 @@
 
   .toolbar { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
   .toolbar .f { min-width: 210px; }
+  .toolbar .f.grow { flex: 1; min-width: 240px; }
+
+  .chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-top: 13px; }
+  .chip {
+    display: inline-flex; align-items: center; gap: 6px; padding: 4px 6px 4px 11px; border-radius: 999px;
+    font-size: 12px; color: var(--accent); background: var(--accent-soft); border: 1px solid var(--accent-line);
+  }
+  .chip button { border: 0; background: transparent; color: inherit; cursor: pointer;
+    display: grid; place-items: center; padding: 2px; border-radius: 99px; }
+  .chip button:hover { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+  .chip .icon { width: 13px; height: 13px; stroke-width: 2.2; }
+
+  .pager {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+    padding: 11px 16px; border-top: 1px solid var(--line-soft); background: var(--surface-2); font-size: 12.5px;
+  }
+  .pager b { font-variant-numeric: tabular-nums; color: var(--text); }
+
+  .feed .item { display: flex; gap: 12px; align-items: center; padding: 12px 18px; border-bottom: 1px solid var(--line-soft); }
+  .feed .item:last-child { border-bottom: 0; }
+  .feed .dot {
+    width: 30px; height: 30px; flex: none; border-radius: 9px; display: grid; place-items: center;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text-dim);
+  }
+  .feed .dot.in  { color: var(--good); background: var(--good-soft); border-color: color-mix(in srgb, var(--good) 35%, transparent); }
+  .feed .dot.out { color: var(--bad);  background: var(--bad-soft);  border-color: color-mix(in srgb, var(--bad) 35%, transparent); }
+  .feed .txt { min-width: 0; flex: 1; }
+  .feed .txt b { font-weight: 600; }
+  .feed .txt span { display: block; font-size: 12px; color: var(--text-faint);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .feed .when { font-size: 12px; color: var(--text-faint); white-space: nowrap; }
+
+  .split { display: grid; gap: 16px; grid-template-columns: 1.4fr .6fr; align-items: start; margin-top: 20px; }
+  .split > .panel { margin-top: 0; }
+  @media (max-width: 1180px) { .split { grid-template-columns: 1fr; } }
 
   /* skeleton */
   .sk { border-radius: 6px; background:
@@ -302,14 +356,20 @@
   #toast .icon { color: var(--bad); margin-top: 1px; }
   @keyframes slidein { from { opacity: 0; transform: translateX(14px); } to { opacity: 1; transform: none; } }
 
+  /* drawer */
+  #burger { display: none; }
+  #scrim { display: none; }
   @media (max-width: 900px) {
     #app { grid-template-columns: 1fr; }
-    aside { position: static; height: auto; border-right: 0; border-bottom: 1px solid var(--line); }
-    aside .foot { margin-top: 14px; }
-    nav { display: flex; gap: 6px; overflow-x: auto; }
-    nav button { width: auto; white-space: nowrap; }
-    nav button.on::before { display: none; }
-    .nav-label { display: none; }
+    #burger { display: inline-flex; }
+    aside {
+      position: fixed; z-index: 40; top: 0; left: 0; width: 268px; height: 100dvh;
+      background: var(--surface); transform: translateX(-100%);
+      transition: transform .22s cubic-bezier(.2,.7,.3,1);
+    }
+    aside.open { transform: none; box-shadow: var(--shadow-lg); }
+    #scrim.on { display: block; position: fixed; inset: 0; z-index: 35; background: #0009; backdrop-filter: blur(2px); }
+    nav button .key { display: none; }
     .topbar, .page-head, .body { padding-left: 18px; padding-right: 18px; }
   }
   @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
@@ -337,6 +397,17 @@
     <symbol id="i-inbox" viewBox="0 0 24 24"><path d="M3.5 13.5h4l1.5 3h6l1.5-3h4"/><path d="M5.6 5.5h12.8l2.1 8v4a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 17.5v-4Z"/></symbol>
     <symbol id="i-filter" viewBox="0 0 24 24"><path d="M4 5.5h16l-6.2 7.3v5.4l-3.6 2v-7.4L4 5.5Z"/></symbol>
     <symbol id="i-refresh" viewBox="0 0 24 24"><path d="M20 11.5a8 8 0 1 0-.9 4.6"/><path d="M20.5 5.5V11H15"/></symbol>
+    <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></symbol>
+    <symbol id="i-x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="i-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="i-left" viewBox="0 0 24 24"><path d="M14.5 5.5 8 12l6.5 6.5"/></symbol>
+    <symbol id="i-right" viewBox="0 0 24 24"><path d="M9.5 5.5 16 12l-6.5 6.5"/></symbol>
+    <symbol id="i-up" viewBox="0 0 24 24"><path d="m6 14.5 6-6 6 6"/></symbol>
+    <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9.5 6 6 6-6"/></symbol>
+    <symbol id="i-arrow-in" viewBox="0 0 24 24"><path d="M12 4.5v13"/><path d="m6.5 12 5.5 5.5L17.5 12"/></symbol>
+    <symbol id="i-arrow-out" viewBox="0 0 24 24"><path d="M12 19.5v-13"/><path d="m6.5 12 5.5-5.5L17.5 12"/></symbol>
+    <symbol id="i-swap" viewBox="0 0 24 24"><path d="M4 8.5h13l-3.5-3.5M20 15.5H7l3.5 3.5"/></symbol>
+    <symbol id="i-pulse" viewBox="0 0 24 24"><path d="M3 12.5h4l2.5-6 4 12 2.5-6h5"/></symbol>
   </defs>
 </svg>
 
@@ -383,7 +454,8 @@
 </section>
 
 <section id="app">
-  <aside>
+  <div id="scrim"></div>
+  <aside id="side">
     <div class="brand">
       <span class="glyph"><svg class="icon"><use href="#i-cube"/></svg></span>
       <span><b>Smart Inventory</b><span>API console</span></span>
@@ -391,10 +463,10 @@
 
     <div class="nav-label">Workspace</div>
     <nav id="nav">
-      <button data-view="dashboard" class="on"><svg class="icon"><use href="#i-grid"/></svg>Dashboard</button>
-      <button data-view="products"><svg class="icon"><use href="#i-box"/></svg>Products</button>
-      <button data-view="suppliers"><svg class="icon"><use href="#i-truck"/></svg>Supplier records</button>
-      <button data-view="orders"><svg class="icon"><use href="#i-clipboard"/></svg>Purchase orders</button>
+      <button data-view="dashboard" class="on"><svg class="icon"><use href="#i-grid"/></svg>Dashboard<span class="key">G D</span></button>
+      <button data-view="products"><svg class="icon"><use href="#i-box"/></svg>Products<span class="key">G P</span></button>
+      <button data-view="suppliers"><svg class="icon"><use href="#i-truck"/></svg>Supplier records<span class="key">G S</span></button>
+      <button data-view="orders"><svg class="icon"><use href="#i-clipboard"/></svg>Purchase orders<span class="key">G O</span></button>
     </nav>
 
     <div class="foot">
@@ -416,7 +488,10 @@
 
   <main>
     <div class="topbar">
-      <div class="crumb">Smart Inventory <span class="faint">/</span> <b id="crumb">Dashboard</b></div>
+      <div class="row" style="gap:12px">
+        <button class="btn icon-only" id="burger" title="Menu"><svg class="icon"><use href="#i-menu"/></svg></button>
+        <div class="crumb">Smart Inventory <span class="faint">/</span> <b id="crumb">Dashboard</b></div>
+      </div>
       <button class="btn" id="reload"><svg class="icon"><use href="#i-refresh"/></svg>Refresh</button>
     </div>
     <div id="view"></div>
@@ -426,7 +501,15 @@
 <div id="toast"></div>
 
 <script>
-const S = { token: localStorage.getItem('sims.token') || null, email: localStorage.getItem('sims.email') || '', view: 'dashboard' };
+const S = {
+  token: localStorage.getItem('sims.token') || null,
+  email: localStorage.getItem('sims.email') || '',
+  view: 'dashboard',
+  params: {},
+  lookups: null,
+  refocus: null,
+  caret: null
+};
 
 /* ---------- helpers ---------- */
 const el = (h) => { const t = document.createElement('template'); t.innerHTML = h.trim(); return t.content.firstChild; };
@@ -435,9 +518,26 @@ const money = (v) => v == null ? '—' : Number(v).toLocaleString(undefined, {mi
 const num = (v) => v == null ? '—' : Number(v).toLocaleString();
 const pct = (v) => v == null ? null : Math.round(Number(v) * 100);
 const ico = (id, cls = 'icon') => `<svg class="${cls}"><use href="#${id}"/></svg>`;
+const $ = (id) => document.getElementById(id);
+const debounce = (fn, ms = 320) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+
+/** Reads a timestamp back as how long ago it was, which scans faster than a date. */
+const ago = (iso) => {
+  if (!iso) return '—';
+  const then = new Date(iso), secs = Math.round((Date.now() - then.getTime()) / 1000);
+  if (!Number.isFinite(secs)) return '—';
+  if (secs < 60) return 'just now';
+  const mins = Math.round(secs / 60);
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  const days = Math.round(hrs / 24);
+  if (days < 30) return days + 'd ago';
+  return then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+};
 
 function toast(msg) {
-  const box = document.getElementById('toast');
+  const box = $('toast');
   const t = el(`<div>${ico('i-alert')}<span>${esc(msg)}</span></div>`);
   box.appendChild(t);
   setTimeout(() => t.remove(), 6000);
@@ -460,24 +560,58 @@ async function api(path, opts = {}) {
   return res.status === 204 ? null : res.json();
 }
 
-/* ---------- auth ---------- */
-function signOut() {
-  S.token = null; localStorage.removeItem('sims.token');
-  document.getElementById('app').style.display = 'none';
-  document.getElementById('login').style.display = 'grid';
-}
-function signedIn() {
-  document.getElementById('login').style.display = 'none';
-  document.getElementById('app').style.display = 'grid';
-  document.getElementById('who').textContent = S.email || 'signed in';
-  document.getElementById('avatar').textContent = (S.email || '?').trim().charAt(0).toUpperCase();
-  render('dashboard');
+/** Builds a query string, dropping anything the caller left empty. */
+const query = (params) => {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) if (v !== '' && v != null && v !== false) q.set(k, v);
+  const s = q.toString();
+  return s ? '?' + s : '';
+};
+
+/* ---------- routing ---------- */
+const TITLES = { dashboard: 'Dashboard', products: 'Products', suppliers: 'Supplier records', orders: 'Purchase orders' };
+
+/** The address bar holds the view and everything narrowing it, so a page can be shared or reloaded. */
+function parseHash() {
+  const raw = location.hash.replace(/^#\/?/, '');
+  const [name, search] = raw.split('?');
+  const view = TITLES[name] ? name : 'dashboard';
+  return { view, params: Object.fromEntries(new URLSearchParams(search || '')) };
 }
 
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
+function go(view, params = {}) {
+  const hash = '#/' + view + query(params);
+  if (location.hash === hash) route();
+  else location.hash = hash;
+}
+
+/** Changes some of the current view's parameters and keeps the rest. */
+const patch = (changes) => go(S.view, { ...S.params, ...changes });
+
+function route() {
+  const { view, params } = parseHash();
+  render(view, params);
+}
+
+/* ---------- auth ---------- */
+function signOut() {
+  S.token = null; S.lookups = null;
+  localStorage.removeItem('sims.token');
+  $('app').style.display = 'none';
+  $('login').style.display = 'grid';
+}
+function signedIn() {
+  $('login').style.display = 'none';
+  $('app').style.display = 'grid';
+  $('who').textContent = S.email || 'signed in';
+  $('avatar').textContent = (S.email || '?').trim().charAt(0).toUpperCase();
+  route();
+}
+
+$('loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const email = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
+  const email = $('email').value.trim();
+  const password = $('password').value;
   try {
     const body = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
     S.token = body.token; S.email = email;
@@ -486,9 +620,9 @@ document.getElementById('loginForm').addEventListener('submit', async (e) => {
   } catch (err) { toast('Sign in failed: ' + err.message); }
 });
 
-document.getElementById('toRegister').addEventListener('click', async () => {
-  const email = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
+$('toRegister').addEventListener('click', async () => {
+  const email = $('email').value.trim();
+  const password = $('password').value;
   if (!email || password.length < 8) return toast('Enter an email and a password of at least 8 characters, then click Create an account.');
   try {
     const body = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ email, password }) });
@@ -498,27 +632,77 @@ document.getElementById('toRegister').addEventListener('click', async () => {
   } catch (err) { toast('Register failed: ' + err.message); }
 });
 
-document.getElementById('logout').addEventListener('click', signOut);
-document.getElementById('reload').addEventListener('click', () => render(S.view));
+$('logout').addEventListener('click', signOut);
+$('reload').addEventListener('click', () => render(S.view, S.params));
 
 function paintTheme(next) {
   document.documentElement.setAttribute('data-theme', next);
   const dark = next === 'dark';
-  document.getElementById('themeIcon').innerHTML = `<use href="#${dark ? 'i-sun' : 'i-moon'}"/>`;
-  document.getElementById('themeLabel').textContent = dark ? 'Light' : 'Dark';
+  $('themeIcon').innerHTML = `<use href="#${dark ? 'i-sun' : 'i-moon'}"/>`;
+  $('themeLabel').textContent = dark ? 'Light' : 'Dark';
 }
-document.getElementById('theme').addEventListener('click', () => {
+$('theme').addEventListener('click', () => {
   const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
   paintTheme(next); localStorage.setItem('sims.theme', next);
 });
 
+/* ---------- drawer ---------- */
+const drawer = (open) => {
+  $('side').classList.toggle('open', open);
+  $('scrim').classList.toggle('on', open);
+};
+$('burger').addEventListener('click', () => drawer(!$('side').classList.contains('open')));
+$('scrim').addEventListener('click', () => drawer(false));
+
+/* ---------- keyboard ---------- */
+let chord = false;
+document.addEventListener('keydown', (e) => {
+  const typing = /^(INPUT|SELECT|TEXTAREA)$/.test(document.activeElement ? document.activeElement.tagName : '');
+  if (e.key === 'Escape') { drawer(false); if (typing) document.activeElement.blur(); return; }
+  if (typing || e.metaKey || e.ctrlKey || e.altKey || $('app').style.display !== 'grid') return;
+  if (e.key === '/') { const box = $('q'); if (box) { e.preventDefault(); box.focus(); box.select(); } return; }
+  if (chord) {
+    const to = { d: 'dashboard', p: 'products', s: 'suppliers', o: 'orders' }[e.key.toLowerCase()];
+    chord = false;
+    if (to) { e.preventDefault(); go(to); }
+    return;
+  }
+  if (e.key.toLowerCase() === 'g') { chord = true; setTimeout(() => { chord = false; }, 1200); }
+});
+
 /* ---------- view scaffolding ---------- */
-const view = () => document.getElementById('view');
+const view = () => $('view');
+
+/**
+ * Notes which field holds the cursor before the view is redrawn, so that a redraw triggered by
+ * typing does not throw the caret away.
+ */
+function keep() {
+  const active = document.activeElement;
+  if (active && active.id && view().contains(active)) {
+    S.refocus = active.id;
+    S.caret = typeof active.selectionStart === 'number' ? active.selectionStart : null;
+  }
+}
+
+/** Puts the cursor back where it was before the view was redrawn. */
+function refocus() {
+  const id = S.refocus;
+  S.refocus = null;
+  if (!id) return;
+  const box = $(id);
+  if (!box) return;
+  box.focus();
+  if (S.caret != null && typeof box.setSelectionRange === 'function') {
+    try { box.setSelectionRange(S.caret, S.caret); } catch (ignored) { /* not a field with a caret */ }
+  }
+}
+
 const head = (title, sub) => `<div class="page-head"><h2>${esc(title)}</h2><p>${sub}</p></div>`;
 const wrap = (inner) => `<div class="body">${inner}</div>`;
 
-const stat = (k, v, icon, foot = '', tone = '') => `
-  <div class="card stat ${tone}">
+const stat = (k, v, icon, foot = '', tone = '', to = '') => `
+  <div class="card stat ${tone} ${to ? 'tap' : ''}" ${to ? `data-go="${esc(to)}"` : ''}>
     <div class="top"><span class="k">${esc(k)}</span><span class="tile">${ico(icon)}</span></div>
     <div class="v">${v}</div>
     ${foot ? `<div class="foot">${foot}</div>` : ''}
@@ -543,144 +727,366 @@ const meter = (p) => {
   return `<div class="meter"><div class="track"><i style="width:${p}%;background:${tone}"></i></div><span class="val">${p}%</span></div>`;
 };
 
+/** A column header that orders the listing; clicking the sorted column flips its direction. */
+const sortable = (sort, field, label, cls = '') => {
+  const [on, dir] = String(sort).split(',');
+  const active = on === field;
+  const caret = active ? ico(dir === 'desc' ? 'i-down' : 'i-up', 'icon caret') : '';
+  return `<th class="s ${cls} ${active ? 'on' : ''}" data-sort="${field}" title="Sort by ${esc(label)}"><span>${esc(label)}${caret}</span></th>`;
+};
+
+function wireSort(current) {
+  view().querySelectorAll('th[data-sort]').forEach(th => {
+    th.onclick = () => {
+      const [on, dir] = String(current).split(',');
+      const field = th.dataset.sort;
+      patch({ sort: field + ',' + (on === field && dir === 'asc' ? 'desc' : 'asc'), page: 0 });
+    };
+  });
+}
+
+/** Footer saying where in the result set the reader is, and moving them through it. */
+const pager = (result) => {
+  const from = result.totalElements ? result.page * result.size + 1 : 0;
+  const to = Math.min(Number(result.totalElements), (result.page + 1) * result.size);
+  return `<div class="pager">
+    <span class="muted">Showing <b>${num(from)}–${num(to)}</b> of <b>${num(result.totalElements)}</b></span>
+    <div class="row" style="gap:8px">
+      <label class="inline faint" for="size">Rows</label>
+      <select class="mini" id="size">${[10, 25, 50, 100].map(n => `<option value="${n}" ${n === result.size ? 'selected' : ''}>${n}</option>`).join('')}</select>
+      <button class="btn icon-only" id="prev" ${result.first ? 'disabled' : ''} title="Previous page">${ico('i-left')}</button>
+      <span class="muted">Page <b>${result.page + 1}</b> of <b>${result.totalPages || 1}</b></span>
+      <button class="btn icon-only" id="next" ${result.last ? 'disabled' : ''} title="Next page">${ico('i-right')}</button>
+    </div>
+  </div>`;
+};
+
+function wirePager(result) {
+  const prev = $('prev'), next = $('next'), size = $('size');
+  if (prev) prev.onclick = () => patch({ page: Math.max(0, result.page - 1) });
+  if (next) next.onclick = () => patch({ page: result.page + 1 });
+  if (size) size.onchange = () => patch({ size: size.value, page: 0 });
+}
+
+/** The filters currently narrowing a listing, each one removable on its own. */
+const chips = (items) => items.length
+  ? `<div class="chips">${items.map(c => `<span class="chip">${esc(c.label)}<button data-drop="${esc(c.key)}" title="Remove">${ico('i-x')}</button></span>`).join('')}
+      <button class="btn ghost" id="clearAll" style="padding:4px 10px;font-size:12px">Clear all</button></div>`
+  : '';
+
+function wireChips() {
+  view().querySelectorAll('[data-drop]').forEach(b => {
+    b.onclick = () => patch({ [b.dataset.drop]: '', page: 0 });
+  });
+  const all = $('clearAll');
+  if (all) all.onclick = () => go(S.view, {});
+}
+
+/** Categories and suppliers, fetched once a session and kept for the filter selects. */
+async function lookups() {
+  if (S.lookups) return S.lookups;
+  const [categories, suppliers] = await Promise.all([
+    api('/api/categories').catch(() => []),
+    api('/api/suppliers').catch(() => [])
+  ]);
+  S.lookups = {
+    categories: Array.isArray(categories) ? categories : [],
+    suppliers: Array.isArray(suppliers) ? suppliers : []
+  };
+  return S.lookups;
+}
+
+const options = (list, selected, blank) =>
+  `<option value="">${esc(blank)}</option>` +
+  list.map(o => `<option value="${o.id}" ${String(o.id) === String(selected) ? 'selected' : ''}>${esc(o.name)}</option>`).join('');
+
+const named = (list, id) => {
+  const hit = list.find(o => String(o.id) === String(id));
+  return hit ? hit.name : id;
+};
+
+/* ---------- views ---------- */
 const VIEWS = {
   async dashboard() {
     const h = head('Dashboard', 'What the warehouse looks like right now.');
-    view().innerHTML = h + skeleton({ stats: 5, rows: 5 });
-    const [sum, low] = await Promise.all([api('/api/dashboard/summary'), api('/api/dashboard/low-stock').catch(() => [])]);
-    const rows = (Array.isArray(low) ? low : low?.content || []).slice(0, 12);
-    view().innerHTML = h + wrap(`
+    keep(); view().innerHTML = h + skeleton({ stats: 5, rows: 5 });
+    const [sum, low, moves] = await Promise.all([
+      api('/api/dashboard/summary'),
+      api('/api/dashboard/low-stock').catch(() => []),
+      api('/api/dashboard/recent-movements?limit=8').catch(() => [])
+    ]);
+    const rows = (Array.isArray(low) ? low : low && low.content || []).slice(0, 12);
+    const feed = Array.isArray(moves) ? moves : [];
+    const tone = (t) => t === 'IN' || t === 'TRANSFER_IN' ? 'in' : t === 'OUT' || t === 'TRANSFER_OUT' ? 'out' : '';
+    const glyph = (t) => t === 'IN' || t === 'TRANSFER_IN' ? 'i-arrow-in'
+      : t === 'OUT' || t === 'TRANSFER_OUT' ? 'i-arrow-out' : 'i-swap';
+
+    keep(); view().innerHTML = h + wrap(`
       <div class="stats">
-        ${stat('Products', num(sum.totalProducts), 'i-box', 'in the catalogue')}
+        ${stat('Products', num(sum.totalProducts), 'i-box', 'in the catalogue', '', 'products')}
         ${stat('Categories', num(sum.totalCategories), 'i-layers', 'ways the stock is filed')}
-        ${stat('Suppliers', num(sum.totalSuppliers), 'i-truck', 'on the books')}
-        ${stat('Low stock', num(sum.lowStockCount), 'i-alert', 'below reorder threshold', sum.lowStockCount ? 'is-warn' : 'is-good')}
+        ${stat('Suppliers', num(sum.totalSuppliers), 'i-truck', 'on the books', '', 'suppliers')}
+        ${stat('Low stock', num(sum.lowStockCount), 'i-alert', 'below reorder threshold',
+               sum.lowStockCount ? 'is-warn' : 'is-good', 'products?lowStock=true')}
         ${stat('Stock value', money(sum.totalStockValue), 'i-coins', 'at average cost')}
       </div>
-      <div class="card panel">
-        <header>
-          <div><h3>Running low</h3><p>Products sitting under the level that should trigger a reorder.</p></div>
-          ${rows.length ? `<span class="tag warn flat">${rows.length} shown</span>` : ''}
-        </header>
-        ${rows.length ? `<div class="scroll"><table>
-          <thead><tr><th>Product</th><th>SKU</th><th class="num">On hand</th><th class="num">Threshold</th><th>Cover</th></tr></thead>
-          <tbody>${rows.map(r => {
-            const q = Number(r.quantity ?? 0), t = Number(r.reorderThreshold ?? 0);
-            const p = t > 0 ? Math.max(0, Math.min(100, Math.round(q / t * 100))) : 0;
-            return `<tr>
-              <td class="name">${esc(r.name ?? r.productName)}</td>
-              <td class="sku">${esc(r.sku ?? '')}</td>
-              <td class="num">${num(r.quantity)}</td>
-              <td class="num">${num(r.reorderThreshold)}</td>
-              <td>${meter(p)}</td>
-            </tr>`; }).join('')}</tbody></table></div>`
-          : empty('Everything is stocked', 'Nothing is below its reorder threshold.', 'i-check')}
+      <div class="split">
+        <div class="card panel">
+          <header>
+            <div><h3>Running low</h3><p>Products sitting under the level that should trigger a reorder.</p></div>
+            ${rows.length ? `<span class="tag warn flat">${rows.length} shown</span>` : ''}
+          </header>
+          ${rows.length ? `<div class="scroll"><table>
+            <thead><tr><th>Product</th><th>SKU</th><th class="num">On hand</th><th class="num">Threshold</th><th>Cover</th></tr></thead>
+            <tbody>${rows.map(r => {
+              const q = Number(r.quantity ?? 0), t = Number(r.reorderThreshold ?? 0);
+              const p = t > 0 ? Math.max(0, Math.min(100, Math.round(q / t * 100))) : 0;
+              return `<tr>
+                <td class="name">${esc(r.name ?? r.productName)}</td>
+                <td class="sku">${esc(r.sku ?? '')}</td>
+                <td class="num">${num(r.quantity)}</td>
+                <td class="num">${num(r.reorderThreshold)}</td>
+                <td>${meter(p)}</td>
+              </tr>`; }).join('')}</tbody></table></div>`
+            : empty('Everything is stocked', 'Nothing is below its reorder threshold.', 'i-check')}
+        </div>
+        <div class="card panel">
+          <header>
+            <div><h3>Recent activity</h3><p>The last movements recorded against stock.</p></div>
+            ${ico('i-pulse')}
+          </header>
+          ${feed.length ? `<div class="feed">${feed.map(m => `
+            <div class="item">
+              <span class="dot ${tone(m.type)}">${ico(glyph(m.type))}</span>
+              <span class="txt">
+                <b>${esc(m.productName ?? m.sku ?? 'Product')}</b>
+                <span>${esc(m.type)} ${num(m.quantity)}${m.warehouseCode ? ' · ' + esc(m.warehouseCode) : ''}${m.note ? ' · ' + esc(m.note) : ''}</span>
+              </span>
+              <span class="when">${esc(ago(m.createdAt))}</span>
+            </div>`).join('')}</div>`
+            : empty('No movements yet', 'Receipts, sales and transfers show up here.', 'i-pulse')}
+        </div>
       </div>`);
+
+    view().querySelectorAll('[data-go]').forEach(card => {
+      card.onclick = () => {
+        const [to, search] = card.dataset.go.split('?');
+        go(to, Object.fromEntries(new URLSearchParams(search || '')));
+      };
+    });
   },
 
-  async products() {
+  async products(p) {
+    const q = p.q || '';
+    const categoryId = p.categoryId || '';
+    const supplierId = p.supplierId || '';
+    const lowStock = p.lowStock === 'true';
+    const sort = p.sort || 'id,asc';
+    const page = Math.max(0, Number(p.page) || 0);
+    const size = Number(p.size) || 25;
+
+    const { categories, suppliers } = await lookups();
+    const bar = () => `
+      <div class="body" style="padding-bottom:0">
+        <div class="card" style="padding:16px 18px">
+          <div class="toolbar">
+            <div class="f grow">
+              <label for="q">Search</label>
+              <div class="field">${ico('i-search')}
+                <input id="q" type="search" placeholder="Name or SKU" value="${esc(q)}"><kbd>/</kbd></div>
+            </div>
+            <div class="f">
+              <label for="categoryId">Category</label>
+              <select id="categoryId">${options(categories, categoryId, 'Every category')}</select>
+            </div>
+            <div class="f">
+              <label for="supplierId">Supplier</label>
+              <select id="supplierId">${options(suppliers, supplierId, 'Every supplier')}</select>
+            </div>
+            <button class="btn ${lowStock ? 'primary' : ''}" id="lowStock">${ico('i-alert')}Low stock only</button>
+          </div>
+          ${chips([
+            q && { key: 'q', label: '“' + q + '”' },
+            categoryId && { key: 'categoryId', label: 'Category: ' + named(categories, categoryId) },
+            supplierId && { key: 'supplierId', label: 'Supplier: ' + named(suppliers, supplierId) },
+            lowStock && { key: 'lowStock', label: 'Low stock only' }
+          ].filter(Boolean))}
+        </div>
+      </div>`;
+
+    const wireBar = () => {
+      $('q').oninput = debounce((e) => patch({ q: e.target.value, page: 0 }));
+      $('categoryId').onchange = (e) => patch({ categoryId: e.target.value, page: 0 });
+      $('supplierId').onchange = (e) => patch({ supplierId: e.target.value, page: 0 });
+      $('lowStock').onclick = () => patch({ lowStock: lowStock ? '' : 'true', page: 0 });
+      wireChips();
+      refocus();
+    };
+
     const h = (sub) => head('Products', sub);
-    view().innerHTML = h('The catalogue, paged as the API pages it.') + skeleton({ rows: 8 });
-    const page = await api('/api/products?page=0&size=25');
-    const rows = page.content || [];
-    view().innerHTML = h(`${num(page.totalElements)} products, showing page ${page.page + 1} of ${page.totalPages || 1}.`) + wrap(`
-      <div class="card panel" style="margin-top:0">
+    keep(); view().innerHTML = h('The catalogue, narrowed and paged as the API pages it.') + bar() + skeleton({ rows: 8 });
+    wireBar();
+
+    const result = await api('/api/products' + query({ search: q, categoryId, supplierId, lowStock: lowStock || '', page, size, sort }));
+    const rows = result.content || [];
+    // A filter can empty the page the reader was on; put them back at the start rather than nowhere.
+    if (!rows.length && page > 0) return patch({ page: 0 });
+    keep(); view().innerHTML = h(`${num(result.totalElements)} product${Number(result.totalElements) === 1 ? '' : 's'} match.`) + bar() + wrap(`
+      <div class="card panel" style="margin-top:14px">
         <header>
           <div><h3>Catalogue</h3><p>Price, average cost and what is on the shelf.</p></div>
-          <span class="tag flat">${num(page.totalElements)} total</span>
+          <span class="tag flat">${num(result.totalElements)} total</span>
         </header>
         ${rows.length ? `<div class="scroll"><table>
-          <thead><tr><th>Name</th><th>SKU</th><th>Category</th><th>Supplier</th>
-            <th class="num">Price</th><th class="num">Avg cost</th><th class="num">On hand</th></tr></thead>
-          <tbody>${rows.map(p => `<tr>
-            <td class="name">${esc(p.name)}</td>
-            <td class="sku">${esc(p.sku)}</td>
-            <td>${esc(p.categoryName ?? '—')}</td>
-            <td>${esc(p.supplierName ?? '—')}</td>
-            <td class="num">${money(p.price)}</td>
-            <td class="num">${money(p.averageCost)}</td>
-            <td class="num">${num(p.quantity)}</td></tr>`).join('')}</tbody></table></div>`
-          : empty('No products yet', 'Add a product through the API and it will show up here.', 'i-box')}
+          <thead><tr>
+            ${sortable(sort, 'name', 'Name')}
+            ${sortable(sort, 'sku', 'SKU')}
+            <th>Category</th><th>Supplier</th>
+            ${sortable(sort, 'price', 'Price', 'num')}
+            <th class="num">Avg cost</th>
+            ${sortable(sort, 'quantity', 'On hand', 'num')}
+            ${sortable(sort, 'reorderThreshold', 'Threshold', 'num')}
+          </tr></thead>
+          <tbody>${rows.map(r => `<tr>
+            <td class="name">${esc(r.name)}</td>
+            <td class="sku">${esc(r.sku)}</td>
+            <td>${esc(r.categoryName ?? '—')}</td>
+            <td>${esc(r.supplierName ?? '—')}</td>
+            <td class="num">${money(r.price)}</td>
+            <td class="num">${money(r.averageCost)}</td>
+            <td class="num">${num(r.quantity)}</td>
+            <td class="num">${num(r.reorderThreshold)}</td>
+          </tr>`).join('')}</tbody></table></div>
+          ${pager(result)}`
+          : empty('Nothing matches', q || categoryId || supplierId || lowStock
+              ? 'Loosen the filters, or clear them, to see more.'
+              : 'Add a product through the API and it will show up here.', 'i-box')}
       </div>`);
+    wireBar();
+    wireSort(sort);
+    wirePager(result);
   },
 
-  async suppliers() {
-    const shell = (since) => head('Supplier records',
+  async suppliers(p) {
+    const since = p.since || '';
+    const h = () => head('Supplier records',
       'How well each supplier keeps the dates they promised — and what they still owe past them. ' +
-      'The ranking reads deliveries only; an order that has not arrived is neither on time nor late.') + `
+      'The ranking reads deliveries only; an order that has not arrived is neither on time nor late.');
+    const bar = () => `
       <div class="body" style="padding-bottom:0">
         <div class="card" style="padding:16px 18px">
           <div class="toolbar">
             <div class="f">
               <label for="since">Judge deliveries arriving on or after</label>
-              <input id="since" type="date" value="${esc(since || '')}">
+              <input id="since" type="date" value="${esc(since)}">
             </div>
             <button class="btn primary" id="apply">${ico('i-filter')}Apply window</button>
             <button class="btn" id="clear">Whole record</button>
           </div>
+          ${chips(since ? [{ key: 'since', label: 'Since ' + since }] : [])}
         </div>
       </div>`;
-    const wire = () => {
-      document.getElementById('apply').onclick = () => draw(document.getElementById('since').value || null);
-      document.getElementById('clear').onclick = () => draw(null);
+    const wireBar = () => {
+      $('apply').onclick = () => patch({ since: $('since').value });
+      $('clear').onclick = () => go('suppliers', {});
+      wireChips();
+      refocus();
     };
-    const draw = async (since) => {
-      view().innerHTML = shell(since) + skeleton({ rows: 6 });
-      wire();
-      const q = since ? '?since=' + encodeURIComponent(since) : '';
-      const table = await api('/api/suppliers/reliability' + q);
-      view().innerHTML = shell(since) + wrap(`
-        <div class="card panel" style="margin-top:14px">
-          <header>
-            <div><h3>Worst keepers of dates first</h3>
-              <p>${since ? `Deliveries since ${esc(since)}.` : 'The whole record.'}</p></div>
-            <span class="tag flat">${table.length} supplier${table.length === 1 ? '' : 's'}</span>
-          </header>
-          ${table.length ? `<div class="scroll"><table>
-            <thead><tr>
-              <th>Supplier</th><th class="num">Judged</th><th>On time</th><th class="num">Avg days late</th>
-              <th class="num">Worst</th><th class="num">Judged spend</th><th class="num">Late spend</th>
-              <th class="num">Overdue</th><th class="num">Worst overdue</th><th class="num">Overdue spend</th>
-            </tr></thead>
-            <tbody>${table.map(r => {
-              const p = pct(r.onTimeRate);
-              return `<tr>
-                <td class="name">${esc(r.supplierName)}</td>
-                <td class="num">${num(r.ordersJudged)}</td>
-                <td>${p == null ? '<span class="faint">no record</span>' : meter(p)}</td>
-                <td class="num">${r.averageDaysLate ?? '—'}</td>
-                <td class="num">${r.worstDaysLate ?? '—'}</td>
-                <td class="num">${money(r.judgedSpend)}</td>
-                <td class="num">${money(r.lateSpend)}</td>
-                <td class="num">${r.ordersOverdue ? `<span class="tag bad">${r.ordersOverdue}</span>` : '<span class="faint">0</span>'}</td>
-                <td class="num">${r.worstDaysOverdue == null ? '—' : r.worstDaysOverdue + ' d'}</td>
-                <td class="num">${money(r.overdueSpend)}</td>
-              </tr>`; }).join('')}</tbody></table></div>`
-            : empty('No suppliers yet', 'Reliability is worked out from delivered orders.', 'i-truck')}
-        </div>`);
-      wire();
-    };
-    await draw(null);
+
+    keep(); view().innerHTML = h() + bar() + skeleton({ rows: 6 });
+    wireBar();
+
+    const table = await api('/api/suppliers/reliability' + query({ since }));
+    keep(); view().innerHTML = h() + bar() + wrap(`
+      <div class="card panel" style="margin-top:14px">
+        <header>
+          <div><h3>Worst keepers of dates first</h3>
+            <p>${since ? `Deliveries since ${esc(since)}.` : 'The whole record.'}</p></div>
+          <span class="tag flat">${table.length} supplier${table.length === 1 ? '' : 's'}</span>
+        </header>
+        ${table.length ? `<div class="scroll"><table>
+          <thead><tr>
+            <th>Supplier</th><th class="num">Judged</th><th>On time</th><th class="num">Avg days late</th>
+            <th class="num">Worst</th><th class="num">Judged spend</th><th class="num">Late spend</th>
+            <th class="num">Overdue</th><th class="num">Worst overdue</th><th class="num">Overdue spend</th>
+          </tr></thead>
+          <tbody>${table.map(r => {
+            const rate = pct(r.onTimeRate);
+            return `<tr>
+              <td class="name">${esc(r.supplierName)}</td>
+              <td class="num">${num(r.ordersJudged)}</td>
+              <td>${rate == null ? '<span class="faint">no record</span>' : meter(rate)}</td>
+              <td class="num">${r.averageDaysLate ?? '—'}</td>
+              <td class="num">${r.worstDaysLate ?? '—'}</td>
+              <td class="num">${money(r.judgedSpend)}</td>
+              <td class="num">${money(r.lateSpend)}</td>
+              <td class="num">${r.ordersOverdue
+                ? `<a href="#/orders?supplierId=${encodeURIComponent(r.supplierId)}&amp;overdue=true" title="Show these orders"><span class="tag bad">${r.ordersOverdue}</span></a>`
+                : '<span class="faint">0</span>'}</td>
+              <td class="num">${r.worstDaysOverdue == null ? '—' : r.worstDaysOverdue + ' d'}</td>
+              <td class="num">${money(r.overdueSpend)}</td>
+            </tr>`; }).join('')}</tbody></table></div>`
+          : empty('No suppliers yet', 'Reliability is worked out from delivered orders.', 'i-truck')}
+      </div>`);
+    wireBar();
   },
 
-  async orders() {
-    const h = (sub) => head('Purchase orders', sub);
-    view().innerHTML = h('What has been ordered, what is late, and what has landed.') + skeleton({ rows: 8 });
-    const page = await api('/api/purchase-orders?page=0&size=25');
-    const rows = page.content || [];
-    const statusTag = (s) => {
-      const cls = s === 'RECEIVED' ? 'good' : s === 'PARTIALLY_RECEIVED' ? 'warn' : s === 'CANCELLED' ? '' : '';
-      return `<span class="tag ${cls}">${esc(s)}</span>`;
+  async orders(p) {
+    const supplierId = p.supplierId || '';
+    const overdue = p.overdue === 'true';
+    const sort = p.sort || 'createdAt,desc';
+    const page = Math.max(0, Number(p.page) || 0);
+    const size = Number(p.size) || 25;
+
+    const { suppliers } = await lookups();
+    const bar = () => `
+      <div class="body" style="padding-bottom:0">
+        <div class="card" style="padding:16px 18px">
+          <div class="toolbar">
+            <div class="f">
+              <label for="supplierId">Supplier</label>
+              <select id="supplierId">${options(suppliers, supplierId, 'Every supplier')}</select>
+            </div>
+            <button class="btn ${overdue ? 'primary' : ''}" id="overdue">${ico('i-alert')}Past their date only</button>
+          </div>
+          ${chips([
+            supplierId && { key: 'supplierId', label: 'Supplier: ' + named(suppliers, supplierId) },
+            overdue && { key: 'overdue', label: 'Past their date' }
+          ].filter(Boolean))}
+        </div>
+      </div>`;
+    const wireBar = () => {
+      $('supplierId').onchange = (e) => patch({ supplierId: e.target.value, page: 0 });
+      $('overdue').onclick = () => patch({ overdue: overdue ? '' : 'true', page: 0 });
+      wireChips();
+      refocus();
     };
-    view().innerHTML = h(`${num(page.totalElements)} orders, page ${page.page + 1} of ${page.totalPages || 1}.`) + wrap(`
-      <div class="card panel" style="margin-top:0">
+
+    const h = (sub) => head('Purchase orders', sub);
+    const statusTag = (s) => `<span class="tag ${s === 'RECEIVED' ? 'good' : s === 'PARTIALLY_RECEIVED' ? 'warn' : ''}">${esc(s)}</span>`;
+
+    keep(); view().innerHTML = h('What has been ordered, what is late, and what has landed.') + bar() + skeleton({ rows: 8 });
+    wireBar();
+
+    const result = await api('/api/purchase-orders' + query({ supplierId, overdue: overdue || '', page, size, sort }));
+    const rows = result.content || [];
+    // A filter can empty the page the reader was on; put them back at the start rather than nowhere.
+    if (!rows.length && page > 0) return patch({ page: 0 });
+    keep(); view().innerHTML = h(`${num(result.totalElements)} order${Number(result.totalElements) === 1 ? '' : 's'} match.`) + bar() + wrap(`
+      <div class="card panel" style="margin-top:14px">
         <header>
           <div><h3>Orders</h3><p>Promised dates against what actually arrived.</p></div>
-          <span class="tag flat">${num(page.totalElements)} total</span>
+          <span class="tag flat">${num(result.totalElements)} total</span>
         </header>
         ${rows.length ? `<div class="scroll"><table>
-          <thead><tr><th>#</th><th>Supplier</th><th>Status</th><th>Due</th><th>Promised</th>
-            <th>Arrived</th><th class="num">Days late</th><th class="num">Total</th></tr></thead>
+          <thead><tr>
+            ${sortable(sort, 'id', '#')}
+            <th>Supplier</th>
+            ${sortable(sort, 'status', 'Status')}
+            <th>Due</th><th>Promised</th><th>Arrived</th><th class="num">Days late</th>
+            ${sortable(sort, 'createdAt', 'Raised', 'num')}
+            <th class="num">Total</th>
+          </tr></thead>
           <tbody>${rows.map(o => `<tr>
             <td class="sku">${o.id}</td>
             <td class="name">${esc(o.supplierName ?? '—')}</td>
@@ -689,33 +1095,40 @@ const VIEWS = {
             <td class="faint">${esc(o.originalExpectedDeliveryDate ?? '—')}</td>
             <td>${esc(o.deliveredDate ?? '—')}</td>
             <td class="num">${o.daysLate == null ? '—' : (o.daysLate > 0 ? `<span class="tag bad">+${o.daysLate}</span>` : `<span class="tag good">${o.daysLate}</span>`)}</td>
+            <td class="num faint">${esc(ago(o.createdAt))}</td>
             <td class="num">${money(o.total)}</td>
-          </tr>`).join('')}</tbody></table></div>`
-          : empty('No purchase orders yet', 'Raise an order and it will be tracked here.', 'i-clipboard')}
+          </tr>`).join('')}</tbody></table></div>
+          ${pager(result)}`
+          : empty('No orders match', supplierId || overdue
+              ? 'Clear the filters to see the whole book.'
+              : 'Raise an order and it will be tracked here.', 'i-clipboard')}
       </div>`);
+    wireBar();
+    wireSort(sort);
+    wirePager(result);
   }
 };
 
-const TITLES = { dashboard: 'Dashboard', products: 'Products', suppliers: 'Supplier records', orders: 'Purchase orders' };
-
-async function render(name) {
-  S.view = name;
+async function render(name, params = {}) {
+  S.view = name; S.params = params;
   document.querySelectorAll('#nav button').forEach(b => b.classList.toggle('on', b.dataset.view === name));
-  document.getElementById('crumb').textContent = TITLES[name] || name;
-  try { await VIEWS[name](); }
+  $('crumb').textContent = TITLES[name] || name;
+  drawer(false);
+  try { await VIEWS[name](params); }
   catch (err) {
     if (err.message !== 'unauthorized') {
-      view().innerHTML = head(TITLES[name] || name, 'That view could not be loaded.') +
+      keep(); view().innerHTML = head(TITLES[name] || name, 'That view could not be loaded.') +
         wrap(`<div class="card">${empty('Request failed', err.message, 'i-alert')}</div>`);
       toast(err.message);
     }
   }
 }
 
-document.getElementById('nav').addEventListener('click', (e) => {
+$('nav').addEventListener('click', (e) => {
   const b = e.target.closest('button[data-view]');
-  if (b) render(b.dataset.view);
+  if (b) go(b.dataset.view);
 });
+window.addEventListener('hashchange', route);
 
 paintTheme(localStorage.getItem('sims.theme') || 'dark');
 if (S.token) signedIn();
