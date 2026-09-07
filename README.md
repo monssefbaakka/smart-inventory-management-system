@@ -1,6 +1,7 @@
 # Smart Inventory Management System
 
 [![CI](https://github.com/monssefbaakka/smart-inventory-management-system/actions/workflows/ci.yml/badge.svg)](https://github.com/monssefbaakka/smart-inventory-management-system/actions/workflows/ci.yml)
+[![CD](https://github.com/monssefbaakka/smart-inventory-management-system/actions/workflows/cd.yml/badge.svg)](https://github.com/monssefbaakka/smart-inventory-management-system/actions/workflows/cd.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](CHANGELOG.md)
 [![Java 17](https://img.shields.io/badge/Java-17-orange.svg)](https://openjdk.org/projects/jdk/17/)
@@ -1068,3 +1069,58 @@ Both are publicly accessible (no token required). To call protected endpoints fr
 1. Register or log in via the **Auth** endpoints (`POST /api/auth/register` or `POST /api/auth/login`) and copy the returned `token`.
 2. Click the **Authorize** button, paste the token (without the `Bearer ` prefix) and confirm.
 3. Swagger UI now sends `Authorization: Bearer <token>` on every request. Write operations still require the `ADMIN` role.
+
+## 🔄 Continuous Integration & Delivery
+
+Two GitHub Actions workflows cover the pipeline. Neither needs a manually configured secret —
+publishing uses the automatically provided `GITHUB_TOKEN`.
+
+### CI — `.github/workflows/ci.yml`
+
+Runs on every pull request to `main` and on every push to `main`.
+
+| Job | What it does |
+| :--- | :--- |
+| **Build, Lint and Test** | Starts a PostgreSQL 15 service, then runs `./mvnw clean verify`, which covers Checkstyle, the test suite and the JaCoCo 80% line-coverage gate. Test reports, the coverage report and the built jar are uploaded as artifacts. |
+| **Docker Image Builds** | Builds the `Dockerfile` (without pushing) so a broken image is caught before it reaches `main`. |
+
+Runs on the same branch cancel each other, so only the newest commit is built.
+
+### CD — `.github/workflows/cd.yml`
+
+Runs on pushes to `main` and on `v*.*.*` tags.
+
+| Job | What it does |
+| :--- | :--- |
+| **Publish Container Image** | Builds and pushes the image to GitHub Container Registry at `ghcr.io/monssefbaakka/smart-inventory-management-system`. |
+| **Draft GitHub Release** | Tag pushes only: packages the jar, attaches it to a GitHub Release and generates the release notes. |
+
+Image tags:
+
+| Trigger | Tags |
+| :--- | :--- |
+| Push to `main` | `edge`, `main`, `sha-<short-sha>` |
+| Tag `v1.2.3` | `1.2.3`, `1.2`, `sha-<short-sha>` |
+
+Pulling and running a published image:
+
+```bash
+docker pull ghcr.io/monssefbaakka/smart-inventory-management-system:edge
+docker run --rm -p 8080:8080 \
+  -e DB_HOST=host.docker.internal -e DB_PORT=5432 -e DB_NAME=smart_inventory \
+  -e DB_USERNAME=postgres -e DB_PASSWORD=postgres \
+  -e JWT_SECRET=... -e JWT_EXPIRATION_MS=86400000 \
+  ghcr.io/monssefbaakka/smart-inventory-management-system:edge
+```
+
+### Cutting a release
+
+```bash
+git tag v1.1.0
+git push origin v1.1.0
+```
+
+That single push publishes the versioned image and the GitHub Release.
+
+To deploy to a real environment, add a job to `cd.yml` that runs after `publish` and pulls the
+image by digest (`${{ needs.publish.outputs.digest }}`), which the publish job already exposes.
