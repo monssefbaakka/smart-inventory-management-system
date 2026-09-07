@@ -6,6 +6,9 @@ WORKDIR /app
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
+# Checkstyle runs in the validate phase, so its config has to be in the image
+COPY checkstyle.xml .
+
 # Copy the source code and build the application
 COPY src ./src
 RUN mvn clean package -DskipTests -B

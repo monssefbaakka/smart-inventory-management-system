@@ -26,5 +26,4 @@ mvnw.cmd
 *.md
 LICENSE
 pr_template.md
-checkstyle.xml
 .editorconfig
